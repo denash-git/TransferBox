@@ -18,6 +18,7 @@ CADDY_BIN="/usr/local/bin/caddy"
 CADDY_SERVICE="/etc/systemd/system/caddy.service"
 TRANSFERBOX_BIN="/usr/local/bin/transferbox"
 INSTALL_LOG="/tmp/transferbox_install.log"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_GO_VERSION="1.26.2"
 
 step()    { echo -e "\n${BLUE}[*] ${1}${RESET}"; }
@@ -179,7 +180,7 @@ log_ok "Служба caddy зарегистрирована."
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
 mkdir -p "$PROJECT_ROOT"
-cp -r core templates "$PROJECT_ROOT/"
+cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$PROJECT_ROOT/"
 chmod -R 700 "$PROJECT_ROOT"
 
 # Запись конфигурации инстанса
@@ -218,7 +219,7 @@ EOF
 chmod 600 "${PROJECT_ROOT}/users.json"
 
 # Установка исполняемой команды
-cp transferbox "$TRANSFERBOX_BIN"
+cp "$SCRIPT_DIR/transferbox" "$TRANSFERBOX_BIN"
 chmod +x "$TRANSFERBOX_BIN"
 log_ok "Утилита установлена. Вы можете запустить её командой: transferbox"
 
