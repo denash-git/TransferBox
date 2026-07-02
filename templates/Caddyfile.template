@@ -27,7 +27,7 @@
 
     # VLESS gRPC endpoint
     handle {{VLESS_GRPC_PATH}}/* {
-        reverse_proxy 127.0.0.1:10002 {
+        reverse_proxy 127.0.0.1:10003 {
             transport http {
                 versions h2c
             }
