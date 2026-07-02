@@ -49,6 +49,20 @@
         "type": "grpc",
         "service_name": "{{VLESS_GRPC_SERVICE}}"
       }
+    },
+    {
+      "type": "vless",
+      "tag": "vless-xhttp-in",
+      "listen": "127.0.0.1",
+      "listen_port": 10004,
+      "users": [
+        // {{VLESS_XHTTP_USERS}}
+      ],
+      "transport": {
+        "type": "httpupgrade",
+        "host": "{{DOMAIN}}",
+        "path": "{{VLESS_XHTTP_PATH}}"
+      }
     }
   ],
   "outbounds": [

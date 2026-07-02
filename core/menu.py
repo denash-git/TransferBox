@@ -141,6 +141,7 @@ def create_user_menu():
     print(f"  {CYAN}1){RESET} NaiveProxy (маскировка под Chrome трафик)")
     print(f"  {CYAN}2){RESET} VLESS over WebSocket (скрыт внутри Caddy)")
     print(f"  {CYAN}3){RESET} VLESS over gRPC (скрыт внутри Caddy)")
+    print(f"  {CYAN}4){RESET} VLESS over XHTTP (лучший обход DPI)")
     print(f"\n  {DIM}0) Отмена{RESET}")
     
     choice = get_menu_choice()
@@ -150,6 +151,8 @@ def create_user_menu():
         ok, res = add_user(nickname, "vless", "ws")
     elif choice == "3":
         ok, res = add_user(nickname, "vless", "grpc")
+    elif choice == "4":
+        ok, res = add_user(nickname, "vless", "xhttp")
     else:
         return
 
@@ -251,6 +254,7 @@ def settings_menu():
         print(f"  {YELLOW}3) Шаблон фейкового сайта:{RESET} {env.get('FAKE_SITE_TEMPLATE', 'techvision')}")
         print(f"  {YELLOW}4) Путь VLESS WebSocket:{RESET} {env.get('VLESS_WS_PATH', '/vless-ws')}")
         print(f"  {YELLOW}5) Сервис VLESS gRPC:{RESET} {env.get('VLESS_GRPC_SERVICE', 'vless-grpc')}")
+        print(f"  {YELLOW}6) Путь VLESS XHTTP:{RESET} {env.get('VLESS_XHTTP_PATH', '/vless-xhttp')}")
         print(f"\n  {DIM}0) Назад{RESET}")
         
         choice = get_menu_choice()
@@ -291,6 +295,14 @@ def settings_menu():
             if val:
                 env["VLESS_GRPC_SERVICE"] = val
                 save_env(env)
+        elif choice == "6":
+            val = input("  Введите путь XHTTP (например, /my-xhttp): ").strip()
+            if val and val.startswith("/"):
+                env["VLESS_XHTTP_PATH"] = val
+                save_env(env)
+            else:
+                print("  Путь должен начинаться со слэша /")
+                pause()
 
 def apply_settings_menu():
     print_header("Применение настроек")

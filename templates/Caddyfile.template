@@ -34,6 +34,11 @@
         }
     }
 
+    # VLESS XHTTP (HTTPUpgrade) endpoint
+    handle {{VLESS_XHTTP_PATH}} {
+        reverse_proxy 127.0.0.1:10004
+    }
+
     # Fake site serving (fallback for standard visits, scanners, probes)
     file_server {
         root {{FAKESITE_DIR}}

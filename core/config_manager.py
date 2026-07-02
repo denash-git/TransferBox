@@ -54,6 +54,7 @@ def render_configs():
     # Path settings
     vless_ws_path = env.get("VLESS_WS_PATH", "/vless-ws")
     vless_grpc_service = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
+    vless_xhttp_path = env.get("VLESS_XHTTP_PATH", "/vless-xhttp")
 
     fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
     if not os.path.exists(fakesite_dir):
@@ -87,10 +88,12 @@ def render_configs():
     caddy_content = caddy_content.replace("{{BASIC_AUTH_LIST}}", basic_auth_str)
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
+    caddy_content = caddy_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
 
     # 2. Render sing-box base config
     vless_ws_users = []
     vless_grpc_users = []
+    vless_xhttp_users = []
 
     for u in users:
         if u.get("protocol") == "vless" and u.get("enabled", True):
@@ -102,8 +105,10 @@ def render_configs():
             user_obj = {"uuid": uuid, "name": email_addr}
             if user_type == "ws":
                 vless_ws_users.append(user_obj)
-            else:
+            elif user_type == "grpc":
                 vless_grpc_users.append(user_obj)
+            elif user_type == "xhttp":
+                vless_xhttp_users.append(user_obj)
 
     if not os.path.exists(SINGBOX_TEMPLATE):
         raise FileNotFoundError(f"sing-box base template not found: {SINGBOX_TEMPLATE}")
@@ -114,13 +119,17 @@ def render_configs():
     # Replaces placeholders (chain: each replace reads from previous result)
     sb_content = sb_tmpl.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     sb_content = sb_content.replace("{{VLESS_GRPC_SERVICE}}", vless_grpc_service)
+    sb_content = sb_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
+    sb_content = sb_content.replace("{{DOMAIN}}", domain)
 
-    # We need to inject users. We find the placeholders
+    # Inject users into inbounds
     ws_users_str = json.dumps(vless_ws_users, indent=8)
     grpc_users_str = json.dumps(vless_grpc_users, indent=8)
+    xhttp_users_str = json.dumps(vless_xhttp_users, indent=8)
 
     sb_content = sb_content.replace("// {{VLESS_WS_USERS}}", ws_users_str.strip("[]").strip())
     sb_content = sb_content.replace("// {{VLESS_GRPC_USERS}}", grpc_users_str.strip("[]").strip())
+    sb_content = sb_content.replace("// {{VLESS_XHTTP_USERS}}", xhttp_users_str.strip("[]").strip())
 
     # Write to target dirs
     os.makedirs(os.path.dirname(CADDY_CONFIG), exist_ok=True)

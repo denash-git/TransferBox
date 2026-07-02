@@ -89,10 +89,13 @@ def build_client_link(user_obj):
         
         if user_type == "ws":
             path = env.get("VLESS_WS_PATH", "/vless-ws")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&type=ws&path={path}#{nickname}"
-        else:
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=ws&path={path}#{nickname}"
+        elif user_type == "grpc":
             service = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&type=grpc&serviceName={service}#{nickname}"
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=grpc&serviceName={service}#{nickname}"
+        elif user_type == "xhttp":
+            path = env.get("VLESS_XHTTP_PATH", "/vless-xhttp")
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}"
             
     return ""
 
