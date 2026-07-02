@@ -17,12 +17,6 @@
         "type": "local",
         "detour": "direct-out"
       }
-    ],
-    "rules": [
-      {
-        "outbound": "any",
-        "server": "local-dns"
-      }
     ]
   },
   "inbounds": [
