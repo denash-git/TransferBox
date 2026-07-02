@@ -65,6 +65,7 @@
     }
   ],
   "route": {
+    "default_domain_resolver": "cloudflare-dns",
     "rules": [
       {
         "protocol": "dns",
