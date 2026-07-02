@@ -1,0 +1,20 @@
+{
+  "type": "naive",
+  "tag": "naive-in",
+  "listen": "::",
+  "listen_port": {{PORT}},
+  "users": [
+    {{USERS}}
+  ],
+  "tls": {
+    "enabled": true,
+    "server_name": "{{DOMAIN}}",
+    "acme": {
+      "domain": [
+        "{{DOMAIN}}"
+      ],
+      "email": "{{EMAIL}}",
+      "provider": "letsencrypt"
+    }
+  }
+}

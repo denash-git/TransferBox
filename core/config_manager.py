@@ -1,0 +1,165 @@
+import os
+import json
+import subprocess
+
+PROJECT_ROOT = "/opt/transferbox"
+INSTANCE_ENV = os.path.join(PROJECT_ROOT, "instance.env")
+USERS_DB = os.path.join(PROJECT_ROOT, "users.json")
+
+CADDY_CONFIG = "/etc/caddy/Caddyfile"
+SINGBOX_CONFIG = "/etc/sing-box/config.json"
+
+TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "templates")
+CADDY_TEMPLATE = os.path.join(TEMPLATES_DIR, "Caddyfile.template")
+SINGBOX_TEMPLATE = os.path.join(TEMPLATES_DIR, "sing-box-base.json.template")
+
+def load_env():
+    env = {}
+    if os.path.exists(INSTANCE_ENV):
+        with open(INSTANCE_ENV, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    env[key.strip()] = val.strip()
+    return env
+
+def save_env(env):
+    with open(INSTANCE_ENV, "w", encoding="utf-8") as f:
+        f.write("# TransferBox Instance Config\n")
+        for k, v in env.items():
+            f.write(f"{k}={v}\n")
+
+def load_users():
+    if os.path.exists(USERS_DB):
+        try:
+            with open(USERS_DB, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_users(users):
+    with open(USERS_DB, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=2, ensure_ascii=False)
+
+def render_configs():
+    env = load_env()
+    users = load_users()
+
+    domain = env.get("DOMAIN", "example.com")
+    email = env.get("ADMIN_EMAIL", "")
+    fakesite_template = env.get("FAKE_SITE_TEMPLATE", "techvision")
+    
+    # Path settings
+    vless_ws_path = env.get("VLESS_WS_PATH", "/vless-ws")
+    vless_grpc_service = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
+
+    fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
+    if not os.path.exists(fakesite_dir):
+        fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", "techvision")
+
+    # 1. Render Caddyfile
+    basic_auth_rules = []
+    for u in users:
+        if u.get("protocol") == "naive" and u.get("enabled", True):
+            creds = u.get("credentials", {})
+            user = creds.get("username")
+            password = creds.get("password")
+            if user and password:
+                basic_auth_rules.append(f"basic_auth {user} {password}")
+
+    basic_auth_str = "\n        ".join(basic_auth_rules) if basic_auth_rules else "# No users configured"
+
+    if not os.path.exists(CADDY_TEMPLATE):
+        raise FileNotFoundError(f"Caddyfile template not found: {CADDY_TEMPLATE}")
+
+    with open(CADDY_TEMPLATE, "r", encoding="utf-8") as f:
+        caddy_tmpl = f.read()
+
+    # Caddy environment variables are used in Caddyfile: {$DOMAIN}, {$ADMIN_EMAIL}, {$FAKESITE_DIR}
+    # We replace VLESS paths and auth lists dynamically
+    caddy_content = caddy_tmpl.replace("{{BASIC_AUTH_LIST}}", basic_auth_str)
+    caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
+    caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
+
+    # 2. Render sing-box base config
+    vless_ws_users = []
+    vless_grpc_users = []
+
+    for u in users:
+        if u.get("protocol") == "vless" and u.get("enabled", True):
+            creds = u.get("credentials", {})
+            uuid = creds.get("uuid")
+            email_addr = u.get("nickname") + "@vless"
+            user_type = creds.get("type", "ws")
+            
+            user_obj = {"uuid": uuid, "name": email_addr}
+            if user_type == "ws":
+                vless_ws_users.append(user_obj)
+            else:
+                vless_grpc_users.append(user_obj)
+
+    if not os.path.exists(SINGBOX_TEMPLATE):
+        raise FileNotFoundError(f"sing-box base template not found: {SINGBOX_TEMPLATE}")
+
+    with open(SINGBOX_TEMPLATE, "r", encoding="utf-8") as f:
+        sb_tmpl = f.read()
+
+    # Replaces placeholders
+    sb_content = sb_tmpl.replace("{{VLESS_WS_PATH}}", vless_ws_path)
+    sb_content = sb_tmpl.replace("{{VLESS_GRPC_SERVICE}}", vless_grpc_service)
+
+    # We need to inject users. We find the placeholders
+    ws_users_str = json.dumps(vless_ws_users, indent=8)
+    grpc_users_str = json.dumps(vless_grpc_users, indent=8)
+
+    sb_content = sb_content.replace("// {{VLESS_WS_USERS}}", ws_users_str.strip("[]").strip())
+    sb_content = sb_content.replace("// {{VLESS_GRPC_USERS}}", grpc_users_str.strip("[]").strip())
+
+    # Write to target dirs
+    os.makedirs(os.path.dirname(CADDY_CONFIG), exist_ok=True)
+    with open(CADDY_CONFIG, "w", encoding="utf-8") as f:
+        f.write(caddy_content)
+
+    os.makedirs(os.path.dirname(SINGBOX_CONFIG), exist_ok=True)
+    with open(SINGBOX_CONFIG, "w", encoding="utf-8") as f:
+        f.write(sb_content)
+
+def validate_and_restart():
+    # 1. Validate Caddyfile
+    res = subprocess.run(["caddy", "validate", "--config", CADDY_CONFIG], capture_output=True, text=True)
+    if res.returncode != 0:
+        return False, f"Caddyfile validation failed:\n{res.stderr}"
+
+    # 2. Validate sing-box config
+    res = subprocess.run(["sing-box", "check", "-c", SINGBOX_CONFIG], capture_output=True, text=True)
+    if res.returncode != 0:
+        return False, f"sing-box config validation failed:\n{res.stderr}"
+
+    # 3. Apply Caddy systemd environment variables
+    env = load_env()
+    domain = env.get("DOMAIN", "example.com")
+    email = env.get("ADMIN_EMAIL", "")
+    fakesite_template = env.get("FAKE_SITE_TEMPLATE", "techvision")
+    fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
+    if not os.path.exists(fakesite_dir):
+        fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", "techvision")
+
+    # Set systemd overrides for caddy to read env vars
+    override_dir = "/etc/systemd/system/caddy.service.d"
+    os.makedirs(override_dir, exist_ok=True)
+    override_file = os.path.join(override_dir, "override.conf")
+    with open(override_file, "w", encoding="utf-8") as f:
+        f.write("[Service]\n")
+        f.write(f"Environment=\"DOMAIN={domain}\"\n")
+        f.write(f"Environment=\"ADMIN_EMAIL={email}\"\n")
+        f.write(f"Environment=\"FAKESITE_DIR={fakesite_dir}\"\n")
+
+    subprocess.run(["systemctl", "daemon-reload"])
+
+    # Restart services
+    subprocess.run(["systemctl", "restart", "caddy"])
+    subprocess.run(["systemctl", "restart", "sing-box"])
+
+    return True, "Services successfully reloaded and validated!"

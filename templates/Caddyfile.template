@@ -1,0 +1,47 @@
+{
+    order forward_proxy before file_server
+}
+
+# HTTP to HTTPS redirect
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# Main HTTPS server
+:443, {$DOMAIN} {
+    tls {$ADMIN_EMAIL}
+
+    # NaiveProxy with credentials and upstream to sing-box
+    forward_proxy {
+        # {{BASIC_AUTH_LIST}} will be replaced dynamically with basic_auth rules
+        {{BASIC_AUTH_LIST}}
+        hide_ip
+        hide_via
+        probe_resistance
+        upstream socks5://127.0.0.1:10001
+    }
+
+    # VLESS WebSocket endpoint
+    handle {{VLESS_WS_PATH}} {
+        reverse_proxy 127.0.0.1:10002
+    }
+
+    # VLESS gRPC endpoint
+    handle {{VLESS_GRPC_PATH}}/* {
+        reverse_proxy 127.0.0.1:10002 {
+            transport http {
+                versions h2c
+            }
+        }
+    }
+
+    # Fake site serving (fallback for standard visits, scanners, probes)
+    file_server {
+        root {$FAKESITE_DIR}
+    }
+
+    log {
+        output stderr
+        level ERROR
+    }
+}

@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+# =============================================================================
+# TransferBox — Установщик прокси-сервера (Caddy + sing-box) на Debian 13
+# =============================================================================
+set -euo pipefail
+
+# Цвета
+BLUE='\033[1;34m'
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+# Константы
+PROJECT_ROOT="/opt/transferbox"
+CADDY_BIN="/usr/local/bin/caddy"
+CADDY_SERVICE="/etc/systemd/system/caddy.service"
+TRANSFERBOX_BIN="/usr/local/bin/transferbox"
+INSTALL_LOG="/tmp/transferbox_install.log"
+DEFAULT_GO_VERSION="1.26.2"
+
+step()    { echo -e "\n${BLUE}[*] ${1}${RESET}"; }
+log_ok()  { echo -e "  ${GREEN}✓${RESET} ${1}"; }
+log_info(){ echo -e "  ${DIM}* ${1}${RESET}"; }
+warn()    { echo -e "  ${YELLOW}⚠ ${1}${RESET}"; }
+error()   { echo -e "\n${RED}✗ ОШИБКА: ${1}${RESET}" >&2; exit 1; }
+
+# Проверка прав root
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    error "Этот скрипт должен быть запущен от имени root. Используйте: sudo bash install.sh"
+fi
+
+# Проверка ОС
+if [[ -f /etc/os-release ]]; then
+    source /etc/os-release
+    if [[ "${ID:-}" != "debian" ]]; then
+        warn "Скрипт разработан для Debian 13. Ваша ОС: ${PRETTY_NAME:-unknown}. Продолжение на ваш страх и риск."
+    fi
+else
+    error "Не удалось определить операционную систему."
+fi
+
+# Сбор настроек
+step "Сбор настроек установки"
+read -rp "  Введите ваш домен (например, proxy.example.com): " domain
+domain="${domain// /}"
+if [[ -z "$domain" ]]; then
+    error "Домен не может быть пустым."
+fi
+
+read -rp "  Введите email для Let's Encrypt (можно пусто): " email
+email="${email// /}"
+
+read -rp "  Включить BBR (TCP оптимизация)? [Y/n]: " bbr_input
+enable_bbr="true"
+[[ "${bbr_input,,}" == "n" ]] && enable_bbr="false"
+
+# Установка базовых пакетов
+step "Установка необходимых пакетов"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq \
+    build-essential curl wget git ca-certificates \
+    python3 python3-pip ufw openssl qrencode jq libcap2-bin >/dev/null
+
+log_ok "Базовые пакеты установлены."
+
+# Настройка UFW
+step "Настройка UFW брандмауэра"
+ufw --force reset >/dev/null
+ufw default deny incoming >/dev/null
+ufw default allow outgoing >/dev/null
+ufw allow 22/tcp comment 'SSH' >/dev/null
+ufw allow 80/tcp comment 'HTTP (ACME Challenge)' >/dev/null
+ufw allow 443/tcp comment 'HTTPS (Caddy)' >/dev/null
+ufw --force enable >/dev/null
+log_ok "UFW настроен (открыты порты 22, 80, 443)."
+
+# Применение BBR
+if [[ "$enable_bbr" == "true" ]]; then
+    step "Включение BBR"
+    if modprobe tcp_bbr 2>/dev/null; then
+        sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1 || true
+        sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1 || true
+        cat > /etc/sysctl.d/99-transferbox-bbr.conf <<EOF
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+EOF
+        log_ok "BBR успешно активирован."
+    else
+        warn "BBR не поддерживается вашим ядром."
+    fi
+fi
+
+# Скачивание и установка sing-box
+step "Установка sing-box"
+arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
+go_arch="amd64"
+case "$arch" in
+    amd64|x86_64) go_arch="amd64";;
+    arm64|aarch64) go_arch="arm64";;
+    *) error "Неподдерживаемая архитектура: ${arch}";;
+esac
+
+log_info "Получение последней версии sing-box..."
+latest_sb_ver=$(curl -fsSL "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r .tag_name)
+clean_sb_ver="${latest_sb_ver#v}"
+
+deb_url="https://github.com/SagerNet/sing-box/releases/download/${latest_sb_ver}/sing-box_${clean_sb_ver}_linux_${go_arch}.deb"
+log_info "Скачивание ${deb_url}..."
+wget -qO /tmp/sing-box.deb "$deb_url"
+dpkg -i /tmp/sing-box.deb >/dev/null
+rm -f /tmp/sing-box.deb
+log_ok "sing-box установлен версии ${clean_sb_ver}."
+
+# Сборка Caddy с плагином forwardproxy
+step "Сборка Caddy с плагином NaiveProxy (это может занять 1-2 минуты)"
+if [[ -x "$CADDY_BIN" ]]; then
+    log_ok "Caddy уже установлен."
+else
+    tmpdir=$(mktemp -d)
+    log_info "Загрузка Go..."
+    wget -qO "${tmpdir}/go.tar.gz" "https://go.dev/dl/go${DEFAULT_GO_VERSION}.linux-${go_arch}.tar.gz"
+    tar -xzf "${tmpdir}/go.tar.gz" -C "$tmpdir"
+    
+    export GOROOT="${tmpdir}/go"
+    export GOPATH="${tmpdir}/gopath"
+    export GOBIN="${tmpdir}/bin"
+    export PATH="${GOBIN}:${GOROOT}/bin:${PATH}"
+    mkdir -p "$GOPATH" "$GOBIN"
+    
+    log_info "Установка xcaddy..."
+    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest >/dev/null 2>&1
+    
+    log_info "Сборка бинарника..."
+    xcaddy build \
+        --output "${tmpdir}/caddy" \
+        --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive >/dev/null 2>&1
+        
+    cp "${tmpdir}/caddy" "$CADDY_BIN"
+    chmod 755 "$CADDY_BIN"
+    setcap cap_net_bind_service=+ep "$CADDY_BIN"
+    rm -rf "$tmpdir"
+    log_ok "Caddy успешно собран и установлен."
+fi
+
+# Установка systemd сервиса для Caddy
+step "Настройка службы Caddy"
+cat > "$CADDY_SERVICE" <<EOF
+[Unit]
+Description=Caddy Frontend Service
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+ExecStart=${CADDY_BIN} run --config /etc/caddy/Caddyfile --environ
+ExecReload=${CADDY_BIN} reload --config /etc/caddy/Caddyfile --force
+ExecStop=${CADDY_BIN} stop
+LimitNOFILE=1048576
+LimitNPROC=512
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable caddy >/dev/null 2>&1
+log_ok "Служба caddy зарегистрирована."
+
+# Копирование файлов проекта
+step "Копирование файлов TransferBox"
+mkdir -p "$PROJECT_ROOT"
+cp -r core templates "$PROJECT_ROOT/"
+chmod -R 700 "$PROJECT_ROOT"
+
+# Запись конфигурации инстанса
+cat > "${PROJECT_ROOT}/instance.env" <<EOF
+DOMAIN=${domain}
+ADMIN_EMAIL=${email}
+FAKE_SITE_TEMPLATE=techvision
+VLESS_WS_PATH=/vless-ws
+VLESS_GRPC_SERVICE=vless-grpc
+EOF
+chmod 600 "${PROJECT_ROOT}/instance.env"
+
+# Создание базы пользователей и добавление начального пользователя
+cat > "${PROJECT_ROOT}/users.json" <<EOF
+[
+  {
+    "nickname": "admin",
+    "protocol": "naive",
+    "credentials": {
+      "username": "admin_naive",
+      "password": "$(openssl rand -hex 12)"
+    },
+    "enabled": true
+  },
+  {
+    "nickname": "admin",
+    "protocol": "vless",
+    "credentials": {
+      "uuid": "$(cat /proc/sys/kernel/random/uuid)",
+      "type": "ws"
+    },
+    "enabled": true
+  }
+]
+EOF
+chmod 600 "${PROJECT_ROOT}/users.json"
+
+# Установка исполняемой команды
+cp transferbox "$TRANSFERBOX_BIN"
+chmod +x "$TRANSFERBOX_BIN"
+log_ok "Утилита установлена. Вы можете запустить её командой: transferbox"
+
+# Рендеринг конфигураций и запуск
+step "Запуск прокси-серверов"
+export PYTHONPATH="$PROJECT_ROOT"
+python3 -c "from core.config_manager import render_configs, validate_and_restart; render_configs(); validate_and_restart()"
+log_ok "Конфигурации применены, службы запущены."
+
+# Вывод результатов
+step "Установка завершена!"
+echo -e "  Домен: ${GREEN}${domain}${RESET}"
+echo -e "  Команда управления: ${GREEN}transferbox${RESET}"
+echo
+echo -e "  Сгенерированы стартовые учетные записи для пользователя ${BOLD}admin${RESET}."
+echo -e "  Запустите ${GREEN}transferbox${RESET} -> выберите ${BOLD}1${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
+echo
+

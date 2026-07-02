@@ -1,0 +1,24 @@
+{
+  "type": "vless",
+  "tag": "vless-in",
+  "listen": "::",
+  "listen_port": {{PORT}},
+  "users": [
+    {{USERS}}
+  ],
+  "tls": {
+    "enabled": true,
+    "server_name": "{{SERVER_NAME}}",
+    "reality": {
+      "enabled": true,
+      "handshake": {
+        "server": "{{DEST_SERVER}}",
+        "server_port": 443
+      },
+      "private_key": "{{PRIVATE_KEY}}",
+      "short_id": [
+        "{{SHORT_ID}}"
+      ]
+    }
+  }
+}
