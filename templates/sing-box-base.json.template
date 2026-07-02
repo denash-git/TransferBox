@@ -68,17 +68,13 @@
     {
       "type": "block",
       "tag": "block-out"
-    },
-    {
-      "type": "dns",
-      "tag": "dns-out"
     }
   ],
   "route": {
     "rules": [
       {
         "protocol": "dns",
-        "outbound": "dns-out"
+        "action": "hijack-dns"
       }
     ],
     "auto_detect_interface": true
