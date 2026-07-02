@@ -8,12 +8,13 @@
     "servers": [
       {
         "tag": "cloudflare-dns",
+        "type": "remote",
         "address": "https://1.1.1.1/dns-query",
         "detour": "direct-out"
       },
       {
         "tag": "local-dns",
-        "address": "local",
+        "type": "local",
         "detour": "direct-out"
       }
     ],

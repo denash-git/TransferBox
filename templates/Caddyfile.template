@@ -8,8 +8,8 @@
 }
 
 # Main HTTPS server
-:443, {$DOMAIN} {
-    tls {$ADMIN_EMAIL}
+:443, {{DOMAIN}} {
+    tls {{ADMIN_EMAIL}}
 
     # NaiveProxy with credentials and upstream to sing-box
     forward_proxy {
@@ -37,7 +37,7 @@
 
     # Fake site serving (fallback for standard visits, scanners, probes)
     file_server {
-        root {$FAKESITE_DIR}
+        root {{FAKESITE_DIR}}
     }
 
     log {

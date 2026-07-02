@@ -77,9 +77,14 @@ def render_configs():
     with open(CADDY_TEMPLATE, "r", encoding="utf-8") as f:
         caddy_tmpl = f.read()
 
-    # Caddy environment variables are used in Caddyfile: {$DOMAIN}, {$ADMIN_EMAIL}, {$FAKESITE_DIR}
-    # We replace VLESS paths and auth lists dynamically
-    caddy_content = caddy_tmpl.replace("{{BASIC_AUTH_LIST}}", basic_auth_str)
+    # Direct substitution of domain, email, and fake site directory
+    caddy_content = caddy_tmpl.replace("{{DOMAIN}}", domain)
+    if email:
+        caddy_content = caddy_content.replace("{{ADMIN_EMAIL}}", email)
+    else:
+        caddy_content = caddy_content.replace("tls {{ADMIN_EMAIL}}", "tls")
+    caddy_content = caddy_content.replace("{{FAKESITE_DIR}}", fakesite_dir)
+    caddy_content = caddy_content.replace("{{BASIC_AUTH_LIST}}", basic_auth_str)
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
 
@@ -136,27 +141,6 @@ def validate_and_restart():
     res = subprocess.run(["sing-box", "check", "-c", SINGBOX_CONFIG], capture_output=True, text=True)
     if res.returncode != 0:
         return False, f"sing-box config validation failed:\n{res.stderr}"
-
-    # 3. Apply Caddy systemd environment variables
-    env = load_env()
-    domain = env.get("DOMAIN", "example.com")
-    email = env.get("ADMIN_EMAIL", "")
-    fakesite_template = env.get("FAKE_SITE_TEMPLATE", "techvision")
-    fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
-    if not os.path.exists(fakesite_dir):
-        fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", "techvision")
-
-    # Set systemd overrides for caddy to read env vars
-    override_dir = "/etc/systemd/system/caddy.service.d"
-    os.makedirs(override_dir, exist_ok=True)
-    override_file = os.path.join(override_dir, "override.conf")
-    with open(override_file, "w", encoding="utf-8") as f:
-        f.write("[Service]\n")
-        f.write(f"Environment=\"DOMAIN={domain}\"\n")
-        f.write(f"Environment=\"ADMIN_EMAIL={email}\"\n")
-        f.write(f"Environment=\"FAKESITE_DIR={fakesite_dir}\"\n")
-
-    subprocess.run(["systemctl", "daemon-reload"])
 
     # Restart services
     subprocess.run(["systemctl", "restart", "caddy"])
