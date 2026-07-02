@@ -8,6 +8,7 @@
     "servers": [
       {
         "tag": "cloudflare-dns",
+        "type": "https",
         "address": "https://1.1.1.1/dns-query",
         "detour": "direct-out"
       },
