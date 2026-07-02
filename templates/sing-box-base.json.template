@@ -8,13 +8,11 @@
       {
         "tag": "cloudflare-dns",
         "type": "https",
-        "server": "1.1.1.1",
-        "detour": "direct-out"
+        "server": "1.1.1.1"
       },
       {
         "tag": "local-dns",
-        "type": "local",
-        "detour": "direct-out"
+        "type": "local"
       }
     ]
   },
