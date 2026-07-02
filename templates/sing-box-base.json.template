@@ -9,7 +9,7 @@
       {
         "tag": "cloudflare-dns",
         "type": "https",
-        "address": "https://1.1.1.1/dns-query",
+        "server": "1.1.1.1",
         "detour": "direct-out"
       },
       {
