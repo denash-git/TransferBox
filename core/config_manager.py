@@ -111,9 +111,9 @@ def render_configs():
     with open(SINGBOX_TEMPLATE, "r", encoding="utf-8") as f:
         sb_tmpl = f.read()
 
-    # Replaces placeholders
+    # Replaces placeholders (chain: each replace reads from previous result)
     sb_content = sb_tmpl.replace("{{VLESS_WS_PATH}}", vless_ws_path)
-    sb_content = sb_tmpl.replace("{{VLESS_GRPC_SERVICE}}", vless_grpc_service)
+    sb_content = sb_content.replace("{{VLESS_GRPC_SERVICE}}", vless_grpc_service)
 
     # We need to inject users. We find the placeholders
     ws_users_str = json.dumps(vless_ws_users, indent=8)
