@@ -13,7 +13,6 @@
 
     # NaiveProxy with credentials and upstream to sing-box
     forward_proxy {
-        # {{BASIC_AUTH_LIST}} will be replaced dynamically with basic_auth rules
         {{BASIC_AUTH_LIST}}
         hide_ip
         hide_via
