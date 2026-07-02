@@ -159,8 +159,9 @@ def create_user_menu():
     if ok:
         print(f"\n  {GREEN}✓ Пользователь успешно добавлен!{RESET}")
         link = build_client_link(res)
-        print(f"  {YELLOW}Ссылка:{RESET} {CYAN}{link}{RESET}")
-        
+        print(f"  {YELLOW}Ссылка:{RESET} {CYAN}{link}{RESET}\n")
+        print_qr_code(link)
+
         # Auto-apply configs
         print("\n  Обновляем конфигурацию служб...")
         render_configs()
