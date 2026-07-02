@@ -138,10 +138,10 @@ def create_user_menu():
         return
 
     print("\n  Выберите протокол:")
-    print(f"  {CYAN}1){RESET} NaiveProxy (маскировка под Chrome трафик)")
-    print(f"  {CYAN}2){RESET} VLESS over WebSocket (скрыт внутри Caddy)")
-    print(f"  {CYAN}3){RESET} VLESS over gRPC (скрыт внутри Caddy)")
-    print(f"  {CYAN}4){RESET} VLESS over XHTTP (лучший обход DPI)")
+    print(f"  {CYAN}1){RESET} NaiveProxy")
+    print(f"  {CYAN}2){RESET} VLESS over WebSocket")
+    print(f"  {CYAN}3){RESET} VLESS over gRPC")
+    print(f"  {CYAN}4){RESET} VLESS over XHTTP")
     print(f"\n  {DIM}0) Отмена{RESET}")
     
     choice = get_menu_choice()
