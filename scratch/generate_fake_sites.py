@@ -7,6 +7,23 @@ DEST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templa
 # Define the HTML and CSS for each site individually to ensure maximum variety
 
 # =============================================================================
+# HTML Wrapper helper
+# =============================================================================
+def wrap_html(title, body_content, css_filename="style.css"):
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <link rel="stylesheet" href="{css_filename}">
+</head>
+<body>
+{body_content}
+</body>
+</html>"""
+
+# =============================================================================
 # 1. AETHER RESONANCE (Cyberpunk Retro-Terminal Diagnostic Console)
 # =============================================================================
 AETHER_CSS = """
@@ -545,7 +562,7 @@ STRATUM_LAYOUT = """
 """
 
 # =============================================================================
-# GENERATOR LOGIC
+# PAGE GENERATORS WITH HTML WRAPPING
 # =============================================================================
 
 def generate_aether_pages():
@@ -571,7 +588,8 @@ def generate_aether_pages():
       </div>
     </div>
     """
-    pages["index.html"] = AETHER_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    body = AETHER_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    pages["index.html"] = wrap_html("Эфирный Резонанс — Системный монитор", body)
 
     # 2. Services
     content = """
@@ -609,7 +627,8 @@ def generate_aether_pages():
       </tbody>
     </table>
     """
-    pages["services.html"] = AETHER_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    body = AETHER_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    pages["services.html"] = wrap_html("Эфирный Резонанс — Диагностика", body)
 
     # 3. About
     content = """
@@ -617,7 +636,8 @@ def generate_aether_pages():
     <p>Эфирный Резонанс — независимое объединение исследователей, изучающих процессы в слабоструктурированных средах.</p>
     <p style="margin-top: 15px;">Наша цель — создание стабильных пространственных контуров без потери энергии. Мы концентрируемся на выравнивании полей и подавлении нежелательного фонового шума.</p>
     """
-    pages["about.html"] = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    body = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    pages["about.html"] = wrap_html("Эфирный Резонанс — Описание", body)
 
     # 4. Contacts
     content = """
@@ -640,7 +660,8 @@ def generate_aether_pages():
       <button type="submit" class="btn-submit">Отправить калибровочный вектор</button>
     </form>
     """
-    pages["contacts.html"] = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    body = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    pages["contacts.html"] = wrap_html("Эфирный Резонанс — Калибровка", body)
 
     return pages
 
@@ -655,12 +676,13 @@ def generate_nexus_pages():
       <a href="services.html" class="btn-premium">Исследовать Матрицы</a>
     </section>
     """
-    pages["index.html"] = NEXUS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    body = NEXUS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    pages["index.html"] = wrap_html("Quantum Nexus — Главная", body)
 
     # 2. Services
     content = """
     <section class="section">
-      <h2>Спектральный анализ квантовых структур</h2>
+      <h2>Спекральный анализ квантовых структур</h2>
       <div class="cards-grid">
         <div class="nexus-card">
           <h3>Фазовый роутинг</h3>
@@ -677,7 +699,8 @@ def generate_nexus_pages():
       </div>
     </section>
     """
-    pages["services.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    body = NEXUS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    pages["services.html"] = wrap_html("Quantum Nexus — Протоколы", body)
 
     # 3. About
     content = """
@@ -688,7 +711,8 @@ def generate_nexus_pages():
       </p>
     </section>
     """
-    pages["about.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    body = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    pages["about.html"] = wrap_html("Quantum Nexus — Концепт", body)
 
     # 4. Contacts
     content = """
@@ -713,7 +737,8 @@ def generate_nexus_pages():
       </div>
     </section>
     """
-    pages["contacts.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    body = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    pages["contacts.html"] = wrap_html("Quantum Nexus — Каналы", body)
 
     return pages
 
@@ -740,7 +765,8 @@ def generate_synapse_pages():
       </div>
     </div>
     """
-    pages["index.html"] = SYNAPSE_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    body = SYNAPSE_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    pages["index.html"] = wrap_html("Synaptic Dynamics — Главная", body)
 
     # 2. Services
     content = """
@@ -762,7 +788,8 @@ def generate_synapse_pages():
       </div>
     </div>
     """
-    pages["services.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    body = SYNAPSE_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    pages["services.html"] = wrap_html("Synaptic Dynamics — Профили", body)
 
     # 3. About
     content = """
@@ -776,7 +803,8 @@ def generate_synapse_pages():
       </p>
     </div>
     """
-    pages["about.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    body = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    pages["about.html"] = wrap_html("Synaptic Dynamics — Описание", body)
 
     # 4. Contacts
     content = """
@@ -801,7 +829,8 @@ def generate_synapse_pages():
       </div>
     </div>
     """
-    pages["contacts.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    body = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    pages["contacts.html"] = wrap_html("Synaptic Dynamics — Векторы", body)
 
     return pages
 
@@ -819,7 +848,8 @@ def generate_chronos_pages():
       В ходе экспериментов была подтверждена гипотеза о фазовой балансировке замкнутых контуров бездиффузионного переноса. Читайте подробные материалы в разделе «Каузальные контуры».
     </p>
     """
-    pages["index.html"] = CHRONOS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    body = CHRONOS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    pages["index.html"] = wrap_html("Chronos Temporal — Архивы", body)
 
     # 2. Services
     content = """
@@ -837,7 +867,8 @@ def generate_chronos_pages():
       <p style="margin-bottom: 15px;">Полный темпоральный синтез с нулевой диссипацией хронального поля. Поддержка стабильности сложных каузальных петель.</p>
     </div>
     """
-    pages["services.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    body = CHRONOS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    pages["services.html"] = wrap_html("Chronos Temporal — Балансировка", body)
 
     # 3. About
     content = """
@@ -850,7 +881,8 @@ def generate_chronos_pages():
       Наша группа объединяет математиков, физиков и инженеров по стабильности сред. Совместными усилиями мы создаем стабильные контуры связи.
     </p>
     """
-    pages["about.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    body = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    pages["about.html"] = wrap_html("Chronos Temporal — Описание", body)
 
     # 4. Contacts
     content = """
@@ -873,7 +905,8 @@ def generate_chronos_pages():
       <button type="submit" class="btn-classic">Запустить синхронизацию</button>
     </form>
     """
-    pages["contacts.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    body = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    pages["contacts.html"] = wrap_html("Chronos Temporal — Калибровка", body)
 
     return pages
 
@@ -934,7 +967,8 @@ def generate_stratum_pages():
       </table>
     </div>
     """
-    pages["index.html"] = STRATUM_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    body = STRATUM_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+    pages["index.html"] = wrap_html("Stratum Operational — Dashboard", body)
 
     # 2. Services
     content = """
@@ -953,7 +987,8 @@ def generate_stratum_pages():
       </div>
     </div>
     """
-    pages["services.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    body = STRATUM_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+    pages["services.html"] = wrap_html("Stratum Operational — Декомпозиция", body)
 
     # 3. About
     content = """
@@ -967,7 +1002,8 @@ def generate_stratum_pages():
       </p>
     </div>
     """
-    pages["about.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    body = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+    pages["about.html"] = wrap_html("Stratum Operational — Описание", body)
 
     # 4. Contacts
     content = """
@@ -990,7 +1026,8 @@ def generate_stratum_pages():
       </form>
     </div>
     """
-    pages["contacts.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    body = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+    pages["contacts.html"] = wrap_html("Stratum Operational — Калибровка", body)
 
     return pages
 
