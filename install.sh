@@ -181,7 +181,8 @@ EOF
 
 systemctl daemon-reload
 systemctl enable caddy >/dev/null 2>&1
-log_ok "Служба caddy зарегистрирована."
+systemctl enable sing-box >/dev/null 2>&1
+log_ok "Службы caddy и sing-box зарегистрированы и добавлены в автозагрузку."
 
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
