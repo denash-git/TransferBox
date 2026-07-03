@@ -22,7 +22,14 @@
 
     # VLESS WebSocket endpoint
     handle {{VLESS_WS_PATH}} {
-        reverse_proxy 127.0.0.1:10002
+        reverse_proxy 127.0.0.1:10002 {
+            @error status 400 401 403 502 503
+            handle_response @error {
+                root * {{FAKESITE_DIR}}
+                rewrite * /index.html
+                file_server
+            }
+        }
     }
 
     # VLESS gRPC endpoint
@@ -31,12 +38,25 @@
             transport http {
                 versions h2c
             }
+            @error status 400 401 403 502 503
+            handle_response @error {
+                root * {{FAKESITE_DIR}}
+                rewrite * /index.html
+                file_server
+            }
         }
     }
 
     # VLESS XHTTP (HTTPUpgrade) endpoint
     handle {{VLESS_XHTTP_PATH}} {
-        reverse_proxy 127.0.0.1:10004
+        reverse_proxy 127.0.0.1:10004 {
+            @error status 400 401 403 502 503
+            handle_response @error {
+                root * {{FAKESITE_DIR}}
+                rewrite * /index.html
+                file_server
+            }
+        }
     }
 
     # Fake site serving (fallback for standard visits, scanners, probes)
