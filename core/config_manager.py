@@ -52,9 +52,9 @@ def render_configs():
     fakesite_template = env.get("FAKE_SITE_TEMPLATE", "aether")
     
     # Path settings
-    vless_ws_path = env.get("VLESS_WS_PATH", "/vless-ws")
-    vless_grpc_service = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
-    vless_xhttp_path = env.get("VLESS_XHTTP_PATH", "/vless-xhttp")
+    vless_ws_path = env.get("VLESS_WS_PATH", "/")
+    vless_grpc_service = env.get("VLESS_GRPC_SERVICE", "")
+    vless_xhttp_path = env.get("VLESS_XHTTP_PATH", "/xhttp")
 
     fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
     if not os.path.exists(fakesite_dir):

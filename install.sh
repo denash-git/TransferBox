@@ -203,9 +203,9 @@ cat > "${PROJECT_ROOT}/instance.env" <<EOF
 DOMAIN=${domain}
 ADMIN_EMAIL=${email}
 FAKE_SITE_TEMPLATE=aether
-VLESS_WS_PATH=/vless-ws
-VLESS_GRPC_SERVICE=vless-grpc
-VLESS_XHTTP_PATH=/vless-xhttp
+VLESS_WS_PATH=/
+VLESS_GRPC_SERVICE=
+VLESS_XHTTP_PATH=/xhttp
 EOF
 chmod 600 "${PROJECT_ROOT}/instance.env"
 

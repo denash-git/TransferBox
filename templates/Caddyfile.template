@@ -20,9 +20,15 @@
         upstream socks5://127.0.0.1:10001
     }
 
-    # VLESS WebSocket endpoint
-    handle {{VLESS_WS_PATH}} {
-        reverse_proxy 127.0.0.1:10002 {
+    # Route VLESS gRPC by Content-Type header (allows running on root /)
+    @grpc {
+        header Content-Type application/grpc*
+    }
+    handle @grpc {
+        reverse_proxy 127.0.0.1:10003 {
+            transport http {
+                versions h2c
+            }
             @error status 400 401 403 502 503
             handle_response @error {
                 root * {{FAKESITE_DIR}}
@@ -32,12 +38,14 @@
         }
     }
 
-    # VLESS gRPC endpoint
-    handle {{VLESS_GRPC_PATH}}/* {
-        reverse_proxy 127.0.0.1:10003 {
-            transport http {
-                versions h2c
-            }
+    # Route VLESS WS by Upgrade header and path (allows running on root /)
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade    websocket
+        path {{VLESS_WS_PATH}}
+    }
+    handle @websocket {
+        reverse_proxy 127.0.0.1:10002 {
             @error status 400 401 403 502 503
             handle_response @error {
                 root * {{FAKESITE_DIR}}
