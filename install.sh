@@ -169,6 +169,7 @@ Type=notify
 ExecStart=${CADDY_BIN} run --config /etc/caddy/Caddyfile --environ
 ExecReload=${CADDY_BIN} reload --config /etc/caddy/Caddyfile --force
 ExecStop=${CADDY_BIN} stop
+TimeoutStopSec=5s
 LimitNOFILE=1048576
 LimitNPROC=512
 Restart=on-failure

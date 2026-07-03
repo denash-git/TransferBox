@@ -1,831 +1,1065 @@
 import os
 import shutil
 
-# Root directory for fake sites
+# Destination path for the fakesite templates
 DEST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates", "fakesite"))
 
-# Define site themes
-SITES = {
-    "aether": {
-        "title": "Aether Resonance",
-        "ru_title": "Эфирный Резонанс",
-        "desc": "Сверхчастотная гармонизация нелинейных полей и эфирные резонансные модули.",
-        "bg_color": "#0d0d11",
-        "primary": "#7D56F4",
-        "secondary": "#9C27B0",
-        "card_bg": "#161622",
-        "text": "#E0E0E0",
-        "logo": "⬡ Aether",
-        "terms": {
-            "hero_h1": "Амплитудная синхронизация тонких полей",
-            "hero_sub": "Обеспечиваем фазовую стабилизацию и гашение нелинейных флуктуаций с эффективностью до 99.8%. Наш дрейф находится под полным контролем.",
-            "stat1": "Сверхпроводники",
-            "stat2": "Резонанс",
-            "stat3": "Стабилизация",
-            "serv1_title": "Гармонизация поля",
-            "serv1_desc": "Выравнивание фазовых углов эфирного излучения в диапазоне суб-миллиметровых волн для исключения диссипации.",
-            "serv2_title": "Векторные эмиттеры",
-            "serv2_desc": "Проектирование и калибровка направленных эмиттеров с изменяемой геометрией резонансного контура.",
-            "serv3_title": "Спектральный анализ",
-            "serv3_desc": "Мониторинг флуктуаций второго порядка с регистрацией микроструктурных искажений среды.",
-            "about_p": "Эфирный Резонанс — независимая группа исследований, занимающаяся созданием когерентных систем взаимодействия в слабоструктурированных средах. Наша миссия — создание стабильных пространственных контуров для минимизации энтропийного сопротивления.",
-            "contact_addr": "Сектор 7, Зона Эфира 14, Москва",
-            "contact_email": "info@aether-resonance.net",
-            "contact_phone": "+7 (800) 100-34-43"
-        }
-    },
-    "nexus": {
-        "title": "Quantum Nexus",
-        "ru_title": "Квантовый Нексус",
-        "desc": "Маршрутизация многомерных тензоров и суперпозиционная стабилизация.",
-        "bg_color": "#060b13",
-        "primary": "#00E5FF",
-        "secondary": "#00B0FF",
-        "card_bg": "#0f172a",
-        "text": "#E2E8F0",
-        "logo": "◈ Nexus",
-        "terms": {
-            "hero_h1": "Суперпозиционная координация тензоров",
-            "hero_sub": "Масштабируемые квантовые мосты с компенсацией декогеренции в реальном времени. Внедрение фазовых цепочек без потери связности.",
-            "stat1": "Тензоры",
-            "stat2": "Мониторинг",
-            "stat3": "Когерентность",
-            "serv1_title": "Фазовый роутинг",
-            "serv1_desc": "Канальная адресация суперпозиционных путей на базе многоуровневых вероятностных графов.",
-            "serv2_title": "Коррекция декогеренции",
-            "serv2_desc": "Динамическое выравнивание квантовых флуктуаций с обратной связью по фазовым сдвигам.",
-            "serv3_title": "Сингулярные матрицы",
-            "serv3_desc": "Генерация ортогональных сингулярных базисов высокой плотности для стабилизации потоков данных.",
-            "about_p": "Quantum Nexus разрабатывает решения на стыке многомерной топологии и распределенных вероятностных систем. Мы строим логические мосты для интеграции сложных вычислительных матриц в нестабильных средах.",
-            "contact_addr": "Комплекс Квант, Блок 9, Санкт-Петербург",
-            "contact_email": "ops@quant-nexus.io",
-            "contact_phone": "+7 (812) 777-99-88"
-        }
-    },
-    "synapse": {
-        "title": "Synaptic Dynamics",
-        "ru_title": "Синаптическая Динамика",
-        "desc": "Нейроморфная синергия, оптимизация мыслительных векторов и когнитивные буферы.",
-        "bg_color": "#070c08",
-        "primary": "#00F294",
-        "secondary": "#00E5FF",
-        "card_bg": "#121b14",
-        "text": "#ECFDF5",
-        "logo": "⬢ Synapse",
-        "terms": {
-            "hero_h1": "Оптимизация когнитивных синергий",
-            "hero_sub": "Развертывание нейроморфных архитектур с обратным распространением когнитивного вектора. Полный контроль адаптивных весов.",
-            "stat1": "Синапсы",
-            "stat2": "Нейроны",
-            "stat3": "Пластичность",
-            "serv1_title": "Нейроморфная балансировка",
-            "serv1_desc": "Автоматическая подстройка весовых коэффициентов синаптических соединений в условиях динамического шума.",
-            "serv2_title": "Векторное сжатие",
-            "serv2_desc": "Проектирование сверточных когнитивных буферов с сохранением структуры ассоциативных связей.",
-            "serv3_title": "Адаптивный анализ",
-            "serv3_desc": "Потоковый анализ синаптического дрейфа с возможностью мгновенной реконфигурации сети.",
-            "about_p": "Синаптическая Динамика — проектное бюро, создающее алгоритмические структуры для обработки сложноорганизованных паттернов. Наша деятельность направлена на воспроизведение гибких связей в цифровых средах.",
-            "contact_addr": "Технопарк Искра, Лаборатория 5Б, Новосибирск",
-            "contact_email": "support@synaptic-dyn.ru",
-            "contact_phone": "+7 (383) 999-88-77"
-        }
-    },
-    "chronos": {
-        "title": "Chronos Temporal",
-        "ru_title": "Хроно-Вектор",
-        "desc": "Хроно-модуляция, управление казуальными цепочками и стабилизация темпоральных фаз.",
-        "bg_color": "#120c07",
-        "primary": "#FF8A00",
-        "secondary": "#FF3D00",
-        "card_bg": "#1d140e",
-        "text": "#FFF3E0",
-        "logo": "⌛ Chronos",
-        "terms": {
-            "hero_h1": "Управление энтропией временных потоков",
-            "hero_sub": "Фазовая балансировка казуальных цепей и локальное гашение темпорального шума. Инновационная ретроспективная стабилизация.",
-            "stat1": "Контуры",
-            "stat2": "Каузальность",
-            "stat3": "Фаза",
-            "serv1_title": "Каузальный анализ",
-            "serv1_desc": "Расчет вероятностного влияния событий на стабильность пространственно-временной сетки.",
-            "serv2_title": "Хроно-стабилизация",
-            "serv2_desc": "Коррекция временного сдвига на границе раздела сред с различной плотностью хронального потока.",
-            "serv3_title": "Векторные петли",
-            "serv3_desc": "Проектирование замкнутых безэнтропийных контуров для локальной обработки каузальных цепей.",
-            "about_p": "Chronos Temporal специализируется на проектировании систем с высокой темпоральной защищенностью. Мы предлагаем уникальные инструменты для мониторинга и коррекции фазовых сдвигов в микроструктурных каузальных графах.",
-            "contact_addr": "Улица Часовая, Корпус 3, Екатеринбург",
-            "contact_email": "time@chronos-temporal.su",
-            "contact_phone": "+7 (343) 444-55-66"
-        }
-    },
-    "stratum": {
-        "title": "Stratum Synergy",
-        "ru_title": "Стратум Синергия",
-        "desc": "Многослойная фрактальная декомпозиция, семантический роутинг и распределение плотности.",
-        "bg_color": "#ffffff",
-        "primary": "#4F46E5",
-        "secondary": "#06B6D4",
-        "card_bg": "#f8fafc",
-        "text": "#0f172a",
-        "logo": "☲ Stratum",
-        "terms": {
-            "hero_h1": "Многоуровневый фрактальный синтез",
-            "hero_sub": "Оптимизация плотности информационных потоков на базе многослойных координационных сетей. Полное фрактальное разделение.",
-            "stat1": "Слои",
-            "stat2": "Фракталы",
-            "stat3": "Синтез",
-            "serv1_title": "Семантическая селекция",
-            "serv1_desc": "Маршрутизация данных на основе фрактальных индексов с переменной глубиной декомпозиции.",
-            "serv2_title": "Плотность распределения",
-            "serv2_desc": "Балансировка информационного наполнения по слоям для предотвращения перегрузки семантических узлов.",
-            "serv3_title": "Фрактальные мосты",
-            "serv3_desc": "Связывание изолированных страт в единую устойчивую информационную структуру высокой проводимости.",
-            "about_p": "Стратум Синергия разрабатывает фрактальные архитектуры для обработки распределенных разнородных потоков. Наша цель — обеспечение бесшовной связи между независимыми семантическими слоями в больших системах.",
-            "contact_addr": "Бизнес Центр Выставочный, Офис 402, Казань",
-            "contact_email": "info@stratum-synergy.com",
-            "contact_phone": "+7 (843) 222-33-44"
-        }
-    }
+# Define the HTML and CSS for each site individually to ensure maximum variety
+
+# =============================================================================
+# 1. AETHER RESONANCE (Cyberpunk Retro-Terminal Diagnostic Console)
+# =============================================================================
+AETHER_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: #050805;
+  color: #33ff33;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  padding: 20px;
 }
-
-HTML_TEMPLATE = """<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{ru_title} — {title}</title>
-<meta name="description" content="{desc}">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="header">
-  <div class="container">
-    <a href="index.html" class="logo">
-      {logo}
-    </a>
-    <nav class="nav">
-      <ul class="nav-list">
-        <li><a href="index.html" class="nav-link {active_home}">Главная</a></li>
-        <li><a href="services.html" class="nav-link {active_serv}">Технологии</a></li>
-        <li><a href="about.html" class="nav-link {active_about}">О нас</a></li>
-        <li><a href="contacts.html" class="nav-link {active_cont}">Контакты</a></li>
-      </ul>
-    </nav>
-  </div>
-</header>
-
-{content}
-
-<footer class="footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <a href="index.html" class="logo">{logo}</a>
-        <p>{desc}</p>
-      </div>
-      <div class="footer-col">
-        <h4>Навигация</h4>
-        <ul>
-          <li><a href="index.html">Главная</a></li>
-          <li><a href="services.html">Технологии</a></li>
-          <li><a href="about.html">О нас</a></li>
-          <li><a href="contacts.html">Контакты</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Контакты</h4>
-        <p>{contact_email}</p>
-        <p>{contact_phone}</p>
-        <p>{contact_addr}</p>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2026 {title}. Все права защищены. Разработка систем резонансной стабилизации.</span>
-    </div>
-  </div>
-</footer>
-</body>
-</html>
+.console-box {
+  border: 2px solid #33ff33;
+  box-shadow: 0 0 15px rgba(51,255,51,0.2);
+  max-width: 1000px;
+  margin: 0 auto;
+  background-color: #020402;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.console-header {
+  background-color: #33ff33;
+  color: #020402;
+  padding: 8px 15px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+}
+.nav-bar {
+  display: flex;
+  background-color: #112211;
+  border-bottom: 2px solid #33ff33;
+}
+.nav-link {
+  color: #33ff33;
+  text-decoration: none;
+  padding: 10px 20px;
+  border-right: 1px solid #33ff33;
+  font-weight: bold;
+}
+.nav-link:hover, .nav-link.active {
+  background-color: #33ff33;
+  color: #020402;
+}
+.content-area { padding: 30px; }
+.hero-title { font-size: 2.2rem; margin-bottom: 15px; border-bottom: 1px dashed #33ff33; padding-bottom: 10px; }
+.blink { animation: blink-animation 1s steps(2, start) infinite; }
+@keyframes blink-animation { to { visibility: hidden; } }
+.section-title { font-size: 1.5rem; margin: 25px 0 15px 0; text-transform: uppercase; color: #88ff88; }
+.grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+.grid-card { border: 1px solid #33ff33; padding: 20px; background-color: #050a05; }
+.grid-card h3 { font-size: 1.2rem; margin-bottom: 10px; color: #88ff88; }
+.terminal-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+.terminal-table th, .terminal-table td { border: 1px solid #33ff33; padding: 10px; text-align: left; }
+.terminal-table th { background-color: #112211; }
+.form-input {
+  width: 100%;
+  background: #020402;
+  border: 1px solid #33ff33;
+  color: #33ff33;
+  padding: 10px;
+  font-family: monospace;
+  margin-top: 5px;
+}
+.btn-submit {
+  background-color: #33ff33;
+  color: #020402;
+  border: none;
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 15px;
+  font-family: monospace;
+}
+.btn-submit:hover { background-color: #88ff88; }
+.footer { border-top: 2px solid #33ff33; padding: 15px; text-align: center; font-size: 0.8rem; background-color: #090e09; }
 """
 
-CSS_TEMPLATE = """/* General reset */
-* {{
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}}
+AETHER_LAYOUT = """
+<div class="console-box">
+  <div class="console-header">
+    <span>SYSTEM MONITOR v8.241</span>
+    <span>STATUS: OPERATIONAL</span>
+  </div>
+  <div class="nav-bar">
+    <a href="index.html" class="nav-link {active_home}">[ HOME ]</a>
+    <a href="services.html" class="nav-link {active_serv}">[ DIAGNOSTICS ]</a>
+    <a href="about.html" class="nav-link {active_about}">[ ABOUT LOG ]</a>
+    <a href="contacts.html" class="nav-link {active_cont}">[ CALIBRATE ]</a>
+  </div>
+  <div class="content-area">
+    {content}
+  </div>
+  <div class="footer">
+    AETHER_RESONANCE_NET_OPERATIONS © 2026 // NO_PERSONAL_DATA_FOUND // SECURITY: ENABLED
+  </div>
+</div>
+"""
 
-body {{
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: {bg_color};
-  color: {text_color};
+# =============================================================================
+# 2. QUANTUM NEXUS (Ultra-Modern Premium Dark Corporate Landing Page)
+# =============================================================================
+NEXUS_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: #030712;
+  color: #9ca3af;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
-}}
-
-.container {{
-  width: 90%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 15px;
-}}
-
-/* Header */
-.header {{
-  background-color: {header_bg};
-  border-bottom: 1px solid {border_color};
+}
+header {
+  background-color: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(10px);
-}}
-
-.header .container {{
+  border-bottom: 1px solid #1f2937;
+}
+.nav-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 70px;
-}}
-
-.logo {{
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: {primary_color};
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}}
-
-.nav-list {{
-  display: flex;
-  list-style: none;
-  gap: 24px;
-}}
-
-.nav-link {{
-  color: {text_muted};
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s;
-}}
-
-.nav-link:hover, .nav-link.active {{
-  color: {primary_color};
-}}
-
-/* Hero section */
-.hero {{
-  padding: 80px 0;
-  border-bottom: 1px solid {border_color};
-  background: radial-gradient(circle at 80% 20%, {gradient_spot} 0%, transparent 40%);
-}}
-
-.hero-content {{
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 20px;
+}
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f3f4f6;
+  text-decoration: none;
+  background: linear-gradient(to right, #00ffcc, #00b0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.nav-menu { display: flex; list-style: none; gap: 30px; }
+.nav-menu a { color: #9ca3af; text-decoration: none; font-weight: 500; transition: color 0.3s; }
+.nav-menu a:hover, .nav-menu a.active { color: #00ffcc; }
+.hero {
+  padding: 100px 20px;
   text-align: center;
-}}
-
-.hero-tag {{
+  background: radial-gradient(circle at center, rgba(0,255,204,0.08) 0%, transparent 70%);
+}
+.hero h1 {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: #f9fafb;
+  line-height: 1.1;
+  margin-bottom: 25px;
+}
+.hero p { font-size: 1.25rem; max-width: 700px; margin: 0 auto 35px auto; color: #9ca3af; }
+.btn-premium {
   display: inline-block;
-  padding: 4px 12px;
-  border: 1px solid {primary_color};
-  color: {primary_color};
-  font-size: 0.85rem;
+  background: linear-gradient(to right, #00ffcc, #00b0ff);
+  color: #030712;
+  padding: 14px 35px;
+  border-radius: 30px;
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,255,204,0.25);
+}
+.section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
+.section h2 { font-size: 2.2rem; color: #f9fafb; margin-bottom: 40px; text-align: center; }
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; }
+.nexus-card {
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 35px;
+  transition: border-color 0.3s, transform 0.3s;
+}
+.nexus-card:hover { border-color: #00ffcc; transform: translateY(-5px); }
+.nexus-card h3 { font-size: 1.4rem; color: #f3f4f6; margin-bottom: 15px; }
+.contact-container {
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
   border-radius: 20px;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  font-weight: 600;
-}}
-
-.hero h1 {{
-  font-size: 3rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 20px;
-  color: {title_color};
-}}
-
-.hero-sub {{
-  font-size: 1.25rem;
-  color: {text_muted};
-  margin-bottom: 32px;
-}}
-
-/* Stats grid */
-.stats {{
-  padding: 40px 0;
-  border-bottom: 1px solid {border_color};
-}}
-
-.stats-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 30px;
-  text-align: center;
-}}
-
-.stat {{
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: {text_muted};
-}}
-
-.stat-num {{
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: {primary_color};
-}}
-
-/* Sections */
-.section {{
-  padding: 80px 0;
-  border-bottom: 1px solid {border_color};
-}}
-
-.section-head {{
-  text-align: center;
-  max-width: 600px;
-  margin: 0 auto 50px auto;
-}}
-
-.section-head h2 {{
-  font-size: 2.25rem;
-  color: {title_color};
-  margin-bottom: 12px;
-}}
-
-.section-head p {{
-  color: {text_muted};
-}}
-
-/* Cards grid */
-.cards-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 30px;
-}}
-
-.card {{
-  background-color: {card_bg};
-  border: 1px solid {border_color};
-  border-radius: 12px;
-  padding: 30px;
-  transition: transform 0.3s, border-color 0.3s;
-}}
-
-.card:hover {{
-  transform: translateY(-5px);
-  border-color: {primary_color};
-}}
-
-.card-icon {{
-  font-size: 2rem;
-  color: {primary_color};
-  margin-bottom: 20px;
-}}
-
-.card h3 {{
-  font-size: 1.5rem;
-  color: {title_color};
-  margin-bottom: 12px;
-}}
-
-.card p {{
-  color: {text_muted};
-  font-size: 0.95rem;
-}}
-
-/* Forms and interactions */
-.btn-primary {{
-  display: inline-block;
-  background-color: {primary_color};
-  color: {btn_text};
-  padding: 12px 28px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  transition: opacity 0.3s;
-  border: none;
-  cursor: pointer;
-}}
-
-.btn-primary:hover {{
-  opacity: 0.9;
-}}
-
-.contact-form {{
-  max-width: 600px;
-  margin: 0 auto;
-  background-color: {card_bg};
-  border: 1px solid {border_color};
   padding: 40px;
-  border-radius: 12px;
-}}
+}
+.form-input {
+  width: 100%;
+  padding: 12px 18px;
+  background-color: #030712;
+  border: 1px solid #1e293b;
+  color: #f3f4f6;
+  border-radius: 8px;
+  margin-top: 8px;
+  outline: none;
+}
+.form-input:focus { border-color: #00ffcc; }
+.footer { background-color: #020617; border-top: 1px solid #1f2937; padding: 40px 20px; text-align: center; }
+"""
 
-.form-group {{
-  margin-bottom: 20px;
-}}
+NEXUS_LAYOUT = """
+<header>
+  <div class="nav-container">
+    <a href="index.html" class="logo">QUANTUM_NEXUS</a>
+    <ul class="nav-menu">
+      <li><a href="index.html" class="{active_home}">Главная</a></li>
+      <li><a href="services.html" class="{active_serv}">Спектры</a></li>
+      <li><a href="about.html" class="{active_about}">Концепт</a></li>
+      <li><a href="contacts.html" class="{active_cont}">Связь</a></li>
+    </ul>
+  </div>
+</header>
+{content}
+<footer class="footer">
+  <p>© 2026 Quantum Nexus Operations. Все данные зашифрованы алгоритмом фазовой модуляции.</p>
+</footer>
+"""
 
-.form-group label {{
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: {title_color};
-}}
-
-.form-control {{
+# =============================================================================
+# 3. SYNAPTIC DYNAMICS (Trendy Neo-Brutalist Minimalist Design)
+# =============================================================================
+SYNAPSE_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: #fbfbf6;
+  color: #1a1a1a;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  padding: 20px;
+}
+.brutal-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  border: 4px solid #1a1a1a;
+  background: #ffffff;
+  box-shadow: 10px 10px 0px #1a1a1a;
+}
+.header {
+  border-bottom: 4px solid #1a1a1a;
+  padding: 30px;
+  background-color: #ffde4d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.logo { font-size: 2.2rem; font-weight: 900; letter-spacing: -2px; text-transform: uppercase; color: #1a1a1a; text-decoration: none; }
+.nav-links { display: flex; gap: 15px; }
+.nav-btn {
+  background-color: #ffffff;
+  border: 2px solid #1a1a1a;
+  padding: 8px 16px;
+  font-weight: 800;
+  text-decoration: none;
+  color: #1a1a1a;
+  box-shadow: 3px 3px 0px #1a1a1a;
+}
+.nav-btn:hover, .nav-btn.active {
+  background-color: #ff4069;
+  color: #ffffff;
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px #1a1a1a;
+}
+.hero {
+  padding: 60px 40px;
+  background-color: #ff764d;
+  border-bottom: 4px solid #1a1a1a;
+}
+.hero h1 { font-size: 3.5rem; font-weight: 900; line-height: 1; letter-spacing: -1px; margin-bottom: 20px; text-transform: uppercase; }
+.hero p { font-size: 1.2rem; font-weight: 500; max-width: 600px; }
+.section { padding: 50px 40px; }
+.section-title { font-size: 2.5rem; font-weight: 900; text-transform: uppercase; margin-bottom: 30px; }
+.brutal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+.brutal-card {
+  border: 4px solid #1a1a1a;
+  padding: 30px;
+  background-color: #a6e3e9;
+  box-shadow: 8px 8px 0px #1a1a1a;
+}
+.brutal-card.alt { background-color: #cbd5e1; }
+.brutal-card h3 { font-size: 1.5rem; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; }
+.form-field {
   width: 100%;
   padding: 12px;
-  background-color: {bg_color};
-  border: 1px solid {border_color};
-  color: {text_color};
-  border-radius: 6px;
+  border: 3px solid #1a1a1a;
+  font-weight: bold;
+  margin-top: 8px;
   outline: none;
-}}
-
-.form-control:focus {{
-  border-color: {primary_color};
-}}
-
-/* Tiers */
-.tiers-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 30px;
-  margin-top: 40px;
-}}
-
-.tier-card {{
-  background-color: {card_bg};
-  border: 1px solid {border_color};
-  border-radius: 16px;
-  padding: 40px 30px;
-  text-align: center;
-  position: relative;
-}}
-
-.tier-card.featured {{
-  border-color: {primary_color};
-}}
-
-.tier-badge {{
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: {primary_color};
-  color: {btn_text};
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 1rem;
+}
+.btn-brutal {
+  display: inline-block;
+  background-color: #ffde4d;
+  border: 3px solid #1a1a1a;
+  padding: 15px 30px;
+  font-weight: 900;
   text-transform: uppercase;
-}}
+  cursor: pointer;
+  box-shadow: 5px 5px 0px #1a1a1a;
+  margin-top: 20px;
+}
+.btn-brutal:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 8px 8px 0px #1a1a1a;
+}
+.footer { border-top: 4px solid #1a1a1a; padding: 25px; text-align: center; font-weight: 800; background-color: #a6e3e9; }
+"""
 
-.tier-price {{
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 20px 0;
-  color: {title_color};
-}}
+SYNAPSE_LAYOUT = """
+<div class="brutal-container">
+  <div class="header">
+    <a href="index.html" class="logo">SYNAPSE_DYN</a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-btn {active_home}">Главная</a>
+      <a href="services.html" class="nav-btn {active_serv}">Синергия</a>
+      <a href="about.html" class="nav-btn {active_about}">Профиль</a>
+      <a href="contacts.html" class="nav-btn {active_cont}">Связь</a>
+    </div>
+  </div>
+  {content}
+  <div class="footer">
+    SYNAPTIC_DYNAMICS_LABS // 2026 // АВТОГЕНЕРАЦИЯ ВЕКТОРОВ
+  </div>
+</div>
+"""
 
-.tier-features {{
-  list-style: none;
-  margin: 24px 0;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  color: {text_muted};
-}}
-
-/* Footer */
-.footer {{
-  background-color: {header_bg};
-  border-top: 1px solid {border_color};
-  padding: 60px 0 30px 0;
-  margin-top: 80px;
-}}
-
-.footer-grid {{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 40px;
-  margin-bottom: 40px;
-}}
-
-.footer-brand {{
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  color: {text_muted};
-}}
-
-.footer-col h4 {{
-  font-size: 1.1rem;
-  color: {title_color};
-  margin-bottom: 20px;
-}}
-
-.footer-col ul {{
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}}
-
-.footer-col ul a {{
-  color: {text_muted};
-  text-decoration: none;
-  transition: color 0.3s;
-}}
-
-.footer-col ul a:hover {{
-  color: {primary_color};
-}}
-
-.footer-col p {{
-  color: {text_muted};
-  margin-bottom: 12px;
-}}
-
-.footer-bottom {{
-  border-top: 1px solid {border_color};
-  padding-top: 30px;
+# =============================================================================
+# 4. CHRONOS TEMPORAL (Elegantly Structured Classical Academic Portal)
+# =============================================================================
+CHRONOS_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: #fdfaf2;
+  color: #3b3a36;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  line-height: 1.7;
+}
+.wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #ffffff;
+  border-left: 1px solid #e7e2d7;
+  border-right: 1px solid #e7e2d7;
+  min-height: 100vh;
+}
+header {
+  border-bottom: 3px double #b38644;
+  padding: 40px;
   text-align: center;
-  font-size: 0.85rem;
-  color: {text_muted};
-}}
-
-@media (max-width: 768px) {{
-  .hero h1 {{ font-size: 2.25rem; }}
-  .header .container {{ flex-direction: column; height: auto; padding: 15px 0; gap: 15px; }}
-  .nav-list {{ gap: 15px; }}
-}}
+}
+.portal-title {
+  font-size: 2.5rem;
+  color: #800020;
+  font-weight: normal;
+  letter-spacing: 1px;
+}
+.portal-sub { font-size: 0.9rem; font-style: italic; color: #b38644; margin-top: 5px; }
+nav {
+  border-bottom: 1px solid #e7e2d7;
+  display: flex;
+  justify-content: center;
+  background-color: #faf8f5;
+}
+nav a {
+  padding: 15px 30px;
+  text-decoration: none;
+  color: #555450;
+  font-size: 0.95rem;
+  border-right: 1px solid #e7e2d7;
+  transition: background-color 0.3s;
+}
+nav a:hover, nav a.active { background-color: #f5f0e6; color: #800020; }
+.main-layout { display: flex; }
+.main-content { flex: 3; padding: 40px; }
+.sidebar { flex: 1; padding: 40px 30px; border-left: 1px solid #e7e2d7; background-color: #fbfbf9; }
+.article-title { font-size: 1.8rem; color: #800020; font-weight: normal; margin-bottom: 15px; }
+.meta-info { font-size: 0.85rem; color: #b38644; font-style: italic; margin-bottom: 20px; }
+.sidebar-section h4 { font-size: 1.1rem; color: #800020; font-weight: normal; margin-bottom: 15px; border-bottom: 1px solid #b38644; padding-bottom: 5px; }
+.sidebar-list { list-style: none; }
+.sidebar-list li { margin-bottom: 12px; font-size: 0.9rem; }
+.sidebar-list a { color: #555450; text-decoration: none; }
+.sidebar-list a:hover { color: #800020; }
+.form-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #b38644;
+  font-family: inherit;
+  margin-top: 5px;
+}
+.btn-classic {
+  background-color: #800020;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  margin-top: 15px;
+  font-family: inherit;
+}
+.btn-classic:hover { background-color: #b38644; }
+.footer { border-top: 3px double #b38644; padding: 30px; text-align: center; font-size: 0.85rem; color: #777672; }
 """
 
-def generate_index(site):
-    content = f"""
-<section class="hero">
-  <div class="container">
-    <div class="hero-content">
-      <p class="hero-tag">{site["ru_title"]}</p>
-      <h1>{site["terms"]["hero_h1"]}</h1>
-      <p class="hero-sub">{site["terms"]["hero_sub"]}</p>
-      <div class="hero-btns">
-        <a href="services.html" class="btn-primary">Наши Синергии</a>
-      </div>
+CHRONOS_LAYOUT = """
+<div class="wrapper">
+  <header>
+    <h1 class="portal-title">CHRONOS TEMPORAL SYSTEMS</h1>
+    <p class="portal-sub">Институт темпоральных исследований и казуальной стабильности</p>
+  </header>
+  <nav>
+    <a href="index.html" class="{active_home}">Главный архив</a>
+    <a href="services.html" class="{active_serv}">Каузальные контуры</a>
+    <a href="about.html" class="{active_about}">О проекте</a>
+    <a href="contacts.html" class="{active_cont}">Синхронизация</a>
+  </nav>
+  <div class="main-layout">
+    <div class="main-content">
+      {content}
     </div>
-  </div>
-</section>
-
-<section class="stats">
-  <div class="container">
-    <div class="stats-grid">
-      <div class="stat"><span class="stat-num">99.8%</span><span>{site["terms"]["stat1"]}</span></div>
-      <div class="stat"><span class="stat-num">1.2 ГГц</span><span>{site["terms"]["stat2"]}</span></div>
-      <div class="stat"><span class="stat-num">~0 мс</span><span>{site["terms"]["stat3"]}</span></div>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2>Базовые Векторы Стабилизации</h2>
-      <p>Комплексные алгоритмические контуры для компенсации нелинейного сопротивления сред</p>
-    </div>
-    <div class="cards-grid">
-      <div class="card">
-        <div class="card-icon">🌀</div>
-        <h3>{site["terms"]["serv1_title"]}</h3>
-        <p>{site["terms"]["serv1_desc"]}</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">⚡</div>
-        <h3>{site["terms"]["serv2_title"]}</h3>
-        <p>{site["terms"]["serv2_desc"]}</p>
-      </div>
-      <div class="card">
-        <div class="card-icon">📈</div>
-        <h3>{site["terms"]["serv3_title"]}</h3>
-        <p>{site["terms"]["serv3_desc"]}</p>
-      </div>
-    </div>
-  </div>
-</section>
-"""
-    return HTML_TEMPLATE.format(
-        title=site["title"],
-        ru_title=site["ru_title"],
-        desc=site["desc"],
-        logo=site["logo"],
-        contact_email=site["terms"]["contact_email"],
-        contact_phone=site["terms"]["contact_phone"],
-        contact_addr=site["terms"]["contact_addr"],
-        active_home="active",
-        active_serv="",
-        active_about="",
-        active_cont="",
-        content=content
-    )
-
-def generate_about(site):
-    content = f"""
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2>О нашей концепции</h2>
-      <p>История разработки фрактального баланса и стабилизирующих матриц</p>
-    </div>
-    <div style="max-width: 800px; margin: 0 auto; color: {site['text']};">
-      <p style="margin-bottom: 20px; font-size: 1.1rem; text-indent: 20px;">
-        {site["terms"]["about_p"]}
-      </p>
-      <p style="margin-bottom: 20px; font-size: 1.1rem; text-indent: 20px;">
-        В рамках интеграционных тестов второго порядка была выявлена высокая чувствительность семантических фаз к внешнему фоновому излучению. Наш научно-исследовательский вектор полностью сфокусирован на синтезе экранирующих интерфейсов, исключающих перегрузку логических каналов.
-      </p>
-      <p style="margin-bottom: 20px; font-size: 1.1rem; text-indent: 20px;">
-        Мы стремимся предоставлять стабильные базисы для развертывания когерентных систем. Наш опыт показывает, что многоуровневая структура связей позволяет справляться с дрейфом произвольной амплитуды.
-      </p>
-    </div>
-  </div>
-</section>
-"""
-    return HTML_TEMPLATE.format(
-        title=site["title"],
-        ru_title=site["ru_title"],
-        desc=site["desc"],
-        logo=site["logo"],
-        contact_email=site["terms"]["contact_email"],
-        contact_phone=site["terms"]["contact_phone"],
-        contact_addr=site["terms"]["contact_addr"],
-        active_home="",
-        active_serv="",
-        active_about="active",
-        active_cont="",
-        content=content
-    )
-
-def generate_services(site):
-    content = f"""
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2>Методологии Резонанса</h2>
-      <p>Оцените доступные конфигурационные пакеты и профили адаптации</p>
-    </div>
-    <div class="tiers-grid">
-      <div class="tier-card">
-        <div class="tier-badge">Базовый</div>
-        <h3>Alpha Vector</h3>
-        <div class="tier-price">~1.2 Ф/с</div>
-        <ul class="tier-features">
-          <li>✔ Стабилизация первого уровня</li>
-          <li>✔ Фазовый дрейф не более 5%</li>
-          <li>✔ 3 ортогональных контура</li>
-          <li>✔ Одноканальный сбор статистики</li>
-        </ul>
-      </div>
-      <div class="tier-card featured">
-        <div class="tier-badge">Рекомендуемый</div>
-        <h3>Sigma Matrix</h3>
-        <div class="tier-price">~8.4 Ф/с</div>
-        <ul class="tier-features">
-          <li>✔ Многофакторная балансировка</li>
-          <li>✔ Компенсация шумов до -40 дБ</li>
-          <li>✔ 12 динамических каналов</li>
-          <li>✔ Обратная связь по сингулярности</li>
-          <li>✔ Автоматическая реконфигурация</li>
-        </ul>
-      </div>
-      <div class="tier-card">
-        <div class="tier-badge">Премиум</div>
-        <h3>Omega Stratum</h3>
-        <div class="tier-price">~16.0 Ф/с</div>
-        <ul class="tier-features">
-          <li>✔ Полный фрактальный синтез</li>
-          <li>✔ Нулевая диссипация поля</li>
-          <li>✔ Неограниченная сетка тензоров</li>
-          <li>✔ Режим когерентного экранирования</li>
-          <li>✔ Поддержка каузальных петель</li>
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h4>Недавние публикации</h4>
+        <ul class="sidebar-list">
+          <li><a href="#">О дрейфе событий второго порядка (2025)</a></li>
+          <li><a href="#">Энтропийный баланс хрональных полей</a></li>
+          <li><a href="#">Теория петель бездиффузионного переноса</a></li>
         </ul>
       </div>
     </div>
   </div>
-</section>
+  <footer class="footer">
+    © 2026 Chronos Temporal Inc. // Архивы и базы данных защищены временной печатью.
+  </footer>
+</div>
 """
-    return HTML_TEMPLATE.format(
-        title=site["title"],
-        ru_title=site["ru_title"],
-        desc=site["desc"],
-        logo=site["logo"],
-        contact_email=site["terms"]["contact_email"],
-        contact_phone=site["terms"]["contact_phone"],
-        contact_addr=site["terms"]["contact_addr"],
-        active_home="",
-        active_serv="active",
-        active_about="",
-        active_cont="",
-        content=content
-    )
 
-def generate_contacts(site):
-    content = f"""
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2>Обратная связь</h2>
-      <p>Оставьте запрос для инициализации калибровочного сеанса</p>
+# =============================================================================
+# 5. STRATUM SYNERGY (Clean light Enterprise Operations Dashboard)
+# =============================================================================
+STRATUM_CSS = """
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+.dashboard-wrapper { display: flex; min-height: 100vh; }
+.sidebar-nav {
+  width: 260px;
+  background-color: #0f172a;
+  color: #f1f5f9;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar-brand { font-size: 1.4rem; font-weight: 800; margin-bottom: 40px; color: #3b82f6; }
+.sidebar-menu { list-style: none; }
+.sidebar-menu a {
+  display: block;
+  color: #94a3b8;
+  text-decoration: none;
+  padding: 12px 15px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+.sidebar-menu a:hover, .sidebar-menu a.active { background-color: #1e293b; color: #3b82f6; }
+.main-body { flex: 1; display: flex; flex-direction: column; }
+.top-header {
+  background-color: #ffffff;
+  padding: 20px 40px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dashboard-title { font-size: 1.6rem; font-weight: 700; }
+.dashboard-content { padding: 40px; }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+.kpi-card { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; }
+.kpi-label { font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+.kpi-value { font-size: 2rem; font-weight: 700; color: #0f172a; margin-top: 5px; }
+.kpi-growth { font-size: 0.8rem; color: #10b981; font-weight: 600; margin-top: 5px; }
+.data-panel { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 30px; }
+.data-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: #0f172a; }
+.strata-table { width: 100%; border-collapse: collapse; text-align: left; }
+.strata-table th, .strata-table td { padding: 15px; border-bottom: 1px solid #e2e8f0; }
+.strata-table th { background-color: #f8fafc; font-weight: 600; color: #475569; }
+.badge-active { background-color: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #0f172a;
+  border-radius: 6px;
+  margin-top: 8px;
+  outline: none;
+}
+.btn-dashboard {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+}
+.btn-dashboard:hover { background-color: #2563eb; }
+.footer { border-top: 1px solid #e2e8f0; background-color: #ffffff; padding: 25px; text-align: center; font-size: 0.85rem; color: #64748b; margin-top: auto; }
+"""
+
+STRATUM_LAYOUT = """
+<div class="dashboard-wrapper">
+  <div class="sidebar-nav">
+    <div class="sidebar-brand">STRATUM OPERATIONAL</div>
+    <ul class="sidebar-menu">
+      <li><a href="index.html" class="{active_home}">Инфо-панель</a></li>
+      <li><a href="services.html" class="{active_serv}">Декомпозиция</a></li>
+      <li><a href="about.html" class="{active_about}">Базовый стек</a></li>
+      <li><a href="contacts.html" class="{active_cont}">Связь с узлом</a></li>
+    </ul>
+  </div>
+  <div class="main-body">
+    <div class="top-header">
+      <div class="dashboard-title">Админ-панель Stratum Synergy v4.2</div>
+      <div style="font-size: 0.85rem; font-weight: 600; color: #10b981;">● Соединение защищено</div>
     </div>
-    <form class="contact-form" onsubmit="event.preventDefault(); alert('Сеанс инициализирован. Ожидайте синхронизации контуров.');">
-      <div class="form-group">
-        <label>Идентификатор сессии (ФИО)</label>
-        <input type="text" class="form-control" placeholder="Например, Вектор И.И." required>
+    <div class="dashboard-content">
+      {content}
+    </div>
+    <footer class="footer">
+      © 2026 Stratum Synergy Operations. Все процессы завершены штатно.
+    </footer>
+  </div>
+</div>
+"""
+
+# =============================================================================
+# GENERATOR LOGIC
+# =============================================================================
+
+def generate_aether_pages():
+    pages = {}
+    
+    # 1. Index
+    content = """
+    <h1 class="hero-title">СИНХРОНИЗАЦИЯ СУБЧАСТОТНЫХ ЭФИРНЫХ ЭМИТТЕРОВ <span class="blink">_</span></h1>
+    <p>Амплитудная балансировка тонких нелинейных полей. Фиксация дрейфа в секторе 7.</p>
+    
+    <div class="grid-container">
+      <div class="grid-card">
+        <h3>Эфирный дрейф</h3>
+        <p>Стабилизация колебаний второго порядка с коэффициентом гашения 99.8%. Исключение диссипации среды.</p>
       </div>
-      <div class="form-group">
+      <div class="grid-card">
+        <h3>Резонансный барьер</h3>
+        <p>Автоматическая регулировка фазовых углов для исключения тепловых флуктуаций проводников.</p>
+      </div>
+      <div class="grid-card">
+        <h3>Векторные петли</h3>
+        <p>Калибровка направленного излучения с геометрической подстройкой фазового спектра.</p>
+      </div>
+    </div>
+    """
+    pages["index.html"] = AETHER_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+
+    # 2. Services
+    content = """
+    <h1 class="hero-title">ДИАГНОСТИКА РЕЗОНАНСНОЙ СЕТКИ</h1>
+    <p>Мониторинг коэффициентов нелинейного сопротивления в режиме реального времени.</p>
+    
+    <table class="terminal-table">
+      <thead>
+        <tr>
+          <th>Модуль</th>
+          <th>Частота</th>
+          <th>Фаза</th>
+          <th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Aether-Alpha</td>
+          <td>1.2 ГГц</td>
+          <td>0.00°</td>
+          <td style="color:#33ff33">ОПЕРАЦИОННО</td>
+        </tr>
+        <tr>
+          <td>Aether-Sigma</td>
+          <td>8.4 ГГц</td>
+          <td>+0.12°</td>
+          <td style="color:#33ff33">СТАБИЛЬНО</td>
+        </tr>
+        <tr>
+          <td>Aether-Omega</td>
+          <td>16.0 ГГц</td>
+          <td>-0.05°</td>
+          <td style="color:#33ff33">АКТИВНО</td>
+        </tr>
+      </tbody>
+    </table>
+    """
+    pages["services.html"] = AETHER_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+
+    # 3. About
+    content = """
+    <h1 class="hero-title">ОТЧЕТ ИССЛЕДОВАТЕЛЬСКОЙ ГРУППЫ</h1>
+    <p>Эфирный Резонанс — независимое объединение исследователей, изучающих процессы в слабоструктурированных средах.</p>
+    <p style="margin-top: 15px;">Наша цель — создание стабильных пространственных контуров без потери энергии. Мы концентрируемся на выравнивании полей и подавлении нежелательного фонового шума.</p>
+    """
+    pages["about.html"] = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+
+    # 4. Contacts
+    content = """
+    <h1 class="hero-title">КАЛИБРОВКА ЧАСТОТНЫХ ПАРАМЕТРОВ</h1>
+    <p>Отправьте калибровочный тензор для синхронизации вашего терминала с центральным узлом.</p>
+    
+    <form style="margin-top: 20px;" onsubmit="event.preventDefault(); alert('Тензор отправлен.');">
+      <div>
+        <label>ID Терминала</label>
+        <input type="text" class="form-input" placeholder="TERM-824" required>
+      </div>
+      <div style="margin-top: 15px;">
         <label>Канал связи (Email)</label>
-        <input type="email" class="form-control" placeholder="email@address.com" required>
+        <input type="email" class="form-input" placeholder="address@domain.io" required>
       </div>
-      <div class="form-group">
-        <label>Параметры сдвига (Сообщение)</label>
-        <textarea class="form-control" rows="5" placeholder="Опишите наблюдаемые флуктуации..." required></textarea>
+      <div style="margin-top: 15px;">
+        <label>Параметры сдвига</label>
+        <textarea class="form-input" rows="4" placeholder="Опишите частотные отклонения..." required></textarea>
       </div>
-      <button type="submit" class="btn-primary">Отправить тензор</button>
+      <button type="submit" class="btn-submit">Отправить калибровочный вектор</button>
     </form>
-  </div>
-</section>
-"""
-    return HTML_TEMPLATE.format(
-        title=site["title"],
-        ru_title=site["ru_title"],
-        desc=site["desc"],
-        logo=site["logo"],
-        contact_email=site["terms"]["contact_email"],
-        contact_phone=site["terms"]["contact_phone"],
-        contact_addr=site["terms"]["contact_addr"],
-        active_home="",
-        active_serv="",
-        active_about="",
-        active_cont="active",
-        content=content
-    )
+    """
+    pages["contacts.html"] = AETHER_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+
+    return pages
+
+def generate_nexus_pages():
+    pages = {}
+    
+    # 1. Index
+    content = """
+    <section class="hero">
+      <h1>Координация многомерных тензорных полей</h1>
+      <p>Проектируем высокоточные квантовые мосты с компенсацией декогеренции. Повышаем связность распределенных вычислительных сетей.</p>
+      <a href="services.html" class="btn-premium">Исследовать Матрицы</a>
+    </section>
+    """
+    pages["index.html"] = NEXUS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+
+    # 2. Services
+    content = """
+    <section class="section">
+      <h2>Спектральный анализ квантовых структур</h2>
+      <div class="cards-grid">
+        <div class="nexus-card">
+          <h3>Фазовый роутинг</h3>
+          <p>Канальное перераспределение вероятностных траекторий на базе ортогональных графов высокой проводимости.</p>
+        </div>
+        <div class="nexus-card">
+          <h3>Подавление шума</h3>
+          <p>Локальная нейтрализация квантовой декогеренции за счет динамических фазовых компенсаторов.</p>
+        </div>
+        <div class="nexus-card">
+          <h3>Сингулярные матрицы</h3>
+          <p>Стабилизация потоков данных с использованием плотных фрактальных базисов третьего порядка.</p>
+        </div>
+      </div>
+    </section>
+    """
+    pages["services.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+
+    # 3. About
+    content = """
+    <section class="section">
+      <h2>Концепция когерентных систем</h2>
+      <p style="max-width: 800px; margin: 0 auto; text-align: center; font-size: 1.1rem; line-height: 1.8;">
+        Мы разрабатываем математические и программные модели для анализа многомерных пространств. Наша цель — создание бесшовных мостов для интеграции сложных логических структур в динамические нестабильные среды. Мы исследуем фундаментальные принципы стабилизации и оптимизации тензорной плотности.
+      </p>
+    </section>
+    """
+    pages["about.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+
+    # 4. Contacts
+    content = """
+    <section class="section">
+      <h2>Инициализировать соединение с Нексусом</h2>
+      <div class="contact-container">
+        <form onsubmit="event.preventDefault(); alert('Соединение установлено.');">
+          <div>
+            <label style="color:#f3f4f6; font-weight:600;">Идентификатор узла (ФИО)</label>
+            <input type="text" class="form-input" placeholder="Узел №918" required>
+          </div>
+          <div style="margin-top: 20px;">
+            <label style="color:#f3f4f6; font-weight:600;">Вектор связи (Email)</label>
+            <input type="email" class="form-input" placeholder="email@nexus.io" required>
+          </div>
+          <div style="margin-top: 20px;">
+            <label style="color:#f3f4f6; font-weight:600;">Параметры сдвига</label>
+            <textarea class="form-input" rows="4" placeholder="Введите конфигурацию сдвига..." required></textarea>
+          </div>
+          <button type="submit" class="btn-premium" style="margin-top: 20px; width: 100%; border: none;">Установить канал связи</button>
+        </form>
+      </div>
+    </section>
+    """
+    pages["contacts.html"] = NEXUS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+
+    return pages
+
+def generate_synapse_pages():
+    pages = {}
+    
+    # 1. Index
+    content = """
+    <div class="hero">
+      <h1>Оптимизация когнитивных синергий</h1>
+      <p>Развертывание нейроморфных сетевых архитектур с распределенным коэффициентом синаптического веса.</p>
+    </div>
+    <div class="section">
+      <h2 class="section-title">Синаптические контуры</h2>
+      <div class="brutal-grid">
+        <div class="brutal-card">
+          <h3>Балансировка весов</h3>
+          <p>Автоматическая подстройка и калибровка соединений в условиях сильного внешнего шума.</p>
+        </div>
+        <div class="brutal-card alt">
+          <h3>Векторное сжатие</h3>
+          <p>Сверточные когнитивные буферы для сохранения ассоциативных цепочек высокой плотности.</p>
+        </div>
+      </div>
+    </div>
+    """
+    pages["index.html"] = SYNAPSE_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+
+    # 2. Services
+    content = """
+    <div class="section">
+      <h2 class="section-title">Интеграционные Синергии</h2>
+      <div class="brutal-grid">
+        <div class="brutal-card">
+          <h3>Нейробаланс</h3>
+          <p>Регулировка пластичности сети для оптимальной обработки разнородных сигналов.</p>
+        </div>
+        <div class="brutal-card">
+          <h3>Анализ дрейфа</h3>
+          <p>Регистрация отклонений синаптического спектра в реальном времени с адаптивной компенсацией.</p>
+        </div>
+        <div class="brutal-card alt">
+          <h3>Ассоциации</h3>
+          <p>Построение устойчивых фрактальных цепочек связей между изолированными сегментами.</p>
+        </div>
+      </div>
+    </div>
+    """
+    pages["services.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+
+    # 3. About
+    content = """
+    <div class="section">
+      <h2 class="section-title">Концепция бюро</h2>
+      <p style="font-size: 1.2rem; font-weight: 600; line-height: 1.6; max-width: 800px; margin-bottom: 20px;">
+        Мы строим гибкие алгоритмические структуры для обработки сложноорганизованных паттернов. Наша деятельность направлена на создание устойчивых связей в цифровых средах.
+      </p>
+      <p style="font-size: 1.1rem; line-height: 1.6; max-width: 800px;">
+        В рамках проекта исследуются механизмы самоорганизации сетей и оптимизации когнитивной плотности. Мы создаем программные слои, защищенные от внешних помех.
+      </p>
+    </div>
+    """
+    pages["about.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+
+    # 4. Contacts
+    content = """
+    <div class="section">
+      <h2 class="section-title">Адаптивный запрос</h2>
+      <div style="max-width: 600px; border: 4px solid #1a1a1a; padding: 40px; box-shadow: 6px 6px 0px #1a1a1a; background-color: #ffde4d;">
+        <form onsubmit="event.preventDefault(); alert('Данные приняты.');">
+          <div>
+            <label style="font-weight:900;">Идентификатор узла</label>
+            <input type="text" class="form-field" placeholder="NODE-ID" required>
+          </div>
+          <div style="margin-top: 15px;">
+            <label style="font-weight:900;">Электронный вектор (Email)</label>
+            <input type="email" class="form-field" placeholder="vector@domain.io" required>
+          </div>
+          <div style="margin-top: 15px;">
+            <label style="font-weight:900;">Спецификация сдвига</label>
+            <textarea class="form-field" rows="4" placeholder="Опишите параметры..." required></textarea>
+          </div>
+          <button type="submit" class="btn-brutal">Отправить синаптический импульс</button>
+        </form>
+      </div>
+    </div>
+    """
+    pages["contacts.html"] = SYNAPSE_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+
+    return pages
+
+def generate_chronos_pages():
+    pages = {}
+    
+    # 1. Index
+    content = """
+    <h2 class="article-title">Стабилизация каузальных цепей в условиях темпорального шума</h2>
+    <div class="meta-info">Опубликовано: 12.04.2026 // Раздел: Теоретическая хронодинамика</div>
+    <p>
+      Настоящий архив содержит результаты исследований по снижению энтропийного сопротивления временных потоков на границах раздела фаз. Описаны базовые алгоритмы предотвращения каузальных петель и методы локального гашения флуктуаций среды.
+    </p>
+    <p style="margin-top: 15px;">
+      В ходе экспериментов была подтверждена гипотеза о фазовой балансировке замкнутых контуров бездиффузионного переноса. Читайте подробные материалы в разделе «Каузальные контуры».
+    </p>
+    """
+    pages["index.html"] = CHRONOS_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+
+    # 2. Services
+    content = """
+    <h2 class="article-title">Методологии хроно-балансировки</h2>
+    <div class="meta-info">Классификация каузальных контуров по уровню защиты от декогеренции</div>
+    
+    <div style="margin-top: 25px;">
+      <h3 style="color:#800020; font-weight:normal;">Контур Alpha Vector</h3>
+      <p style="margin-bottom: 15px;">Локальное гашение темпоральных сдвигов первого порядка. Фазовый шум в пределах нормы (до 5%). Подходит для стабилизации простых причинно-следственных связей.</p>
+      
+      <h3 style="color:#800020; font-weight:normal;">Контур Sigma Matrix</h3>
+      <p style="margin-bottom: 15px;">Многофакторная калибровка с обратной связью по сингулярности. Эффективное подавление шумов до -40 дБ на средних частотах.</p>
+      
+      <h3 style="color:#800020; font-weight:normal;">Контур Omega Stratum</h3>
+      <p style="margin-bottom: 15px;">Полный темпоральный синтез с нулевой диссипацией хронального поля. Поддержка стабильности сложных каузальных петель.</p>
+    </div>
+    """
+    pages["services.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+
+    # 3. About
+    content = """
+    <h2 class="article-title">О целях нашего института</h2>
+    <div class="meta-info">Историческая справка и миссия</div>
+    <p>
+      Институт темпоральных исследований специализируется на изучении каузальной стабильности пространственно-временных сеток. Мы разрабатываем аналитические инструменты для фиксации фазовых сдвигов и предотвращения локальных сингулярностей.
+    </p>
+    <p style="margin-top: 15px;">
+      Наша группа объединяет математиков, физиков и инженеров по стабильности сред. Совместными усилиями мы создаем стабильные контуры связи.
+    </p>
+    """
+    pages["about.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+
+    # 4. Contacts
+    content = """
+    <h2 class="article-title">Синхронизация каузальных параметров</h2>
+    <div class="meta-info">Форма обратной связи для верификации узлов</div>
+    
+    <form style="margin-top: 20px;" onsubmit="event.preventDefault(); alert('Запрос на синхронизацию отправлен.');">
+      <div>
+        <label>Код исследователя</label>
+        <input type="text" class="form-input" placeholder="ID-7741" required>
+      </div>
+      <div style="margin-top: 15px;">
+        <label>Канал связи (Email)</label>
+        <input type="email" class="form-input" placeholder="office@chronos.su" required>
+      </div>
+      <div style="margin-top: 15px;">
+        <label>Описание флуктуации</label>
+        <textarea class="form-input" rows="5" placeholder="Опишите временной сдвиг..." required></textarea>
+      </div>
+      <button type="submit" class="btn-classic">Запустить синхронизацию</button>
+    </form>
+    """
+    pages["contacts.html"] = CHRONOS_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+
+    return pages
+
+def generate_stratum_pages():
+    pages = {}
+    
+    # 1. Index
+    content = """
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Плотность слоев</div>
+        <div class="kpi-value">98.24%</div>
+        <div class="kpi-growth">▲ Стабильно</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Индекс энтропии</div>
+        <div class="kpi-value">0.034</div>
+        <div class="kpi-growth" style="color:#ef4444;">▼ Снижение</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Активные страты</div>
+        <div class="kpi-value">12 / 12</div>
+        <div class="kpi-growth">▲ Синхронизировано</div>
+      </div>
+    </div>
+    
+    <div class="data-panel">
+      <div class="data-title">Состояние распределенных векторов</div>
+      <table class="strata-table">
+        <thead>
+          <tr>
+            <th>Страта</th>
+            <th>Пропускная способность</th>
+            <th>Индекс сдвига</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Stratum-Alpha</td>
+            <td>1.2 Гб/с</td>
+            <td>0.00%</td>
+            <td><span class="badge-active">ACTIVE</span></td>
+          </tr>
+          <tr>
+            <td>Stratum-Beta</td>
+            <td>8.4 Гб/с</td>
+            <td>0.02%</td>
+            <td><span class="badge-active">ACTIVE</span></td>
+          </tr>
+          <tr>
+            <td>Stratum-Gamma</td>
+            <td>16.0 Гб/с</td>
+            <td>0.00%</td>
+            <td><span class="badge-active">ACTIVE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    """
+    pages["index.html"] = STRATUM_LAYOUT.format(active_home="active", active_serv="", active_about="", active_cont="", content=content)
+
+    # 2. Services
+    content = """
+    <div class="data-panel">
+      <div class="data-title">Спецификация фрактальных уровней</div>
+      <p style="margin-bottom: 20px; color:#64748b;">Ниже приведена схема декомпозиции информационных слоев для балансировки семантической плотности.</p>
+      
+      <div style="border-left: 3px solid #3b82f6; padding-left: 15px; margin-bottom: 20px;">
+        <h4 style="color:#0f172a;">Семантическая селекция</h4>
+        <p style="font-size:0.9rem; color:#64748b;">Маршрутизация данных по фрактальным индексам с целью предотвращения перегрузки семантических шлюзов.</p>
+      </div>
+      
+      <div style="border-left: 3px solid #3b82f6; padding-left: 15px; margin-bottom: 20px;">
+        <h4 style="color:#0f172a;">Фрактальные мосты</h4>
+        <p style="font-size:0.9rem; color:#64748b;">Интеграция изолированных слоев в единую устойчивую распределенную структуру высокой проводимости.</p>
+      </div>
+    </div>
+    """
+    pages["services.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="active", active_about="", active_cont="", content=content)
+
+    # 3. About
+    content = """
+    <div class="data-panel">
+      <div class="data-title">О многоуровневых системах Stratum</div>
+      <p style="line-height:1.8; margin-bottom: 15px;">
+        Stratum Synergy занимается проектированием многослойных фрактальных архитектур для обработки разнородных информационных потоков. Наша основная цель — создание защищенных шлюзов и балансировка семантической нагрузки по слоям.
+      </p>
+      <p style="line-height:1.8;">
+        Мы предоставляем стабильные решения для крупных систем распределенных данных, обеспечивая бесшовное взаимодействие между всеми слоями сети.
+      </p>
+    </div>
+    """
+    pages["about.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="active", active_cont="", content=content)
+
+    # 4. Contacts
+    content = """
+    <div class="data-panel" style="max-width:600px; margin:0 auto;">
+      <div class="data-title">Запрос калибровочных данных у стратум-менеджера</div>
+      <form onsubmit="event.preventDefault(); alert('Параметры стратификации обновлены.');">
+        <div>
+          <label style="font-size:0.85rem; font-weight:600; color:#475569;">Имя узла</label>
+          <input type="text" class="form-input" placeholder="Узел №718" required>
+        </div>
+        <div style="margin-top: 15px;">
+          <label style="font-size:0.85rem; font-weight:600; color:#475569;">Email узла</label>
+          <input type="email" class="form-input" placeholder="node@stratum-synergy.com" required>
+        </div>
+        <div style="margin-top: 15px;">
+          <label style="font-size:0.85rem; font-weight:600; color:#475569;">Спецификация плотности</label>
+          <textarea class="form-input" rows="4" placeholder="Опишите семантические параметры..." required></textarea>
+        </div>
+        <button type="submit" class="btn-dashboard">Отправить параметры</button>
+      </form>
+    </div>
+    """
+    pages["contacts.html"] = STRATUM_LAYOUT.format(active_home="", active_serv="", active_about="", active_cont="active", content=content)
+
+    return pages
+
+# =============================================================================
+# MAIN DIRECTORY GENERATOR
+# =============================================================================
 
 def main():
-    # Remove existing fakesite dir to clean up meridian/northcraft/techvision
     if os.path.exists(DEST_DIR):
         print(f"Cleaning existing fakesites at: {DEST_DIR}")
         shutil.rmtree(DEST_DIR)
     
     os.makedirs(DEST_DIR, exist_ok=True)
-    print(f"Generating 5 fake sites at: {DEST_DIR}")
+    print(f"Generating 5 distinct websites at: {DEST_DIR}")
 
-    for key, site in SITES.items():
-        site_dir = os.path.join(DEST_DIR, key)
-        os.makedirs(site_dir, exist_ok=True)
+    # 1. Aether
+    aether_dir = os.path.join(DEST_DIR, "aether")
+    os.makedirs(aether_dir, exist_ok=True)
+    with open(os.path.join(aether_dir, "style.css"), "w", encoding="utf-8") as f:
+        f.write(AETHER_CSS)
+    aether_pages = generate_aether_pages()
+    for name, html in aether_pages.items():
+        with open(os.path.join(aether_dir, name), "w", encoding="utf-8") as f:
+            f.write(html)
+    print("Generated Aether Resonance (Cyberpunk Console)")
 
-        # Style variables
-        is_light = (site["bg_color"] == "#ffffff")
-        text_color = site["text"]
-        title_color = "#0f172a" if is_light else "#ffffff"
-        text_muted = "#475569" if is_light else "#94a3b8"
-        border_color = "#cbd5e1" if is_light else "#334155"
-        header_bg = "rgba(248, 250, 252, 0.8)" if is_light else "rgba(15, 23, 42, 0.8)"
-        gradient_spot = "rgba(79, 70, 229, 0.1)" if is_light else "rgba(125, 86, 244, 0.15)"
-        btn_text = "#ffffff"
+    # 2. Nexus
+    nexus_dir = os.path.join(DEST_DIR, "nexus")
+    os.makedirs(nexus_dir, exist_ok=True)
+    with open(os.path.join(nexus_dir, "style.css"), "w", encoding="utf-8") as f:
+        f.write(NEXUS_CSS)
+    nexus_pages = generate_nexus_pages()
+    for name, html in nexus_pages.items():
+        with open(os.path.join(nexus_dir, name), "w", encoding="utf-8") as f:
+            f.write(html)
+    print("Generated Quantum Nexus (Premium Dark Corporate)")
 
-        css_content = CSS_TEMPLATE.format(
-            bg_color=site["bg_color"],
-            text_color=text_color,
-            primary_color=site["primary"],
-            secondary_color=site["secondary"],
-            card_bg=site["card_bg"],
-            title_color=title_color,
-            text_muted=text_muted,
-            border_color=border_color,
-            header_bg=header_bg,
-            gradient_spot=gradient_spot,
-            btn_text=btn_text
-        )
+    # 3. Synapse
+    synapse_dir = os.path.join(DEST_DIR, "synapse")
+    os.makedirs(synapse_dir, exist_ok=True)
+    with open(os.path.join(synapse_dir, "style.css"), "w", encoding="utf-8") as f:
+        f.write(SYNAPSE_CSS)
+    synapse_pages = generate_synapse_pages()
+    for name, html in synapse_pages.items():
+        with open(os.path.join(synapse_dir, name), "w", encoding="utf-8") as f:
+            f.write(html)
+    print("Generated Synaptic Dynamics (Brutalist Modern Art Agency)")
 
-        with open(os.path.join(site_dir, "style.css"), "w", encoding="utf-8") as f:
-            f.write(css_content)
+    # 4. Chronos
+    chronos_dir = os.path.join(DEST_DIR, "chronos")
+    os.makedirs(chronos_dir, exist_ok=True)
+    with open(os.path.join(chronos_dir, "style.css"), "w", encoding="utf-8") as f:
+        f.write(CHRONOS_CSS)
+    chronos_pages = generate_chronos_pages()
+    for name, html in chronos_pages.items():
+        with open(os.path.join(chronos_dir, name), "w", encoding="utf-8") as f:
+            f.write(html)
+    print("Generated Chronos Temporal (Academic Archive)")
 
-        with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as f:
-            f.write(generate_index(site))
-
-        with open(os.path.join(site_dir, "about.html"), "w", encoding="utf-8") as f:
-            f.write(generate_about(site))
-
-        with open(os.path.join(site_dir, "services.html"), "w", encoding="utf-8") as f:
-            f.write(generate_services(site))
-
-        with open(os.path.join(site_dir, "contacts.html"), "w", encoding="utf-8") as f:
-            f.write(generate_contacts(site))
-
-        print(f"Generated fake site: {key} ({site['ru_title']})")
+    # 5. Stratum
+    stratum_dir = os.path.join(DEST_DIR, "stratum")
+    os.makedirs(stratum_dir, exist_ok=True)
+    with open(os.path.join(stratum_dir, "style.css"), "w", encoding="utf-8") as f:
+        f.write(STRATUM_CSS)
+    stratum_pages = generate_stratum_pages()
+    for name, html in stratum_pages.items():
+        with open(os.path.join(stratum_dir, name), "w", encoding="utf-8") as f:
+            f.write(html)
+    print("Generated Stratum Synergy (Corporate SaaS Dashboard)")
 
 if __name__ == "__main__":
     main()

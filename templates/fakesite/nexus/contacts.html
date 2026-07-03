@@ -1,82 +1,37 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Квантовый Нексус — Quantum Nexus</title>
-<meta name="description" content="Маршрутизация многомерных тензоров и суперпозиционная стабилизация.">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="header">
-  <div class="container">
-    <a href="index.html" class="logo">
-      ◈ Nexus
-    </a>
-    <nav class="nav">
-      <ul class="nav-list">
-        <li><a href="index.html" class="nav-link ">Главная</a></li>
-        <li><a href="services.html" class="nav-link ">Технологии</a></li>
-        <li><a href="about.html" class="nav-link ">О нас</a></li>
-        <li><a href="contacts.html" class="nav-link active">Контакты</a></li>
-      </ul>
-    </nav>
+
+<header>
+  <div class="nav-container">
+    <a href="index.html" class="logo">QUANTUM_NEXUS</a>
+    <ul class="nav-menu">
+      <li><a href="index.html" class="">Главная</a></li>
+      <li><a href="services.html" class="">Спектры</a></li>
+      <li><a href="about.html" class="">Концепт</a></li>
+      <li><a href="contacts.html" class="active">Связь</a></li>
+    </ul>
   </div>
 </header>
 
-
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <h2>Обратная связь</h2>
-      <p>Оставьте запрос для инициализации калибровочного сеанса</p>
-    </div>
-    <form class="contact-form" onsubmit="event.preventDefault(); alert('Сеанс инициализирован. Ожидайте синхронизации контуров.');">
-      <div class="form-group">
-        <label>Идентификатор сессии (ФИО)</label>
-        <input type="text" class="form-control" placeholder="Например, Вектор И.И." required>
+    <section class="section">
+      <h2>Инициализировать соединение с Нексусом</h2>
+      <div class="contact-container">
+        <form onsubmit="event.preventDefault(); alert('Соединение установлено.');">
+          <div>
+            <label style="color:#f3f4f6; font-weight:600;">Идентификатор узла (ФИО)</label>
+            <input type="text" class="form-input" placeholder="Узел №918" required>
+          </div>
+          <div style="margin-top: 20px;">
+            <label style="color:#f3f4f6; font-weight:600;">Вектор связи (Email)</label>
+            <input type="email" class="form-input" placeholder="email@nexus.io" required>
+          </div>
+          <div style="margin-top: 20px;">
+            <label style="color:#f3f4f6; font-weight:600;">Параметры сдвига</label>
+            <textarea class="form-input" rows="4" placeholder="Введите конфигурацию сдвига..." required></textarea>
+          </div>
+          <button type="submit" class="btn-premium" style="margin-top: 20px; width: 100%; border: none;">Установить канал связи</button>
+        </form>
       </div>
-      <div class="form-group">
-        <label>Канал связи (Email)</label>
-        <input type="email" class="form-control" placeholder="email@address.com" required>
-      </div>
-      <div class="form-group">
-        <label>Параметры сдвига (Сообщение)</label>
-        <textarea class="form-control" rows="5" placeholder="Опишите наблюдаемые флуктуации..." required></textarea>
-      </div>
-      <button type="submit" class="btn-primary">Отправить тензор</button>
-    </form>
-  </div>
-</section>
-
-
+    </section>
+    
 <footer class="footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <a href="index.html" class="logo">◈ Nexus</a>
-        <p>Маршрутизация многомерных тензоров и суперпозиционная стабилизация.</p>
-      </div>
-      <div class="footer-col">
-        <h4>Навигация</h4>
-        <ul>
-          <li><a href="index.html">Главная</a></li>
-          <li><a href="services.html">Технологии</a></li>
-          <li><a href="about.html">О нас</a></li>
-          <li><a href="contacts.html">Контакты</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Контакты</h4>
-        <p>ops@quant-nexus.io</p>
-        <p>+7 (812) 777-99-88</p>
-        <p>Комплекс Квант, Блок 9, Санкт-Петербург</p>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>© 2026 Quantum Nexus. Все права защищены. Разработка систем резонансной стабилизации.</span>
-    </div>
-  </div>
+  <p>© 2026 Quantum Nexus Operations. Все данные зашифрованы алгоритмом фазовой модуляции.</p>
 </footer>
-</body>
-</html>
