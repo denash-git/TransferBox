@@ -1,8 +1,6 @@
 {
     order forward_proxy before file_server
-    servers {
-        grace_period 2s
-    }
+    grace_period 2s
 }
 
 # HTTP to HTTPS redirect
