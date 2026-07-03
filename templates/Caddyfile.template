@@ -12,13 +12,7 @@
     tls {{ADMIN_EMAIL}}
 
     # NaiveProxy with credentials and upstream to sing-box
-    forward_proxy {
-        {{BASIC_AUTH_LIST}}
-        hide_ip
-        hide_via
-        probe_resistance
-        upstream socks5://127.0.0.1:10001
-    }
+    {{FORWARD_PROXY_BLOCK}}
 
     # Route VLESS gRPC by Content-Type header (allows running on root /)
     @grpc {

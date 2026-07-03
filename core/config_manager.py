@@ -70,7 +70,17 @@ def render_configs():
             if user and password:
                 basic_auth_rules.append(f"basic_auth {user} {password}")
 
-    basic_auth_str = "\n        ".join(basic_auth_rules) if basic_auth_rules else "# No users configured"
+    if basic_auth_rules:
+        basic_auth_str = "\n        ".join(basic_auth_rules)
+        forward_proxy_block = f"""forward_proxy {{
+        {basic_auth_str}
+        hide_ip
+        hide_via
+        probe_resistance
+        upstream socks5://127.0.0.1:10001
+    }}"""
+    else:
+        forward_proxy_block = "# No NaiveProxy users configured"
 
     if not os.path.exists(CADDY_TEMPLATE):
         raise FileNotFoundError(f"Caddyfile template not found: {CADDY_TEMPLATE}")
@@ -85,7 +95,7 @@ def render_configs():
     else:
         caddy_content = caddy_content.replace("tls {{ADMIN_EMAIL}}", "tls")
     caddy_content = caddy_content.replace("{{FAKESITE_DIR}}", fakesite_dir)
-    caddy_content = caddy_content.replace("{{BASIC_AUTH_LIST}}", basic_auth_str)
+    caddy_content = caddy_content.replace("{{FORWARD_PROXY_BLOCK}}", forward_proxy_block)
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
     caddy_content = caddy_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
