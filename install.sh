@@ -196,6 +196,7 @@ if [[ "$IS_PIPED" == "true" ]]; then
     fi
 fi
 mkdir -p "$PROJECT_ROOT"
+mkdir -p "${PROJECT_ROOT}/backups"
 cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$PROJECT_ROOT/"
 chmod -R 700 "$PROJECT_ROOT"
 
@@ -245,6 +246,35 @@ step "Запуск прокси-серверов"
 export PYTHONPATH="$PROJECT_ROOT"
 python3 -c "from core.config_manager import render_configs, validate_and_restart; render_configs(); validate_and_restart()"
 log_ok "Конфигурации применены, службы запущены."
+
+# Установка и настройка фаервола UFW
+step "Настройка фаервола UFW"
+apt-get update -y >/dev/null 2>&1
+apt-get install -y ufw >/dev/null 2>&1
+
+# Сброс правил UFW на дефолтные
+ufw --force reset >/dev/null 2>&1
+ufw default deny incoming >/dev/null 2>&1
+ufw default allow outgoing >/dev/null 2>&1
+
+# Определение порта SSH
+ssh_port=22
+if [ -f /etc/ssh/sshd_config ]; then
+    detected_port=$(grep -E "^Port " /etc/ssh/sshd_config | awk '{print $2}')
+    if [ ! -z "$detected_port" ]; then
+        ssh_port=$detected_port
+    fi
+fi
+
+# Разрешаем SSH, HTTP и HTTPS
+ufw allow "$ssh_port"/tcp >/dev/null 2>&1
+ufw allow 80/tcp >/dev/null 2>&1
+ufw allow 443/tcp >/dev/null 2>&1
+ufw allow 443/udp >/dev/null 2>&1
+
+# Включаем UFW в неинтерактивном режиме
+ufw --force enable >/dev/null 2>&1
+log_ok "UFW фаервол настроен (открыты порты: $ssh_port/tcp, 80/tcp, 443/tcp, 443/udp)."
 
 # Вывод результатов
 step "Установка завершена!"
