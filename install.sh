@@ -20,6 +20,10 @@ CADDY_SERVICE="/etc/systemd/system/caddy.service"
 TRANSFERBOX_BIN="/usr/local/bin/transferbox"
 INSTALL_LOG="/tmp/transferbox_install.log"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IS_PIPED=false
+if [[ "$SCRIPT_DIR" == /dev/fd* || "$SCRIPT_DIR" == /proc/* || ! -f "$SCRIPT_DIR/install.sh" ]]; then
+    IS_PIPED=true
+fi
 DEFAULT_GO_VERSION="1.26.2"
 
 step()    { echo -e "\n${BLUE}[*] ${1}${RESET}"; }
@@ -180,6 +184,16 @@ log_ok "Служба caddy зарегистрирована."
 
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
+if [[ "$IS_PIPED" == "true" ]]; then
+    if [[ -d "./core" && -d "./templates" && -f "./transferbox" ]]; then
+        SCRIPT_DIR="$(pwd)"
+    else
+        log_info "Запуск в режиме стрима, клонируем файлы проекта из GitHub..."
+        rm -rf /tmp/TransferBox
+        git clone -q https://github.com/denash-git/TransferBox.git /tmp/TransferBox
+        SCRIPT_DIR="/tmp/TransferBox"
+    fi
+fi
 mkdir -p "$PROJECT_ROOT"
 cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$PROJECT_ROOT/"
 chmod -R 700 "$PROJECT_ROOT"
