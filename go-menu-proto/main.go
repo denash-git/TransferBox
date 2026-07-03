@@ -329,7 +329,7 @@ func (m model) View() string {
 			"  █ ███ █ ▀▄▀▀█ ▀▀█  ▀███\n" +
 			"  █▄▄▄▄▄█ ██   ▀ █▀▀██ ▀ \n"
 		windowContent.WriteString(lipgloss.NewStyle().Foreground(colorWhite).Render(qr) + "\n")
-		windowContent.WriteString(lipgloss.NewStyle().Foreground(colorCyan).Render("  vless://d4187f5d-7a6b-4e12-886c-ec449c4f74d0@proxy.dtopl.online:443...\n\n"))
+		windowContent.WriteString(lipgloss.NewStyle().Foreground(colorWhite).Render("  vless://d4187f5d-7a6b-4e12-886c-ec449c4f74d0@proxy.dtopl.online:443...\n\n"))
 		windowContent.WriteString(selectedItemStyle.Render("  [ ENTER ] НАЗАД"))
 
 	case screenSettings:
