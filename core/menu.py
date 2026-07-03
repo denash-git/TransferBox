@@ -6,6 +6,12 @@ import sys
 import subprocess
 from core.config_manager import load_env, save_env, load_users, render_configs, validate_and_restart
 from core.user_manager import add_user, delete_user, toggle_user, build_client_link, print_qr_code
+import builtins
+
+# Force unbuffered output for instant terminal updates over SSH
+def print(*args, **kwargs):
+    kwargs.setdefault('flush', True)
+    builtins.print(*args, **kwargs)
 
 # ANSI Colors
 BLUE   = '\033[1;34m'
