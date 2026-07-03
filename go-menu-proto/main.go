@@ -10,22 +10,20 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// Vibrant color palette
+// Standard 16 ANSI colors for universal terminal support (works even in old Windows SSH)
 var (
-	colorPurple    = lipgloss.Color("#7D56F4")
-	colorHotPink   = lipgloss.Color("#F02D7D")
-	colorGreen     = lipgloss.Color("#00F294")
-	colorRed       = lipgloss.Color("#FF4A4A")
-	colorCyan      = lipgloss.Color("#00E5FF")
-	colorGray      = lipgloss.Color("#777777")
-	colorDarkGray  = lipgloss.Color("#222222")
-	colorLightGray = lipgloss.Color("#DDDDDD")
-	colorWhite     = lipgloss.Color("#FFFFFF")
+	colorPurple    = lipgloss.Color("13") // Bright Magenta (Purple)
+	colorHotPink   = lipgloss.Color("5")  // Magenta (Pink)
+	colorGreen     = lipgloss.Color("10") // Bright Green
+	colorRed       = lipgloss.Color("9")  // Bright Red
+	colorCyan      = lipgloss.Color("14") // Bright Cyan
+	colorGray      = lipgloss.Color("8")  // Bright Black (Gray)
+	colorLightGray = lipgloss.Color("7")  // Light Gray
+	colorWhite     = lipgloss.Color("15") // Bright White
 )
 
-// Premium UI Styles
+// UI Styles
 var (
-	// Header banner with gradient-like background using hot pink & purple
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorWhite).
@@ -39,7 +37,6 @@ var (
 			Bold(true).
 			PaddingLeft(2)
 
-	// Status panel styles
 	panelTitleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorCyan).
@@ -54,12 +51,10 @@ var (
 			Foreground(colorLightGray).
 			Bold(true)
 
-	// Menu styling
 	menuItemStyle = lipgloss.NewStyle().
 			PaddingLeft(6).
 			Foreground(colorLightGray)
 
-	// Interactive active bar (like a real dashboard selection)
 	selectedItemStyle = lipgloss.NewStyle().
 				PaddingLeft(4).
 				Foreground(colorWhite).
@@ -67,7 +62,6 @@ var (
 				Bold(true).
 				Width(66)
 
-	// Border containers (making the app look much larger and spacious)
 	mainBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			BorderForeground(colorPurple).
@@ -80,7 +74,6 @@ var (
 			Width(76).
 			Padding(1, 1)
 
-	// User Status Pills
 	pillActiveStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(colorGreen).
@@ -188,7 +181,7 @@ func (m *model) getMenuLength() int {
 	case screenUsers:
 		return len(m.usersMenu)
 	case screenUserList:
-		return len(m.userList) + 1 // +1 for "Back"
+		return len(m.userList) + 1
 	case screenUserActions:
 		return len(m.actionMenu)
 	case screenSettings:
@@ -255,7 +248,6 @@ func (m model) handleSelect() (tea.Model, tea.Cmd) {
 		case 0:
 			m.currentScreen = screenShowQR
 		case 1:
-			// Toggle active status
 			for i, u := range m.userList {
 				if u.name == m.selectedUser.name {
 					m.userList[i].active = !u.active
@@ -264,7 +256,6 @@ func (m model) handleSelect() (tea.Model, tea.Cmd) {
 				}
 			}
 		case 2:
-			// Delete user
 			for i, u := range m.userList {
 				if u.name == m.selectedUser.name {
 					m.userList = append(m.userList[:i], m.userList[i+1:]...)
@@ -299,7 +290,7 @@ func (m model) handleSelect() (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s strings.Builder
 
-	// Top Banner
+	// Title
 	s.WriteString(headerStyle.Render("TRANSFERBOX • PREMIUM GATEWAY DASHBOARD") + "\n\n")
 
 	// Status Panel
@@ -311,7 +302,7 @@ func (m model) View() string {
 
 	s.WriteString(statusBoxStyle.Render(statusContent.String()) + "\n\n")
 
-	// Main Interactive Window
+	// Main Screen
 	var windowContent strings.Builder
 	switch m.currentScreen {
 	case screenMain:
@@ -332,7 +323,6 @@ func (m model) View() string {
 
 	case screenShowQR:
 		windowContent.WriteString(subHeaderStyle.Render("QR-КОД ПОДКЛЮЧЕНИЯ") + "\n\n")
-		// Draw a stylized mock QR code
 		qr := "  ▄▄▄▄▄▄▄   ▄▄  ▄ ▄▄▄▄▄▄▄\n" +
 			"  █ ▄▄▄ █ ▀▀▀█▀██ █ ▄▄▄ █\n" +
 			"  █ ███ █ █ ▀█ ▀▀ █ ███ █\n" +
@@ -363,8 +353,6 @@ func (m model) View() string {
 	}
 
 	s.WriteString(mainBoxStyle.Render(windowContent.String()) + "\n\n")
-
-	// Navigation instructions
 	s.WriteString(footerStyle.Render("  ▲/▼: Навигация • Enter: Выбрать • Esc: Назад • q: Выход") + "\n")
 
 	return s.String()
@@ -373,7 +361,6 @@ func (m model) View() string {
 func (m model) renderMenu(items []string) string {
 	var s strings.Builder
 	for i, item := range items {
-		// Padding lines to make the menu spacious and "большое"
 		if i > 0 {
 			s.WriteString("\n")
 		}
@@ -407,7 +394,6 @@ func (m model) renderUserListMenu() string {
 		}
 	}
 
-	// render "Back" item
 	s.WriteString("\n")
 	backIdx := len(m.userList)
 	if m.cursor == backIdx {
@@ -420,10 +406,11 @@ func (m model) renderUserListMenu() string {
 }
 
 func main() {
-	// Programmatically force TrueColor profile for rich coloring over SSH/terminals
-	lipgloss.SetColorProfile(termenv.TrueColor)
+	// Force standard 16-color ANSI output profile (universally supported by all terminals/SSH clients)
+	lipgloss.SetColorProfile(termenv.ANSI)
 
-	p := tea.NewProgram(initialModel())
+	// tea.WithAltScreen() automatically clears the screen on startup, runs full-screen, and restores view on exit
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v", err)
 		os.Exit(1)
