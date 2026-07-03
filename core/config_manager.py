@@ -49,7 +49,7 @@ def render_configs():
 
     domain = env.get("DOMAIN", "example.com")
     email = env.get("ADMIN_EMAIL", "")
-    fakesite_template = env.get("FAKE_SITE_TEMPLATE", "techvision")
+    fakesite_template = env.get("FAKE_SITE_TEMPLATE", "aether")
     
     # Path settings
     vless_ws_path = env.get("VLESS_WS_PATH", "/vless-ws")
@@ -58,7 +58,7 @@ def render_configs():
 
     fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", fakesite_template)
     if not os.path.exists(fakesite_dir):
-        fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", "techvision")
+        fakesite_dir = os.path.join(PROJECT_ROOT, "templates", "fakesite", "aether")
 
     # 1. Render Caddyfile
     basic_auth_rules = []

@@ -55,7 +55,7 @@ if [[ -z "$domain" ]]; then
     error "Домен не может быть пустым."
 fi
 
-read -rp "  Введите email для Let's Encrypt (можно пусто): " email
+read -rp "  Введите email для Let's Encrypt (по умолчанию пусто — анонимный SSL): " email
 email="${email// /}"
 
 read -rp "  Включить BBR (TCP оптимизация)? [Y/n]: " bbr_input
@@ -202,9 +202,10 @@ chmod -R 700 "$PROJECT_ROOT"
 cat > "${PROJECT_ROOT}/instance.env" <<EOF
 DOMAIN=${domain}
 ADMIN_EMAIL=${email}
-FAKE_SITE_TEMPLATE=techvision
+FAKE_SITE_TEMPLATE=aether
 VLESS_WS_PATH=/vless-ws
 VLESS_GRPC_SERVICE=vless-grpc
+VLESS_XHTTP_PATH=/vless-xhttp
 EOF
 chmod 600 "${PROJECT_ROOT}/instance.env"
 

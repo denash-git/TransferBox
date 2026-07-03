@@ -75,7 +75,7 @@ def main_menu():
     while True:
         print_header("TransferBox — Панель Управления")
         print(f"  {CYAN}1){RESET} Пользователи")
-        print(f"  {CYAN}2){RESET} Настройки домена и маскировки")
+        print(f"  {CYAN}2){RESET} Настройки")
         print(f"  {CYAN}3){RESET} Перезапустить службы")
         print(f"  {CYAN}4){RESET} Показать логи")
         print(f"\n  {DIM}00) Выход{RESET}\n")
@@ -242,61 +242,245 @@ def create_user_menu():
 
 # ─── Настройки ───────────────────────────────────────────────────────────────
 
+def get_current_singbox_version():
+    try:
+        res = subprocess.run(["sing-box", "version"], capture_output=True, text=True)
+        for line in res.stdout.split("\n"):
+            if "version" in line:
+                parts = line.split("version")
+                if len(parts) > 1:
+                    return parts[1].strip().split()[0]
+    except Exception:
+        return "не установлен"
+    return "неизвестно"
+
+def get_latest_singbox_version():
+    import urllib.request
+    import json
+    try:
+        url = "https://api.github.com/repos/SagerNet/sing-box/releases/latest"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            tag_name = data.get("tag_name", "")
+            return tag_name.lstrip("v")
+    except Exception as e:
+        return f"ошибка проверки ({e})"
+
 def settings_menu():
     while True:
         env = load_env()
-        print_header("Настройки сервера")
-        print(f"  {YELLOW}1) Домен:{RESET}           {env.get('DOMAIN', 'не задан')}")
-        print(f"  {YELLOW}2) Email Let's Encrypt:{RESET} {env.get('ADMIN_EMAIL', 'не задан')}")
-        print(f"  {YELLOW}3) Фейк-сайт:{RESET}       {env.get('FAKE_SITE_TEMPLATE', 'techvision')}")
-        print(f"  {YELLOW}4) Путь VLESS WS:{RESET}   {env.get('VLESS_WS_PATH', '/vless-ws')}")
-        print(f"  {YELLOW}5) Сервис gRPC:{RESET}     {env.get('VLESS_GRPC_SERVICE', 'vless-grpc')}")
-        print(f"  {YELLOW}6) Путь VLESS XHTTP:{RESET} {env.get('VLESS_XHTTP_PATH', '/vless-xhttp')}")
-        print(f"\n  {DIM}0) Назад{RESET}\n")
+        print_header("Настройки")
+        
+        domain = env.get("DOMAIN", "не задан")
+        email = env.get("ADMIN_EMAIL", "не задан (анонимный SSL)")
+        if not email:
+            email = "не задан (анонимный SSL)"
+        template = env.get("FAKE_SITE_TEMPLATE", "aether")
+        vless_ws = env.get("VLESS_WS_PATH", "/vless-ws")
+        vless_grpc = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
+        vless_xhttp = env.get("VLESS_XHTTP_PATH", "/vless-xhttp")
+        
+        print(f"  {YELLOW}Текущая конфигурация:{RESET}")
+        print(f"  • Домен:             {domain}")
+        print(f"  • Email Let's Encrypt: {email}")
+        print(f"  • Шаблон сайта:      {template}")
+        print(f"  • Путь VLESS WS:     {vless_ws}")
+        print(f"  • Сервис VLESS gRPC:  {vless_grpc}")
+        print(f"  • Путь VLESS XHTTP:  {vless_xhttp}")
+        print(f"{BLUE}─" * 60 + f"{RESET}\n")
 
+        print(f"  {CYAN}1){RESET} Домен и Email")
+        print(f"  {CYAN}2){RESET} Выбор шаблона сайта")
+        print(f"  {CYAN}3){RESET} Настройки путей VLESS")
+        print(f"  {CYAN}4){RESET} Обновление sing-box")
+        print(f"\n  {DIM}0) Назад{RESET}\n")
+        
         choice = get_menu_choice()
         if choice == "0":
             return
         elif choice == "1":
-            val = input("  Новый домен: ").strip()
-            if val:
-                env["DOMAIN"] = val
-                save_env(env)
+            change_domain_email_menu()
         elif choice == "2":
-            val = input("  Email: ").strip()
-            if val:
-                env["ADMIN_EMAIL"] = val
-                save_env(env)
+            change_site_template_menu()
         elif choice == "3":
-            print("\n  Доступные шаблоны: techvision / meridian / northcraft")
-            val = input("  Шаблон: ").strip()
-            if val in ["techvision", "meridian", "northcraft"]:
-                env["FAKE_SITE_TEMPLATE"] = val
-                save_env(env)
-            else:
-                print(f"  {RED}Неизвестный шаблон.{RESET}")
-                pause()
+            change_vless_paths_menu()
         elif choice == "4":
-            val = input("  Путь WS (например /vless-ws): ").strip()
-            if val and val.startswith("/"):
-                env["VLESS_WS_PATH"] = val
-                save_env(env)
+            update_singbox_menu()
+
+def change_domain_email_menu():
+    env = load_env()
+    print_header("Настройки → Домен и Email")
+    print(f"  Текущий домен: {env.get('DOMAIN', 'не задан')}")
+    print(f"  Текущий Email: {env.get('ADMIN_EMAIL', 'не задан (анонимный SSL)') or 'не задан (анонимный SSL)'}")
+    print(f"{BLUE}─" * 60 + f"{RESET}\n")
+    
+    new_domain = input("  Введите новый домен (или Enter для отмены): ").strip()
+    new_domain = new_domain.replace(" ", "")
+    changed = False
+    if new_domain:
+        env["DOMAIN"] = new_domain
+        save_env(env)
+        changed = True
+        print(f"  {GREEN}✓ Домен изменен на {new_domain}{RESET}")
+        
+    print("\n  Для анонимного SSL (без почты) введите символ '-'")
+    new_email = input("  Введите новый Email (или Enter для отмены): ").strip()
+    new_email = new_email.replace(" ", "")
+    if new_email == "-":
+        env["ADMIN_EMAIL"] = ""
+        save_env(env)
+        changed = True
+        print(f"  {GREEN}✓ Email удален (анонимный SSL активирован){RESET}")
+    elif new_email:
+        env["ADMIN_EMAIL"] = new_email
+        save_env(env)
+        changed = True
+        print(f"  {GREEN}✓ Email изменен на {new_email}{RESET}")
+        
+    if changed:
+        print("\n  Применяем настройки...")
+        render_configs()
+        success, msg = validate_and_restart()
+        if success:
+            print(f"  {GREEN}✓ Службы перезапущены и работают.{RESET}")
+        else:
+            print(f"  {RED}✗ Ошибка перезапуска: {msg}{RESET}")
+    pause()
+
+def change_site_template_menu():
+    env = load_env()
+    print_header("Настройки → Шаблон сайта")
+    current = env.get("FAKE_SITE_TEMPLATE", "aether")
+    print(f"  Текущий шаблон: {BOLD}{current}{RESET}\n")
+    
+    templates = {
+        "1": ("aether", "Aether Resonance (Эфирный Резонанс)"),
+        "2": ("nexus", "Quantum Nexus (Квантовый Нексус)"),
+        "3": ("synapse", "Synaptic Dynamics (Синаптическая Динамика)"),
+        "4": ("chronos", "Chronos Temporal (Хроно-Вектор)"),
+        "5": ("stratum", "Stratum Synergy (Стратум Синергия)"),
+    }
+    
+    for k, v in templates.items():
+        print(f"  {CYAN}{k}){RESET} {v[1]}")
+    print(f"\n  {DIM}0) Отмена{RESET}\n")
+    
+    choice = get_menu_choice()
+    if choice in templates:
+        name = templates[choice][0]
+        env["FAKE_SITE_TEMPLATE"] = name
+        save_env(env)
+        print(f"\n  {GREEN}✓ Шаблон изменен на {name}{RESET}")
+        print("  Применяем настройки...")
+        render_configs()
+        success, msg = validate_and_restart()
+        if success:
+            print(f"  {GREEN}✓ Caddy перезапущен с новым сайтом.{RESET}")
+        else:
+            print(f"  {RED}✗ Ошибка перезапуска: {msg}{RESET}")
+    pause()
+
+def change_vless_paths_menu():
+    env = load_env()
+    print_header("Настройки → Пути VLESS")
+    print(f"  1) Путь VLESS WS:     {env.get('VLESS_WS_PATH', '/vless-ws')}")
+    print(f"  2) Сервис VLESS gRPC:  {env.get('VLESS_GRPC_SERVICE', 'vless-grpc')}")
+    print(f"  3) Путь VLESS XHTTP:  {env.get('VLESS_XHTTP_PATH', '/vless-xhttp')}")
+    print(f"\n  {DIM}0) Назад{RESET}\n")
+    
+    choice = get_menu_choice()
+    changed = False
+    if choice == "1":
+        val = input("  Введите путь WS (должен начинаться со слэша /): ").strip()
+        if val and val.startswith("/"):
+            env["VLESS_WS_PATH"] = val
+            save_env(env)
+            changed = True
+        else:
+            print(f"  {RED}Некорректный путь.{RESET}")
+    elif choice == "2":
+        val = input("  Введите имя gRPC сервиса: ").strip()
+        if val:
+            env["VLESS_GRPC_SERVICE"] = val
+            save_env(env)
+            changed = True
+    elif choice == "3":
+        val = input("  Введите путь XHTTP (должен начинаться со слэша /): ").strip()
+        if val and val.startswith("/"):
+            env["VLESS_XHTTP_PATH"] = val
+            save_env(env)
+            changed = True
+        else:
+            print(f"  {RED}Некорректный путь.{RESET}")
+            
+    if changed:
+        print("\n  Применяем настройки...")
+        render_configs()
+        success, msg = validate_and_restart()
+        if success:
+            print(f"  {GREEN}✓ Службы перезапущены с новыми путями.{RESET}")
+        else:
+            print(f"  {RED}✗ Ошибка: {msg}{RESET}")
+    pause()
+
+def update_singbox_menu():
+    print_header("Настройки → Обновление sing-box")
+    print("  Получение информации о версиях...")
+    current = get_current_singbox_version()
+    latest = get_latest_singbox_version()
+    
+    print(f"\n  Текущая установленная версия: {BOLD}{current}{RESET}")
+    print(f"  Последняя официальная версия: {BOLD}{latest}{RESET}\n")
+    
+    if current == latest:
+        print(f"  {GREEN}✓ У вас уже установлена последняя официальная версия.{RESET}")
+        print(f"  Хотите переустановить/принудительно обновить версию {latest}?")
+    else:
+        print(f"  {YELLOW}⚠ Доступно обновление до версии {latest}!{RESET}")
+        
+    confirm = input("  Продолжить обновление? [y/N]: ").strip().lower()
+    if confirm == 'y':
+        print(f"\n  [*] Запуск процесса обновления до версии {latest}...")
+        try:
+            arch_res = subprocess.run(["dpkg", "--print-architecture"], capture_output=True, text=True)
+            arch = arch_res.stdout.strip()
+            go_arch = "amd64"
+            if arch == "arm64" or arch == "aarch64":
+                go_arch = "arm64"
+            
+            deb_url = f"https://github.com/SagerNet/sing-box/releases/download/v{latest}/sing-box_{latest}_linux_{go_arch}.deb"
+            deb_file = f"/tmp/sing-box_{latest}.deb"
+            
+            print(f"  * Скачивание {deb_url}...")
+            import urllib.request
+            urllib.request.urlretrieve(deb_url, deb_file)
+            
+            print("  * Установка deb-пакета...")
+            res = subprocess.run(["dpkg", "-i", deb_file], capture_output=True, text=True)
+            if res.returncode != 0:
+                print(f"  {RED}✗ Ошибка установки dpkg: {res.stderr}{RESET}")
             else:
-                print(f"  {RED}Путь должен начинаться с /{RESET}")
-                pause()
-        elif choice == "5":
-            val = input("  Имя gRPC сервиса: ").strip()
-            if val:
-                env["VLESS_GRPC_SERVICE"] = val
-                save_env(env)
-        elif choice == "6":
-            val = input("  Путь XHTTP (например /vless-xhttp): ").strip()
-            if val and val.startswith("/"):
-                env["VLESS_XHTTP_PATH"] = val
-                save_env(env)
-            else:
-                print(f"  {RED}Путь должен начинаться с /{RESET}")
-                pause()
+                print(f"  {GREEN}✓ sing-box успешно установлен/обновлен.{RESET}")
+                
+                print("  * Удаление временного файла...")
+                if os.path.exists(deb_file):
+                    os.remove(deb_file)
+                
+                print("  * Перезапуск службы sing-box...")
+                subprocess.run(["systemctl", "daemon-reload"])
+                subprocess.run(["systemctl", "restart", "sing-box"])
+                
+                log_ok = subprocess.run(["systemctl", "is-active", "sing-box"], capture_output=True, text=True).stdout.strip()
+                if log_ok == "active":
+                    print(f"  {GREEN}✓ Службы успешно перезапущены и проверены.{RESET}")
+                else:
+                    print(f"  {RED}✗ Служба sing-box не запустилась после обновления!{RESET}")
+        except Exception as e:
+            print(f"  {RED}✗ Ошибка при обновлении: {e}{RESET}")
+    else:
+        print("  Обновление отменено.")
+    pause()
 
 # ─── Применение настроек ─────────────────────────────────────────────────────
 
