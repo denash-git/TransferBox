@@ -300,6 +300,7 @@ def settings_menu():
         print(f"  {CYAN}2){RESET} Выбор шаблона сайта")
         print(f"  {CYAN}3){RESET} Настройки путей VLESS")
         print(f"  {CYAN}4){RESET} Обновление sing-box")
+        print(f"  {CYAN}5){RESET} Бэкап и Восстановление")
         print(f"\n  {DIM}0) Назад{RESET}\n")
         
         choice = get_menu_choice()
@@ -313,6 +314,8 @@ def settings_menu():
             change_vless_paths_menu()
         elif choice == "4":
             update_singbox_menu()
+        elif choice == "5":
+            backup_restore_menu()
 
 def change_domain_email_menu():
     env = load_env()
@@ -487,6 +490,88 @@ def update_singbox_menu():
     else:
         print("  Обновление отменено.")
     pause()
+
+def backup_restore_menu():
+    import tarfile
+    import datetime
+    
+    while True:
+        print_header("Настройки → Бэкап и Восстановление")
+        print(f"  {CYAN}1){RESET} Создать бэкап настроек")
+        print(f"  {CYAN}2){RESET} Восстановить настройки из файла")
+        print(f"\n  {DIM}0) Назад{RESET}\n")
+        
+        choice = get_menu_choice()
+        if choice == "0":
+            return
+        elif choice == "1":
+            print_header("Создание резервной копии")
+            backup_dir = "/opt/transferbox/backups"
+            try:
+                os.makedirs(backup_dir, exist_ok=True)
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_filename = f"transferbox_backup_{timestamp}.tar.gz"
+                backup_path = os.path.join(backup_dir, backup_filename)
+                
+                files_to_backup = []
+                paths = ["/opt/transferbox/users.json", "/opt/transferbox/instance.env"]
+                for p in paths:
+                    if os.path.exists(p):
+                        files_to_backup.append(p)
+                
+                if not files_to_backup:
+                    print(f"\n  {RED}✗ Ошибка: Нет файлов настроек для резервного копирования!{RESET}")
+                    pause()
+                    continue
+                
+                with tarfile.open(backup_path, "w:gz") as tar:
+                    for p in files_to_backup:
+                        tar.add(p, arcname=os.path.basename(p))
+                
+                print(f"\n  {GREEN}✓ Бэкап успешно создан!{RESET}")
+                print(f"  Файл сохранен: {BOLD}{backup_path}{RESET}")
+                print("  Скачайте этот файл на свой компьютер для надежного хранения.")
+            except Exception as e:
+                print(f"\n  {RED}✗ Ошибка создания бэкапа: {e}{RESET}")
+            pause()
+            
+        elif choice == "2":
+            print_header("Восстановление из резервной копии")
+            print("  Пожалуйста, укажите абсолютный путь к файлу резервной копии.")
+            print("  Например: /opt/transferbox/backups/transferbox_backup_XXXXXXXX_XXXXXX.tar.gz")
+            print(f"{BLUE}─" * 60 + f"{RESET}\n")
+            
+            backup_path = input("  Путь к файлу бэкапа (или Enter для отмены): ").strip()
+            if not backup_path:
+                continue
+                
+            if not os.path.exists(backup_path):
+                print(f"\n  {RED}✗ Ошибка: Файл по указанному пути не найден!{RESET}")
+                pause()
+                continue
+                
+            confirm = input(f"  Вы уверены, что хотите переписать текущие настройки? [y/N]: ").strip().lower()
+            if confirm != 'y':
+                print("  Операция отменена.")
+                pause()
+                continue
+                
+            print("\n  [*] Восстановление файлов...")
+            try:
+                with tarfile.open(backup_path, "r:gz") as tar:
+                    tar.extractall(path="/opt/transferbox")
+                
+                print("  [*] Пересборка конфигураций и перезапуск служб...")
+                render_configs()
+                success, msg = validate_and_restart()
+                if success:
+                    print(f"\n  {GREEN}✓ Настройки успешно восстановлены и применены!{RESET}")
+                    print("  Все службы запущены и функционируют на восстановленных данных.")
+                else:
+                    print(f"\n  {RED}✗ Ошибка при применении восстановленных настроек: {msg}{RESET}")
+            except Exception as e:
+                print(f"\n  {RED}✗ Ошибка при распаковке архива: {e}{RESET}")
+            pause()
 
 # ─── Применение настроек ─────────────────────────────────────────────────────
 
