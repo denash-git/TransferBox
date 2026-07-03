@@ -10,67 +10,62 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// Standard 16 ANSI colors for universal terminal support (works even in old Windows SSH)
+// Standard 16 ANSI colors for universal terminal support
 var (
-	colorPurple    = lipgloss.Color("13") // Bright Magenta (Purple)
-	colorHotPink   = lipgloss.Color("5")  // Magenta (Pink)
-	colorGreen     = lipgloss.Color("10") // Bright Green
-	colorRed       = lipgloss.Color("9")  // Bright Red
-	colorCyan      = lipgloss.Color("14") // Bright Cyan
-	colorGray      = lipgloss.Color("8")  // Bright Black (Gray)
-	colorLightGray = lipgloss.Color("7")  // Light Gray
-	colorWhite     = lipgloss.Color("15") // Bright White
+	colorYellow = lipgloss.Color("11") // Bright Yellow
+	colorGreen  = lipgloss.Color("10") // Bright Green
+	colorRed    = lipgloss.Color("9")  // Bright Red
+	colorGray   = lipgloss.Color("8")  // Gray
+	colorWhite  = lipgloss.Color("15") // White
 )
 
-// UI Styles
+// UI Styles (Mostly B&W, titles yellow, statuses colored, selected line inverted)
 var (
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorWhite).
-			Background(colorPurple).
+			Foreground(colorYellow).
 			Padding(1, 2).
 			Width(76).
 			Align(lipgloss.Center)
 
 	subHeaderStyle = lipgloss.NewStyle().
-			Foreground(colorHotPink).
+			Foreground(colorYellow).
 			Bold(true).
 			PaddingLeft(2)
 
 	panelTitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(colorCyan).
+			Foreground(colorYellow).
 			PaddingLeft(2)
 
 	labelStyle = lipgloss.NewStyle().
-			Foreground(colorGray).
+			Foreground(colorWhite).
 			Width(14).
 			PaddingLeft(2)
 
 	valueStyle = lipgloss.NewStyle().
-			Foreground(colorLightGray).
+			Foreground(colorWhite).
 			Bold(true)
 
 	menuItemStyle = lipgloss.NewStyle().
 			PaddingLeft(6).
-			Foreground(colorLightGray)
+			Foreground(colorWhite)
 
+	// Selection inversion for perfect readability and high contrast
 	selectedItemStyle = lipgloss.NewStyle().
 				PaddingLeft(4).
-				Foreground(colorWhite).
-				Background(colorPurple).
-				Bold(true).
+				Reverse(true).
 				Width(66)
 
 	mainBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.DoubleBorder()).
-			BorderForeground(colorPurple).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorWhite).
 			Width(76).
 			Padding(1, 2)
 
 	statusBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorHotPink).
+			BorderForeground(colorWhite).
 			Width(76).
 			Padding(1, 1)
 
@@ -153,9 +148,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
-			if m.currentScreen == screenMain {
-				return m, tea.Quit
-			}
+			// Quit on 'q' or 'ctrl+c' from any screen
+			return m, tea.Quit
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
@@ -290,7 +284,7 @@ func (m model) handleSelect() (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s strings.Builder
 
-	// Title
+	// Top Title (Yellow)
 	s.WriteString(headerStyle.Render("TRANSFERBOX • PREMIUM GATEWAY DASHBOARD") + "\n\n")
 
 	// Status Panel
@@ -406,10 +400,10 @@ func (m model) renderUserListMenu() string {
 }
 
 func main() {
-	// Force standard 16-color ANSI output profile (universally supported by all terminals/SSH clients)
+	// Force standard 16-color ANSI output profile
 	lipgloss.SetColorProfile(termenv.ANSI)
 
-	// tea.WithAltScreen() automatically clears the screen on startup, runs full-screen, and restores view on exit
+	// tea.WithAltScreen() automatically clears the screen on startup
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v", err)
