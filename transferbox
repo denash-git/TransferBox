@@ -33,11 +33,27 @@ pause() {
     read -rp "  Нажмите Enter для продолжения..."
 }
 
+center_print() {
+    local text="$1"
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    
+    local clean_text
+    clean_text=$(printf "%b" "$text" | sed 's/\x1b\[[0-9;]*m//g')
+    local text_len=${#clean_text}
+    
+    local padding=$(( (term_width - text_len) / 2 ))
+    [ $padding -lt 0 ] && padding=0
+    
+    printf "%${padding}s%b\n" "" "$text"
+}
+
 draw_line() {
     local char="$1"
     local color="$2"
-    printf "${color}%.0s${char}${RESET}" {1..60}
-    echo ""
+    local line
+    line=$(printf "${char}%.0s" {1..60})
+    center_print "${color}${line}${RESET}"
 }
 
 get_service_status() {
@@ -59,13 +75,18 @@ print_header() {
     fi
     [ -z "$domain" ] && domain="не задан"
     
-    draw_line "═" "$BLUE"
-    echo -e "  ${YELLOW}${title}${RESET}"
-    draw_line "─" "$BLUE"
-    echo -e "  Домен: $domain"
-    echo -e "  Caddy: $(get_service_status caddy)"
-    echo -e "  sing-box: $(get_service_status sing-box)"
-    draw_line "═" "$BLUE"
+    local line_double
+    line_double=$(printf "═%.0s" {1..60})
+    local line_single
+    line_single=$(printf "─%.0s" {1..60})
+    
+    center_print "${BLUE}${line_double}${RESET}"
+    center_print "${YELLOW}${title}${RESET}"
+    center_print "${BLUE}${line_single}${RESET}"
+    center_print "Домен: ${BOLD}${domain}${RESET}"
+    center_print "Caddy: $(get_service_status caddy)"
+    center_print "sing-box: $(get_service_status sing-box)"
+    center_print "${BLUE}${line_double}${RESET}"
     echo ""
 }
 
@@ -81,26 +102,48 @@ select_menu() {
     # Скрыть курсор
     tput civis
     
+    # Очистить экран один раз при входе в меню
+    clear_screen
+    
     while true; do
-        clear_screen
+        # Переместить курсор в верхний левый угол
+        printf "\033[H"
+        
         print_header "$title"
+        
+        # Определим максимальную визуальную длину вариантов для центрирования блока
+        local max_len=0
+        for opt in "${options[@]}"; do
+            local clean_opt
+            clean_opt=$(printf "%b" "$opt" | sed 's/\x1b\[[0-9;]*m//g')
+            if [ ${#clean_opt} -gt $max_len ]; then
+                max_len=${#clean_opt}
+            fi
+        done
+        
+        local term_width
+        term_width=$(tput cols 2>/dev/null || echo 80)
+        local indent=$(( (term_width - max_len) / 2 ))
+        [ $indent -lt 0 ] && indent=0
         
         for i in "${!options[@]}"; do
             if [ "$i" -eq "$active_idx" ]; then
-                # Инверсия строки при выборе (код 7)
-                echo -e "  \033[7m ${options[$i]} \033[0m"
+                # Инверсия строки при выборе (код 7) с очисткой остатка строки \033[K
+                printf "%${indent}s\033[7m %b \033[0m\033[K\n" "" "${options[$i]}"
             else
-                echo -e "    ${options[$i]}"
+                printf "%${indent}s  %b \033[K\n" "" "${options[$i]}"
             fi
         done
-        echo -e "\n  ${DIM}[Используйте стрелки ↑/↓, Enter для выбора, Q/0 для выхода/назад]${RESET}"
+        echo ""
+        center_print "${DIM}[Используйте стрелки ↑/↓, Enter для выбора, Q/0 для выхода/назад]${RESET}"
+        printf "\033[J" # Очистить всё ниже меню
         
         # Считывание нажатия клавиши
         local key
-        IFS= read -rsn1 -d '' key
+        IFS= read -rsn1 key
         if [[ "$key" == $'\x1b' ]]; then
             local next_keys
-            IFS= read -rsn2 -t 0.05 -d '' next_keys
+            IFS= read -rsn2 -t 0.05 next_keys
             if [[ "$next_keys" == "[A" ]]; then # Вверх
                 active_idx=$(( (active_idx - 1 + num_options) % num_options ))
             elif [[ "$next_keys" == "[B" ]]; then # Вниз
