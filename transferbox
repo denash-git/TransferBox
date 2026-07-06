@@ -130,30 +130,6 @@ select_menu() {
             show_status="true"
         fi
         
-        # Вычисление высоты содержимого для вертикального центрирования
-        # Базовая высота: 3 (границы+заголовок) + 1 (пустая строка после заголовка) + 2 (пустая строка перед помощью + сама помощь)
-        local content_height=6
-        if [ "$show_status" == "true" ]; then
-            content_height=$(( content_height + 4 )) # 3 строки статуса + 1 граница
-        fi
-        content_height=$(( content_height + num_options ))
-        
-        # Экран Настройки печатает 7 дополнительных строк текущей конфигурации
-        if [ "$title" == "Настройки" ]; then
-            content_height=$(( content_height + 7 ))
-        fi
-        
-        # Вычисление вертикального отступа
-        local term_height
-        term_height=$(tput lines 2>/dev/null || echo 24)
-        local padding_y=$(( (term_height - content_height) / 2 ))
-        [ $padding_y -lt 0 ] && padding_y=0
-        
-        # Выводим вертикальный отступ
-        for ((y=0; y<padding_y; y++)); do
-            printf "\033[K\n"
-        done
-        
         print_header "$title" "$show_status"
         
         # Определим максимальную визуальную длину вариантов для центрирования блока
