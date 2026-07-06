@@ -29,8 +29,20 @@ clear_screen() {
 }
 
 pause() {
-    echo -e ""
-    read -rp "  Нажмите Enter для продолжения..."
+    echo ""
+    center_print "${DIM}Нажмите любую клавишу для продолжения...${RESET}"
+    read -rsn1
+}
+
+read_prompt() {
+    local prompt_text="$1"
+    local var_name="$2"
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    local indent=$(( (term_width - 50) / 2 ))
+    [ $indent -lt 2 ] && indent=2
+    printf "%${indent}s%s" "" "$prompt_text"
+    read -r "$var_name"
 }
 
 center_print() {
@@ -69,6 +81,7 @@ get_service_status() {
 
 print_header() {
     local title="$1"
+    local show_status="${2:-false}"
     local domain="не задан"
     if [ -f "/opt/transferbox/instance.env" ]; then
         domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
@@ -83,10 +96,12 @@ print_header() {
     center_print "${BLUE}${line_double}${RESET}"
     center_print "${YELLOW}${title}${RESET}"
     center_print "${BLUE}${line_single}${RESET}"
-    center_print "Домен: ${BOLD}${domain}${RESET}"
-    center_print "Caddy: $(get_service_status caddy)"
-    center_print "sing-box: $(get_service_status sing-box)"
-    center_print "${BLUE}${line_double}${RESET}"
+    if [ "$show_status" == "true" ]; then
+        center_print "Домен: ${BOLD}${domain}${RESET}"
+        center_print "Caddy: $(get_service_status caddy)"
+        center_print "sing-box: $(get_service_status sing-box)"
+        center_print "${BLUE}${line_double}${RESET}"
+    fi
     echo ""
 }
 
@@ -109,7 +124,37 @@ select_menu() {
         # Переместить курсор в верхний левый угол
         printf "\033[H"
         
-        print_header "$title"
+        # Определим, показывать ли статус на основе заголовка
+        local show_status="false"
+        if [ "$title" == "TransferBox — Панель Управления" ]; then
+            show_status="true"
+        fi
+        
+        # Вычисление высоты содержимого для вертикального центрирования
+        # Базовая высота: 3 (границы+заголовок) + 1 (пустая строка после заголовка) + 2 (пустая строка перед помощью + сама помощь)
+        local content_height=6
+        if [ "$show_status" == "true" ]; then
+            content_height=$(( content_height + 4 )) # 3 строки статуса + 1 граница
+        fi
+        content_height=$(( content_height + num_options ))
+        
+        # Экран Настройки печатает 7 дополнительных строк текущей конфигурации
+        if [ "$title" == "Настройки" ]; then
+            content_height=$(( content_height + 7 ))
+        fi
+        
+        # Вычисление вертикального отступа
+        local term_height
+        term_height=$(tput lines 2>/dev/null || echo 24)
+        local padding_y=$(( (term_height - content_height) / 2 ))
+        [ $padding_y -lt 0 ] && padding_y=0
+        
+        # Выводим вертикальный отступ
+        for ((y=0; y<padding_y; y++)); do
+            printf "\033[K\n"
+        done
+        
+        print_header "$title" "$show_status"
         
         # Определим максимальную визуальную длину вариантов для центрирования блока
         local max_len=0
@@ -319,7 +364,8 @@ if user:
             qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
             pause
         elif [ "$choice" -eq 2 ]; then
-            read -rp "  Вы действительно хотите удалить пользователя $nick? [y/N]: " confirm
+            local confirm
+            read_prompt "Вы действительно хотите удалить пользователя $nick? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
                 python3 -c "
 from core.user_manager import delete_user
@@ -344,10 +390,11 @@ create_user_menu() {
     clear_screen
     print_header "Новый пользователь"
     
-    read -rp "  Введите никнейм пользователя: " nick
+    local nick
+    read_prompt "Введите никнейм пользователя: " nick
     nick="${nick// /}"
     if [ -z "$nick" ]; then
-        echo -e "  ${RED}✗ Никнейм не может быть пустым.${RESET}"
+        echo -e "\n  ${RED}✗ Никнейм не может быть пустым.${RESET}"
         pause
         return
     fi
@@ -380,19 +427,40 @@ create_user_menu() {
     fi
     
     echo -e "\n  [*] Добавление пользователя..."
-    python3 -c "
+    local create_res
+    create_res=$(python3 -c "
 from core.user_manager import add_user
 success, user = add_user('$nick', '$protocol', '$user_type')
 if success:
-    print('Пользователь успешно создан.')
+    print('SUCCESS')
 else:
-    print('Ошибка:', user)
-"
-    python3 -c "
+    print(user)
+")
+    
+    if [ "$create_res" == "SUCCESS" ]; then
+        python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+        clear_screen
+        local link
+        link=$(python3 -c "
+from core.user_manager import load_users, build_client_link
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick'), None)
+if user:
+    print(build_client_link(user))
+")
+        print_header "Пользователь создан: $nick"
+        echo -e "  Пользователь успешно создан и зарегистрирован!\n"
+        echo -e "  Ссылка для подключения:"
+        echo -e "  \033[1;36m$link\033[0m"
+        echo -e "\n  QR-код:"
+        qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+    else
+        echo -e "\n  ${RED}✗ Ошибка создания пользователя: $create_res${RESET}"
+    fi
     pause
 }
 
@@ -456,7 +524,8 @@ change_domain_email_menu() {
     echo -e "  Текущий Email: ${ADMIN_EMAIL:-не задан (анонимный SSL)}"
     draw_line "─" "$BLUE"
     
-    read -rp "  Введите новый домен (или Enter для отмены): " new_domain
+    local new_domain
+    read_prompt "Введите новый домен (или Enter для отмены): " new_domain
     new_domain="${new_domain// /}"
     
     local changed=false
@@ -467,7 +536,8 @@ change_domain_email_menu() {
     fi
     
     echo -e "\n  Для анонимного SSL (без почты) введите символ '-'"
-    read -rp "  Введите новый Email (или Enter для отмены): " new_email
+    local new_email
+    read_prompt "Введите новый Email (или Enter для отмены): " new_email
     new_email="${new_email// /}"
     
     if [ "$new_email" == "-" ]; then
@@ -548,7 +618,8 @@ change_vless_paths_menu() {
         
         local changed=false
         if [ "$choice" -eq 0 ]; then
-            read -rp "  Введите путь WS (должен начинаться со слэша /): " val
+            local val
+            read_prompt "Введите путь WS (должен начинаться со слэша /): " val
             val="${val// /}"
             if [[ "$val" == /* ]]; then
                 python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_WS_PATH'] = '$val'; save_env(env)"
@@ -558,12 +629,14 @@ change_vless_paths_menu() {
                 pause
             fi
         elif [ "$choice" -eq 1 ]; then
-            read -rp "  Введите имя gRPC сервиса (можно пустой): " val
+            local val
+            read_prompt "Введите имя gRPC сервиса (можно пустой): " val
             val="${val// /}"
             python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_GRPC_SERVICE'] = '$val'; save_env(env)"
             changed=true
         elif [ "$choice" -eq 2 ]; then
-            read -rp "  Введите путь XHTTP (должен начинаться со слэша /): " val
+            local val
+            read_prompt "Введите путь XHTTP (должен начинаться со слэша /): " val
             val="${val// /}"
             if [[ "$val" == /* ]]; then
                 python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_XHTTP_PATH'] = '$val'; save_env(env)"
@@ -612,10 +685,10 @@ update_singbox_menu() {
     local confirm
     if [ "$current" == "$latest" ]; then
         echo -e "  ${GREEN}✓ У вас уже установлена последняя официальная версия.${RESET}"
-        read -rp "  Хотите переустановить/принудительно обновить версию $latest? [y/N]: " confirm
+        read_prompt "Хотите переустановить/принудительно обновить версию $latest? [y/N]: " confirm
     else
         echo -e "  ${YELLOW}⚠ Доступно обновление до версии $latest!${RESET}"
-        read -rp "  Продолжить обновление? [y/N]: " confirm
+        read_prompt "Продолжить обновление? [y/N]: " confirm
     fi
     
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
@@ -758,7 +831,8 @@ else:
             draw_line "─" "$BLUE"
             echo ""
             
-            read -rp "  Восстановить настройки из этого файла? Текущие данные будут перезаписаны! [y/N]: " confirm
+            local confirm
+            read_prompt "Восстановить настройки из этого файла? Текущие данные будут перезаписаны! [y/N]: " confirm
             if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
                 echo -e "  Операция отменена."
                 pause
