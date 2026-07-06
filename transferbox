@@ -1,20 +1,837 @@
 #!/usr/bin/env bash
 # =============================================================================
-# TransferBox — Bash-обертка для запуска меню управления
+# TransferBox — Панель Управления (Pure Bash TUI с навигацией стрелками)
 # =============================================================================
 set -euo pipefail
 
-# Путь к рабочему каталогу утилиты
-PROJECT_ROOT="/opt/transferbox"
+# ANSI Colors
+BLUE='\033[1;34m'
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+DIM='\033[2m'
+BOLD='\033[1m'
+RESET='\033[0m'
 
 # Проверка запуска от root
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo -e "\033[1;31mОшибка: Для запуска утилиты требуются права root. Используйте: sudo menu\033[0m" >&2
+    echo -e "${RED}Ошибка: Для запуска утилиты требуются права root. Используйте: sudo menu${RESET}" >&2
     exit 1
 fi
 
-# Убедимся, что путь находится в python path для импорта модулей
+PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
 
-# Запуск меню
-exec python3 "${PROJECT_ROOT}/core/menu.py" "$@"
+# ─── ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ─────────────────────────────────────────────────
+
+clear_screen() {
+    printf "\033[2J\033[H"
+}
+
+pause() {
+    echo -e ""
+    read -rp "  Нажмите Enter для продолжения..."
+}
+
+draw_line() {
+    local char="$1"
+    local color="$2"
+    printf "${color}%.0s${char}${RESET}" {1..60}
+    echo ""
+}
+
+get_service_status() {
+    local service_name="$1"
+    if systemctl is-active "$service_name" >/dev/null 2>&1; then
+        echo -e "${GREEN}● работает${RESET}"
+    else
+        local status
+        status=$(systemctl is-active "$service_name" 2>/dev/null || echo "не установлен")
+        echo -e "${RED}● не запущен ($status)${RESET}"
+    fi
+}
+
+print_header() {
+    local title="$1"
+    local domain="не задан"
+    if [ -f "/opt/transferbox/instance.env" ]; then
+        domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    fi
+    [ -z "$domain" ] && domain="не задан"
+    
+    draw_line "═" "$BLUE"
+    echo -e "  ${YELLOW}${title}${RESET}"
+    draw_line "─" "$BLUE"
+    echo -e "  Домен: $domain"
+    echo -e "  Caddy: $(get_service_status caddy)"
+    echo -e "  sing-box: $(get_service_status sing-box)"
+    draw_line "═" "$BLUE"
+    echo ""
+}
+
+# Функция навигации стрелками
+# Устанавливает переменную SELECTED_INDEX
+select_menu() {
+    local title="$1"
+    shift
+    local options=("$@")
+    local num_options=${#options[@]}
+    local active_idx=0
+    
+    # Скрыть курсор
+    tput civis
+    
+    while true; do
+        clear_screen
+        print_header "$title"
+        
+        for i in "${!options[@]}"; do
+            if [ "$i" -eq "$active_idx" ]; then
+                # Инверсия строки при выборе (код 7)
+                echo -e "  \033[7m ${options[$i]} \033[0m"
+            else
+                echo -e "    ${options[$i]}"
+            fi
+        done
+        echo -e "\n  ${DIM}[Используйте стрелки ↑/↓, Enter для выбора, Q/0 для выхода/назад]${RESET}"
+        
+        # Считывание нажатия клавиши
+        local key
+        IFS= read -rsn1 -d '' key
+        if [[ "$key" == $'\x1b' ]]; then
+            local next_keys
+            IFS= read -rsn2 -t 0.05 -d '' next_keys
+            if [[ "$next_keys" == "[A" ]]; then # Вверх
+                active_idx=$(( (active_idx - 1 + num_options) % num_options ))
+            elif [[ "$next_keys" == "[B" ]]; then # Вниз
+                active_idx=$(( (active_idx + 1) % num_options ))
+            fi
+        elif [[ "$key" == "" ]]; then # Enter
+            SELECTED_INDEX=$active_idx
+            tput cnorm # Показать курсор
+            return 0
+        elif [[ "$key" == "q" || "$key" == "Q" || "$key" == "0" ]]; then
+            SELECTED_INDEX=-1
+            tput cnorm # Показать курсор
+            return 1
+        fi
+    done
+}
+
+# ─── ГЛАВНОЕ МЕНЮ ────────────────────────────────────────────────────────────
+
+main_menu() {
+    while true; do
+        local options=(
+            "Пользователи"
+            "Настройки"
+            "Бэкап и Восстановление"
+            "Перезапустить службы"
+            "Показать логи"
+            "Выход"
+        )
+        select_menu "TransferBox — Панель Управления" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            users_menu
+        elif [ "$choice" -eq 1 ]; then
+            settings_menu
+        elif [ "$choice" -eq 2 ]; then
+            backup_restore_menu
+        elif [ "$choice" -eq 3 ]; then
+            apply_settings_menu
+        elif [ "$choice" -eq 4 ]; then
+            logs_menu
+        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
+            clear_screen
+            exit 0
+        fi
+    done
+}
+
+# ─── МЕНЮ ПОЛЬЗОВАТЕЛЕЙ ──────────────────────────────────────────────────────
+
+users_menu() {
+    while true; do
+        local options=(
+            "Список пользователей"
+            "Добавить нового пользователя"
+            "Назад"
+        )
+        select_menu "Пользователи" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            list_users_menu
+        elif [ "$choice" -eq 1 ]; then
+            create_user_menu
+        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+list_users_menu() {
+    while true; do
+        if [ ! -f "/opt/transferbox/users.json" ] || [ "$(jq '. | length' /opt/transferbox/users.json 2>/dev/null)" -eq 0 ]; then
+            clear_screen
+            print_header "Список пользователей"
+            echo -e "  Пользователей пока нет."
+            pause
+            return
+        fi
+        
+        # Считывание пользователей
+        local users_raw=()
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            users_raw+=("$line")
+        done < <(jq -r '.[] | "\(.nickname)|\(.protocol)|\(.credentials.type // "")|\(.enabled)"' /opt/transferbox/users.json 2>/dev/null)
+        
+        local options=()
+        for u in "${users_raw[@]}"; do
+            IFS='|' read -r nick proto utype enabled <<< "$u"
+            local label=""
+            if [ "$proto" == "naive" ]; then
+                label="NaiveProxy"
+            else
+                label="VLESS over ${utype^^}"
+            fi
+            
+            local status_str=""
+            if [ "$enabled" == "true" ]; then
+                status_str="${GREEN}активен${RESET}"
+            else
+                status_str="${RED}отключен${RESET}"
+            fi
+            options+=("$nick ($label) [$status_str]")
+        done
+        options+=("Назад")
+        
+        select_menu "Список пользователей" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
+            return
+        else
+            local user_data="${users_raw[$choice]}"
+            user_submenu "$user_data"
+        fi
+    done
+}
+
+user_submenu() {
+    local user_data="$1"
+    IFS='|' read -r nick proto utype enabled <<< "$user_data"
+    
+    while true; do
+        local status_label="${GREEN}активен${RESET}"
+        if [ "$enabled" != "true" ]; then
+            status_label="${RED}отключен${RESET}"
+        fi
+        
+        local options=(
+            "Включить / Выключить (Статус: $status_label)"
+            "Показать ссылку подключения и QR-код"
+            "Удалить пользователя"
+            "Назад"
+        )
+        
+        select_menu "Управление: $nick" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            local new_status="True"
+            if [ "$enabled" == "true" ]; then
+                new_status="False"
+            fi
+            echo -e "\n  [*] Изменение статуса пользователя..."
+            python3 -c "
+from core.user_manager import toggle_user
+success, msg = toggle_user('$nick', $new_status)
+print(msg)
+"
+            python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+            if [ "$new_status" == "True" ]; then enabled="true"; else enabled="false"; fi
+            pause
+        elif [ "$choice" -eq 1 ]; then
+            clear_screen
+            print_header "Подключение: $nick"
+            local link
+            link=$(python3 -c "
+from core.user_manager import load_users, build_client_link
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick'), None)
+if user:
+    print(build_client_link(user))
+")
+            echo -e "  Ссылка для подключения:"
+            echo -e "  \033[1;36m$link\033[0m"
+            echo -e "\n  QR-код:"
+            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+            pause
+        elif [ "$choice" -eq 2 ]; then
+            read -rp "  Вы действительно хотите удалить пользователя $nick? [y/N]: " confirm
+            if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                python3 -c "
+from core.user_manager import delete_user
+success, msg = delete_user('$nick')
+print(msg)
+"
+                python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+                pause
+                return
+            fi
+        elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+create_user_menu() {
+    clear_screen
+    print_header "Новый пользователь"
+    
+    read -rp "  Введите никнейм пользователя: " nick
+    nick="${nick// /}"
+    if [ -z "$nick" ]; then
+        echo -e "  ${RED}✗ Никнейм не может быть пустым.${RESET}"
+        pause
+        return
+    fi
+    
+    local options=(
+        "VLESS over WebSocket"
+        "VLESS over gRPC"
+        "VLESS over XHTTP"
+        "NaiveProxy"
+        "Отмена"
+    )
+    select_menu "Протокол для $nick" "${options[@]}"
+    local choice=$SELECTED_INDEX
+    
+    local protocol=""
+    local user_type=""
+    if [ "$choice" -eq 0 ]; then
+        protocol="vless"
+        user_type="ws"
+    elif [ "$choice" -eq 1 ]; then
+        protocol="vless"
+        user_type="grpc"
+    elif [ "$choice" -eq 2 ]; then
+        protocol="vless"
+        user_type="xhttp"
+    elif [ "$choice" -eq 3 ]; then
+        protocol="naive"
+    else
+        return
+    fi
+    
+    echo -e "\n  [*] Добавление пользователя..."
+    python3 -c "
+from core.user_manager import add_user
+success, user = add_user('$nick', '$protocol', '$user_type')
+if success:
+    print('Пользователь успешно создан.')
+else:
+    print('Ошибка:', user)
+"
+    python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+    pause
+}
+
+# ─── НАСТРОЙКИ ───────────────────────────────────────────────────────────────
+
+settings_menu() {
+    while true; do
+        if [ -f "/opt/transferbox/instance.env" ]; then
+            source /opt/transferbox/instance.env
+        fi
+        local domain="${DOMAIN:-не задан}"
+        local email="${ADMIN_EMAIL:-не задан (анонимный SSL)}"
+        [ -z "$email" ] && email="не задан (анонимный SSL)"
+        local template="${FAKE_SITE_TEMPLATE:-aether}"
+        local vless_ws="${VLESS_WS_PATH:-/}"
+        local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
+        [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
+        local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
+        
+        clear_screen
+        print_header "Настройки"
+        echo -e "  Текущая конфигурация:"
+        echo -e "  • Домен:             $domain"
+        echo -e "  • Email Let's Encrypt: $email"
+        echo -e "  • Шаблон сайта:      $template"
+        echo -e "  • Путь VLESS WS:     $vless_ws"
+        echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
+        echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
+        draw_line "─" "$BLUE"
+        
+        local options=(
+            "Изменить Домен и Email"
+            "Выбрать шаблон маскировочного сайта"
+            "Настроить пути VLESS"
+            "Обновить sing-box"
+            "Назад"
+        )
+        select_menu "Настройки" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            change_domain_email_menu
+        elif [ "$choice" -eq 1 ]; then
+            change_site_template_menu
+        elif [ "$choice" -eq 2 ]; then
+            change_vless_paths_menu
+        elif [ "$choice" -eq 3 ]; then
+            update_singbox_menu
+        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+change_domain_email_menu() {
+    clear_screen
+    print_header "Настройки → Домен и Email"
+    source /opt/transferbox/instance.env
+    
+    echo -e "  Текущий домен: ${DOMAIN:-не задан}"
+    echo -e "  Текущий Email: ${ADMIN_EMAIL:-не задан (анонимный SSL)}"
+    draw_line "─" "$BLUE"
+    
+    read -rp "  Введите новый домен (или Enter для отмены): " new_domain
+    new_domain="${new_domain// /}"
+    
+    local changed=false
+    if [ ! -z "$new_domain" ]; then
+        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['DOMAIN'] = '$new_domain'; save_env(env)"
+        changed=true
+        echo -e "  ${GREEN}✓ Домен изменен на $new_domain${RESET}"
+    fi
+    
+    echo -e "\n  Для анонимного SSL (без почты) введите символ '-'"
+    read -rp "  Введите новый Email (или Enter для отмены): " new_email
+    new_email="${new_email// /}"
+    
+    if [ "$new_email" == "-" ]; then
+        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = ''; save_env(env)"
+        changed=true
+        echo -e "  ${GREEN}✓ Email удален (анонимный SSL активирован)${RESET}"
+    elif [ ! -z "$new_email" ]; then
+        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = '$new_email'; save_env(env)"
+        changed=true
+        echo -e "  ${GREEN}✓ Email изменен на $new_email${RESET}"
+    fi
+    
+    if [ "$changed" == "true" ]; then
+        echo -e "\n  Применяем настройки..."
+        python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+    fi
+    pause
+}
+
+change_site_template_menu() {
+    clear_screen
+    print_header "Настройки → Шаблон сайта"
+    source /opt/transferbox/instance.env
+    echo -e "  Текущий шаблон: ${FAKE_SITE_TEMPLATE:-aether}\n"
+    
+    local options=(
+        "Aether Resonance (Эфирный Резонанс)"
+        "Quantum Nexus (Квантовый Нексус)"
+        "Synaptic Dynamics (Синаптическая Динамика)"
+        "Chronos Temporal (Хроно-Вектор)"
+        "Stratum Synergy (Стратум Синергия)"
+        "Отмена"
+    )
+    select_menu "Выбор шаблона" "${options[@]}"
+    local choice=$SELECTED_INDEX
+    
+    local name=""
+    if [ "$choice" -eq 0 ]; then name="aether"
+    elif [ "$choice" -eq 1 ]; then name="nexus"
+    elif [ "$choice" -eq 2 ]; then name="synapse"
+    elif [ "$choice" -eq 3 ]; then name="chronos"
+    elif [ "$choice" -eq 4 ]; then name="stratum"
+    else return; fi
+    
+    python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FAKE_SITE_TEMPLATE'] = '$name'; save_env(env)"
+    echo -e "\n  Применяем настройки..."
+    python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+    pause
+}
+
+change_vless_paths_menu() {
+    while true; do
+        source /opt/transferbox/instance.env
+        clear_screen
+        print_header "Настройки → Пути VLESS"
+        
+        local vless_ws="${VLESS_WS_PATH:-/}"
+        local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
+        [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
+        local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
+        
+        local options=(
+            "Путь VLESS WS:      $vless_ws"
+            "Сервис VLESS gRPC:  $vless_grpc"
+            "Путь VLESS XHTTP:   $vless_xhttp"
+            "Назад"
+        )
+        select_menu "Настройки путей" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        local changed=false
+        if [ "$choice" -eq 0 ]; then
+            read -rp "  Введите путь WS (должен начинаться со слэша /): " val
+            val="${val// /}"
+            if [[ "$val" == /* ]]; then
+                python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_WS_PATH'] = '$val'; save_env(env)"
+                changed=true
+            else
+                echo -e "  ${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
+                pause
+            fi
+        elif [ "$choice" -eq 1 ]; then
+            read -rp "  Введите имя gRPC сервиса (можно пустой): " val
+            val="${val// /}"
+            python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_GRPC_SERVICE'] = '$val'; save_env(env)"
+            changed=true
+        elif [ "$choice" -eq 2 ]; then
+            read -rp "  Введите путь XHTTP (должен начинаться со слэша /): " val
+            val="${val// /}"
+            if [[ "$val" == /* ]]; then
+                python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_XHTTP_PATH'] = '$val'; save_env(env)"
+                changed=true
+            else
+                echo -e "  ${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
+                pause
+            fi
+        else
+            return
+        fi
+        
+        if [ "$changed" == "true" ]; then
+            echo -e "\n  Применяем настройки..."
+            python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+            pause
+        fi
+    done
+}
+
+update_singbox_menu() {
+    clear_screen
+    print_header "Настройки → Обновление sing-box"
+    echo -e "  Получение информации о версиях..."
+    
+    local current
+    current=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}' || echo "не установлен")
+    
+    local latest
+    latest=$(wget -qO- "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r .tag_name 2>/dev/null || echo "")
+    latest="${latest#v}"
+    
+    if [ -z "$latest" ]; then
+        echo -e "  ${RED}✗ Ошибка: Не удалось получить последнюю версию с GitHub.${RESET}"
+        pause
+        return
+    fi
+    
+    echo -e "\n  Текущая установленная версия: ${BOLD}$current${RESET}"
+    echo -e "  Последняя официальная версия: ${BOLD}$latest${RESET}\n"
+    
+    local confirm
+    if [ "$current" == "$latest" ]; then
+        echo -e "  ${GREEN}✓ У вас уже установлена последняя официальная версия.${RESET}"
+        read -rp "  Хотите переустановить/принудительно обновить версию $latest? [y/N]: " confirm
+    else
+        echo -e "  ${YELLOW}⚠ Доступно обновление до версии $latest!${RESET}"
+        read -rp "  Продолжить обновление? [y/N]: " confirm
+    fi
+    
+    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+        echo -e "\n  [*] Запуск процесса обновления до версии $latest..."
+        local arch
+        arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
+        local go_arch="amd64"
+        case "$arch" in
+            amd64|x86_64) go_arch="amd64";;
+            arm64|aarch64) go_arch="arm64";;
+        esac
+        
+        local deb_url="https://github.com/SagerNet/sing-box/releases/download/v${latest}/sing-box_${latest}_linux_${go_arch}.deb"
+        local deb_file="/tmp/sing-box_${latest}.deb"
+        
+        echo -e "  * Скачивание $deb_url..."
+        wget -qO "$deb_file" "$deb_url"
+        
+        echo -e "  * Установка deb-пакета..."
+        if dpkg -i "$deb_file" >/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓ sing-box успешно установлен/обновлен.${RESET}"
+            rm -f "$deb_file"
+            
+            echo -e "  * Проверка совместимости конфигурации..."
+            if ! sing-box check -c /etc/sing-box/config.json; then
+                echo -e "  ${RED}✗ ВНИМАНИЕ: Новая версия не совместима с вашим конфигом!${RESET}"
+                echo -e "  Служба не будет перезапущена, чтобы сохранить работоспособность."
+            else
+                echo -e "  * Перезапуск службы sing-box..."
+                systemctl daemon-reload
+                systemctl restart sing-box
+                echo -e "  ${GREEN}✓ Служба sing-box успешно обновлена и перезапущена.${RESET}"
+            fi
+        else
+            echo -e "  ${RED}✗ Ошибка установки deb-пакета через dpkg.${RESET}"
+        fi
+    else
+        echo -e "  Обновление отменено."
+    fi
+    pause
+}
+
+# ─── БЭКАП И ВОССТАНОВЛЕНИЕ ──────────────────────────────────────────────────
+
+backup_restore_menu() {
+    import_modules() { :; } # Dummy
+    import tarfile 2>/dev/null || :
+    import datetime 2>/dev/null || :
+    
+    while True; do
+        local options=(
+            "Создать бэкап настроек"
+            "Восстановить из последнего бэкапа"
+            "Назад"
+        )
+        select_menu "Бэкап и Восстановление" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            print_header "Создание резервной копии"
+            local backup_dir="/opt/transferbox/backups"
+            
+            # Run creation in python helper
+            python3 -c "
+import os, tarfile, datetime
+backup_dir = '$backup_dir'
+os.makedirs(backup_dir, exist_ok=True)
+timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+backup_filename = f'transferbox_backup_{timestamp}.tar.gz'
+backup_path = os.path.join(backup_dir, backup_filename)
+
+files_to_backup = []
+paths = ['/opt/transferbox/users.json', '/opt/transferbox/instance.env']
+for p in paths:
+    if os.path.exists(p):
+        files_to_backup.append(p)
+
+if not files_to_backup:
+    print('ERROR: No files to backup')
+else:
+    try:
+        with tarfile.open(backup_path, 'w:gz') as tar:
+            for p in files_to_backup:
+                tar.add(p, arcname=os.path.basename(p))
+        print(f'SUCCESS:{backup_path}')
+    except Exception as e:
+        print(f'ERROR:{e}')
+" > /tmp/backup_res.txt
+            
+            local res
+            res=$(cat /tmp/backup_res.txt)
+            if [[ "$res" == SUCCESS:* ]]; then
+                local path="${res#SUCCESS:}"
+                echo -e "  ${GREEN}✓ Бэкап успешно создан!${RESET}"
+                echo -e "  Файл сохранен: ${BOLD}${path}${RESET}"
+                echo -e "  Скачайте этот файл на свой компьютер для надежного хранения."
+            else
+                echo -e "  ${RED}✗ Ошибка создания бэкапа: ${res#ERROR:}${RESET}"
+            fi
+            rm -f /tmp/backup_res.txt
+            pause
+            
+        elif [ "$choice" -eq 1 ]; then
+            print_header("Восстановление из последнего бэкапа")
+            local backup_dir="/opt/transferbox/backups"
+            
+            # Find latest in python
+            python3 -c "
+import os, glob, datetime, tarfile
+backup_dir = '$backup_dir'
+backup_files = glob.glob(os.path.join(backup_dir, 'transferbox_backup_*.tar.gz'))
+if not backup_files:
+    print('ERROR: No backup files found')
+else:
+    backup_files.sort(key=os.path.getmtime, reverse=True)
+    latest_backup = backup_files[0]
+    mtime = os.path.getmtime(latest_backup)
+    file_date = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
+    print(f'FOUND:{latest_backup}|{file_date}')
+" > /tmp/restore_find.txt
+            
+            local res
+            res=$(cat /tmp/restore_find.txt)
+            rm -f /tmp/restore_find.txt
+            
+            if [[ "$res" == ERROR:* ]]; then
+                echo -e "  ${RED}✗ Ошибка: В папке $backup_dir не найдено файлов бэкапов!${RESET}"
+                pause
+                continue
+            fi
+            
+            # Extract path and date
+            IFS='|' read -r latest_backup_info file_date <<< "${res#FOUND:}"
+            local latest_filename
+            latest_filename=$(basename "$latest_backup_info")
+            
+            echo -e "  Найден последний файл бэкапа:"
+            echo -e "  • Имя:  ${BOLD}${latest_filename}${RESET}"
+            echo -e "  • Дата: ${file_date}"
+            draw_line "─" "$BLUE"
+            echo ""
+            
+            read -rp "  Восстановить настройки из этого файла? Текущие данные будут перезаписаны! [y/N]: " confirm
+            if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+                echo -e "  Операция отменена."
+                pause
+                continue
+            fi
+            
+            echo -e "\n  [*] Восстановление файлов..."
+            python3 -c "
+import tarfile
+try:
+    with tarfile.open('$latest_backup_info', 'r:gz') as tar:
+        tar.extractall(path='/opt/transferbox')
+    print('SUCCESS')
+except Exception as e:
+    print('ERROR:', e)
+" > /tmp/restore_extract.txt
+            
+            local ext_res
+            ext_res=$(cat /tmp/restore_extract.txt)
+            rm -f /tmp/restore_extract.txt
+            
+            if [ "$ext_res" == "SUCCESS" ]; then
+                echo -e "  [*] Пересборка конфигураций и перезапуск служб..."
+                python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+success, msg = validate_and_restart()
+if success:
+    print('SUCCESS')
+else:
+    print('ERROR:', msg)
+" > /tmp/restore_apply.txt
+                
+                local apply_res
+                apply_res=$(cat /tmp/restore_apply.txt)
+                rm -f /tmp/restore_apply.txt
+                
+                if [ "$apply_res" == "SUCCESS" ]; then
+                    echo -e "\n  ${GREEN}✓ Настройки успешно восстановлены и применены!${RESET}"
+                    echo -e "  Все службы запущены и функционируют на восстановленных данных."
+                else
+                    echo -e "\n  ${RED}✗ Ошибка при применении восстановленных настроек: ${apply_res#ERROR:}${RESET}"
+                fi
+            else
+                echo -e "\n  ${RED}✗ Ошибка при распаковке архива: ${ext_res#ERROR:}${RESET}"
+            fi
+            pause
+        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+# ─── ПРИМЕНЕНИЕ НАСТРОЕК ─────────────────────────────────────────────────────
+
+apply_settings_menu() {
+    clear_screen
+    print_header "Перезапуск служб"
+    echo -e "  Генерация конфигураций и перезапуск..."
+    python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+success, msg = validate_and_restart()
+if success:
+    print('SUCCESS')
+else:
+    print('ERROR:', msg)
+" > /tmp/apply_res.txt
+    
+    local res
+    res=$(cat /tmp/apply_res.txt)
+    rm -f /tmp/apply_res.txt
+    
+    if [ "$res" == "SUCCESS" ]; then
+        echo -e "\n  ${GREEN}✓ Службы успешно перезапущены!${RESET}"
+    else
+        echo -e "\n  ${RED}✗ Ошибка:${RESET}\n  ${res#ERROR:}"
+    fi
+    pause
+}
+
+# ─── ЛОГИ ────────────────────────────────────────────────────────────────────
+
+logs_menu() {
+    while true; do
+        local options=(
+            "Последние 50 строк — Caddy"
+            "Последние 50 строк — sing-box"
+            "Следить за логом Caddy (Ctrl+C — выход)"
+            "Следить за логом sing-box (Ctrl+C — выход)"
+            "Назад"
+        )
+        select_menu "Просмотр логов" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            clear_screen
+            journalctl -u caddy -n 50 --no-pager
+            pause
+        elif [ "$choice" -eq 1 ]; then
+            clear_screen
+            journalctl -u sing-box -n 50 --no-pager
+            pause
+        elif [ "$choice" -eq 2 ]; then
+            clear_screen
+            echo -e "  Следим за логами Caddy... (Нажмите Ctrl+C для выхода)\n"
+            journalctl -u caddy -f
+        elif [ "$choice" -eq 3 ]; then
+            clear_screen
+            echo -e "  Следим за логами sing-box... (Нажмите Ctrl+C для выхода)\n"
+            journalctl -u sing-box -f
+        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+# Запуск главного меню
+main_menu
