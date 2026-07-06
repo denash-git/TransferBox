@@ -316,7 +316,7 @@ user_submenu() {
             echo -e "\n  [*] Изменение статуса пользователя..."
             python3 -c "
 from core.user_manager import toggle_user
-success, msg = toggle_user('$nick', $new_status)
+success, msg = toggle_user('$nick', $new_status, '$proto', '$utype')
 print(msg)
 "
             python3 -c "
@@ -345,31 +345,31 @@ validate_and_restart()
             local qr_titles=()
             
             for ur in "${user_records[@]}"; do
-                IFS='|' read -r proto utype token <<< "$ur"
+                IFS='|' read -r proto_item utype_item token <<< "$ur"
                 local link
                 link=$(python3 -c "
 from core.config_manager import load_users, build_client_link
 users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$proto' and u.get('credentials', {}).get('type', '') == '$utype'), None)
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$proto_item' and u.get('credentials', {}).get('type', '') == '$utype_item'), None)
 if user:
     print(build_client_link(user))
 ")
                 if [ ! -z "$link" ]; then
                     local label=""
-                    if [ "$proto" == "naive" ]; then
+                    if [ "$proto_item" == "naive" ]; then
                         label="NaiveProxy Link & QR"
                     else
-                        label="VLESS over ${utype^^} Link & QR"
+                        label="VLESS over ${utype_item^^} Link & QR"
                     fi
                     qr_options+=("$label")
                     qr_links+=("$link")
-                    qr_titles+=("Подключение: $nick ($proto ${utype^^})")
+                    qr_titles+=("Подключение: $nick ($proto_item ${utype_item^^})")
                 fi
             done
             
             local sub_token=""
             for ur in "${user_records[@]}"; do
-                IFS='|' read -r proto utype token <<< "$ur"
+                IFS='|' read -r proto_item utype_item token <<< "$ur"
                 if [ ! -z "$token" ]; then
                     sub_token="$token"
                     break
@@ -406,11 +406,11 @@ if user:
             done
         elif [ "$choice" -eq 2 ]; then
             local confirm
-            read_prompt "Вы действительно хотите удалить пользователя $nick? [y/N]: " confirm
+            read_prompt "Вы действительно хотите удалить протокол $proto ${utype^^} для $nick? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
                 python3 -c "
 from core.user_manager import delete_user
-success, msg = delete_user('$nick')
+success, msg = delete_user('$nick', '$proto', '$utype')
 print(msg)
 "
                 python3 -c "
@@ -438,6 +438,18 @@ create_user_menu() {
         echo -e "\n  ${RED}✗ Никнейм не может быть пустым.${RESET}"
         pause
         return
+    fi
+    
+    # Проверить, существует ли никнейм уже в базе
+    if [ -f "/opt/transferbox/users.json" ] && jq -e ".[] | select(.nickname == \"$nick\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        echo -e "\n  ${YELLOW}⚠ Пользователь с никнеймом '$nick' уже существует.${RESET}"
+        local confirm
+        read_prompt "Хотите добавить ему дополнительный протокол? [y/N]: " confirm
+        if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+            echo -e "  Создание пользователя отменено."
+            pause
+            return
+        fi
     fi
     
     local options=(
@@ -487,9 +499,9 @@ validate_and_restart()
         clear_screen
         local link
         link=$(python3 -c "
-from core.user_manager import load_users, build_client_link
+from core.config_manager import load_users, build_client_link
 users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick'), None)
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$protocol' and u.get('credentials', {}).get('type', '') == '$user_type'), None)
 if user:
     print(build_client_link(user))
 ")
@@ -521,6 +533,11 @@ settings_menu() {
         [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
         local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
         
+        local bbr_status="${RED}отключен${RESET}"
+        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+            bbr_status="${GREEN}активен${RESET}"
+        fi
+        
         clear_screen
         print_header "Настройки"
         echo -e "  Текущая конфигурация:"
@@ -530,6 +547,7 @@ settings_menu() {
         echo -e "  • Путь VLESS WS:     $vless_ws"
         echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
         echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
+        echo -e "  • TCP BBR:           $bbr_status"
         draw_line "─" "$BLUE"
         
         local options=(
@@ -537,6 +555,7 @@ settings_menu() {
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
             "Обновить sing-box"
+            "Включить / Выключить BBR (Статус: $bbr_status)"
             "Назад"
         )
         select_menu "Настройки" "${options[@]}"
@@ -550,7 +569,35 @@ settings_menu() {
             change_vless_paths_menu
         elif [ "$choice" -eq 3 ]; then
             update_singbox_menu
-        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 4 ]; then
+            clear_screen
+            print_header "Настройки → BBR Оптимизация"
+            if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+                echo -e "  [*] Отключение BBR оптимизации..."
+                if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
+                    rm -f /etc/sysctl.d/99-transferbox-bbr.conf
+                    sysctl --system >/dev/null 2>&1
+                    echo -e "\n  ${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
+                else
+                    echo -e "\n  ${RED}✗ Ошибка при отключении BBR.${RESET}"
+                fi
+            else
+                echo -e "  [*] Включение BBR оптимизации..."
+                if modprobe tcp_bbr 2>/dev/null; then
+                    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+                    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+                    cat > /etc/sysctl.d/99-transferbox-bbr.conf <<EOF
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+EOF
+                    sysctl --system >/dev/null 2>&1
+                    echo -e "\n  ${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
+                else
+                    echo -e "\n  ${RED}✗ Ошибка: Ядро вашей системы не поддерживает BBR.${RESET}"
+                fi
+            fi
+            pause
+        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
             return
         fi
     done

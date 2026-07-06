@@ -15,14 +15,22 @@ def generate_username():
 def add_user(nickname, protocol, user_type="ws"):
     users = load_users()
     
-    # Check if nickname already exists
+    # Find existing sub_token for this nickname
+    existing_token = next((u.get("sub_token") for u in users if u.get("nickname") == nickname), None)
+    
+    # Check if this exact protocol/type already exists for this nickname
     for u in users:
         if u.get("nickname") == nickname:
-            return False, "User with this nickname already exists."
+            u_proto = u.get("protocol")
+            u_type = u.get("credentials", {}).get("type", "")
+            
+            if protocol == "naive" and u_proto == "naive":
+                return False, f"User '{nickname}' already has NaiveProxy protocol."
+            if protocol == "vless" and u_proto == "vless" and u_type == user_type:
+                return False, f"User '{nickname}' already has VLESS over {user_type.upper()} protocol."
             
     if protocol == "naive":
         username = generate_username()
-        # Ensure unique username
         while any(u.get("credentials", {}).get("username") == username for u in users):
             username = generate_username()
             
@@ -33,7 +41,8 @@ def add_user(nickname, protocol, user_type="ws"):
                 "username": username,
                 "password": generate_password()
             },
-            "enabled": True
+            "enabled": True,
+            "sub_token": existing_token or secrets.token_hex(8)
         }
     elif protocol == "vless":
         new_user = {
@@ -41,9 +50,10 @@ def add_user(nickname, protocol, user_type="ws"):
             "protocol": "vless",
             "credentials": {
                 "uuid": generate_uuid(),
-                "type": user_type # ws or grpc
+                "type": user_type
             },
-            "enabled": True
+            "enabled": True,
+            "sub_token": existing_token or secrets.token_hex(8)
         }
     else:
         return False, "Unsupported protocol."
@@ -52,22 +62,30 @@ def add_user(nickname, protocol, user_type="ws"):
     save_users(users)
     return True, new_user
 
-def delete_user(nickname):
+def delete_user(nickname, protocol=None, user_type=None):
     users = load_users()
     initial_len = len(users)
-    users = [u for u in users if u.get("nickname") != nickname]
+    if protocol:
+        users = [u for u in users if not (u.get("nickname") == nickname and u.get("protocol") == protocol and u.get("credentials", {}).get("type", "") == (user_type or ""))]
+    else:
+        users = [u for u in users if u.get("nickname") != nickname]
     if len(users) == initial_len:
         return False, "User not found."
     save_users(users)
     return True, "User deleted successfully."
 
-def toggle_user(nickname, enabled):
+def toggle_user(nickname, enabled, protocol=None, user_type=None):
     users = load_users()
+    updated = False
     for u in users:
         if u.get("nickname") == nickname:
+            if protocol and (u.get("protocol") != protocol or u.get("credentials", {}).get("type", "") != (user_type or "")):
+                continue
             u["enabled"] = enabled
-            save_users(users)
-            return True, f"User status updated to {'enabled' if enabled else 'disabled'}."
+            updated = True
+    if updated:
+        save_users(users)
+        return True, f"User status updated to {'enabled' if enabled else 'disabled'}."
     return False, "User not found."
 
 def print_qr_code(link):
