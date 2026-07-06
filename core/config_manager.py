@@ -31,10 +31,19 @@ def save_env(env):
             f.write(f"{k}={v}\n")
 
 def load_users():
+    import secrets
     if os.path.exists(USERS_DB):
         try:
             with open(USERS_DB, "r", encoding="utf-8") as f:
-                return json.load(f)
+                users = json.load(f)
+            changed = False
+            for u in users:
+                if "sub_token" not in u:
+                    u["sub_token"] = secrets.token_hex(8)
+                    changed = True
+            if changed:
+                save_users(users)
+            return users
         except Exception:
             return []
     return []
@@ -42,6 +51,35 @@ def load_users():
 def save_users(users):
     with open(USERS_DB, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=2, ensure_ascii=False)
+
+def build_client_link(user_obj):
+    env = load_env()
+    domain = env.get("DOMAIN", "yourdomain.com")
+    
+    protocol = user_obj.get("protocol")
+    nickname = user_obj.get("nickname")
+    creds = user_obj.get("credentials", {})
+    
+    if protocol == "naive":
+        username = creds.get("username")
+        password = creds.get("password")
+        return f"naive+https://{username}:{password}@{domain}:443#{nickname}"
+        
+    elif protocol == "vless":
+        user_uuid = creds.get("uuid")
+        user_type = creds.get("type", "ws")
+        
+        if user_type == "ws":
+            path = env.get("VLESS_WS_PATH", "/")
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=ws&path={path}#{nickname}"
+        elif user_type == "grpc":
+            service = env.get("VLESS_GRPC_SERVICE", "")
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=grpc&serviceName={service}#{nickname}"
+        elif user_type == "xhttp":
+            path = env.get("VLESS_XHTTP_PATH", "/xhttp")
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}"
+            
+    return ""
 
 def render_configs():
     env = load_env()
@@ -149,6 +187,38 @@ def render_configs():
     os.makedirs(os.path.dirname(SINGBOX_CONFIG), exist_ok=True)
     with open(SINGBOX_CONFIG, "w", encoding="utf-8") as f:
         f.write(sb_content)
+
+    # 3. Generate subscription files in /opt/transferbox/sub/
+    sub_dir = os.path.join(PROJECT_ROOT, "sub")
+    import shutil
+    import base64
+    if os.path.exists(sub_dir):
+        shutil.rmtree(sub_dir)
+    os.makedirs(sub_dir, exist_ok=True)
+
+    for u in users:
+        if not u.get("enabled", True):
+            continue
+        token = u.get("sub_token")
+        if not token:
+            continue
+
+        # Find all active protocols for this nickname
+        nick = u.get("nickname")
+        nick_links = []
+        for other in users:
+            if other.get("nickname") == nick and other.get("enabled", True):
+                link = build_client_link(other)
+                if link:
+                    nick_links.append(link)
+
+        if nick_links:
+            sub_content = "\n".join(nick_links)
+            encoded = base64.b64encode(sub_content.encode("utf-8")).decode("utf-8")
+
+            sub_file = os.path.join(sub_dir, token)
+            with open(sub_file, "w", encoding="utf-8") as sf:
+                sf.write(encoded)
 
 def validate_and_restart():
     # 1. Validate Caddyfile

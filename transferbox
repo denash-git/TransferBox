@@ -192,6 +192,7 @@ main_menu() {
             "Бэкап и Восстановление"
             "Перезапустить службы"
             "Показать логи"
+            "Мониторинг ресурсов"
             "Выход"
         )
         select_menu "TransferBox — Панель Управления" "${options[@]}"
@@ -207,7 +208,9 @@ main_menu() {
             apply_settings_menu
         elif [ "$choice" -eq 4 ]; then
             logs_menu
-        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 5 ]; then
+            system_monitor_menu
+        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
             clear_screen
             exit 0
         fi
@@ -324,21 +327,83 @@ validate_and_restart()
             if [ "$new_status" == "True" ]; then enabled="true"; else enabled="false"; fi
             pause
         elif [ "$choice" -eq 1 ]; then
-            clear_screen
-            print_header "Подключение: $nick"
-            local link
-            link=$(python3 -c "
-from core.user_manager import load_users, build_client_link
+            # Находим все активные записи пользователя
+            local user_records=()
+            while IFS= read -r line; do
+                [ -z "$line" ] && continue
+                user_records+=("$line")
+            done < <(jq -r ".[] | select(.nickname == \"$nick\" and .enabled == true) | \"\(.protocol)|\(.credentials.type // \"\")|\(.sub_token // \"\")\"" /opt/transferbox/users.json 2>/dev/null)
+            
+            if [ ${#user_records[@]} -eq 0 ]; then
+                echo -e "\n  ${RED}✗ Нет активных протоколов для этого пользователя.${RESET}"
+                pause
+                continue
+            fi
+            
+            local qr_options=()
+            local qr_links=()
+            local qr_titles=()
+            
+            for ur in "${user_records[@]}"; do
+                IFS='|' read -r proto utype token <<< "$ur"
+                local link
+                link=$(python3 -c "
+from core.config_manager import load_users, build_client_link
 users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick'), None)
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$proto' and u.get('credentials', {}).get('type', '') == '$utype'), None)
 if user:
     print(build_client_link(user))
 ")
-            echo -e "  Ссылка для подключения:"
-            echo -e "  \033[1;36m$link\033[0m"
-            echo -e "\n  QR-код:"
-            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
-            pause
+                if [ ! -z "$link" ]; then
+                    local label=""
+                    if [ "$proto" == "naive" ]; then
+                        label="NaiveProxy Link & QR"
+                    else
+                        label="VLESS over ${utype^^} Link & QR"
+                    fi
+                    qr_options+=("$label")
+                    qr_links+=("$link")
+                    qr_titles+=("Подключение: $nick ($proto ${utype^^})")
+                fi
+            done
+            
+            local sub_token=""
+            for ur in "${user_records[@]}"; do
+                IFS='|' read -r proto utype token <<< "$ur"
+                if [ ! -z "$token" ]; then
+                    sub_token="$token"
+                    break
+                fi
+            done
+            
+            if [ ! -z "$sub_token" ]; then
+                local domain
+                domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+                [ -z "$domain" ] && domain="yourdomain.com"
+                local sub_link="https://${domain}/sub/${sub_token}"
+                
+                qr_options+=("Ссылка Подписки & QR (Все протоколы)")
+                qr_links+=("$sub_link")
+                qr_titles+=("Ссылка подписки: $nick")
+            fi
+            qr_options+=("Назад")
+            
+            while true; do
+                select_menu "QR-коды и ссылки: $nick" "${qr_options[@]}"
+                local qr_choice=$SELECTED_INDEX
+                
+                if [ "$qr_choice" -eq -1 ] || [ "$qr_choice" -eq $(( ${#qr_options[@]} - 1 )) ]; then
+                    break
+                fi
+                
+                clear_screen
+                print_header "${qr_titles[$qr_choice]}" "false"
+                echo -e "  Ссылка:"
+                echo -e "  \033[1;36m${qr_links[$qr_choice]}\033[0m"
+                echo -e "\n  QR-код:"
+                qrencode -t ANSIUTF8 "${qr_links[$qr_choice]}" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+                pause
+            done
         elif [ "$choice" -eq 2 ]; then
             local confirm
             read_prompt "Вы действительно хотите удалить пользователя $nick? [y/N]: " confirm
@@ -923,6 +988,122 @@ logs_menu() {
         elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
             return
         fi
+    done
+}
+
+# ─── МОНИТОРИНГ РЕСУРСОВ ──────────────────────────────────────────────────────
+
+system_monitor_menu() {
+    # Скрыть курсор
+    tput civis
+    clear_screen
+    
+    # Найти главный сетевой интерфейс
+    local iface
+    iface=$(ip route | grep default | awk '{print $5}' | head -n 1)
+    [ -z "$iface" ] && iface="eth0"
+    
+    while true; do
+        # Считывание CPU stats 1
+        local cpu_stat1
+        cpu_stat1=$(grep '^cpu ' /proc/stat)
+        local stats1=($cpu_stat1)
+        local idle1=${stats1[4]}
+        local total1=0
+        for val in "${stats1[@]:1}"; do total1=$(( total1 + val )); done
+        
+        # Считывание Net stats 1
+        local net1
+        net1=$(grep "$iface:" /proc/net/dev | awk '{print $2 " " $10}' || echo "0 0")
+        local rx1
+        rx1=$(echo "$net1" | awk '{print $1}')
+        local tx1
+        tx1=$(echo "$net1" | awk '{print $2}')
+        
+        # Ожидание 1 секунды и считывание клавиши
+        local key=""
+        if read -t 1 -rsn1 key; then
+            if [[ "$key" == "q" || "$key" == "Q" || "$key" == "0" || "$key" == "" ]]; then
+                tput cnorm
+                return
+            fi
+        fi
+        
+        # Считывание CPU stats 2
+        local cpu_stat2
+        cpu_stat2=$(grep '^cpu ' /proc/stat)
+        local stats2=($cpu_stat2)
+        local idle2=${stats2[4]}
+        local total2=0
+        for val in "${stats2[@]:1}"; do total2=$(( total2 + val )); done
+        
+        # Считывание Net stats 2
+        local net2
+        net2=$(grep "$iface:" /proc/net/dev | awk '{print $2 " " $10}' || echo "0 0")
+        local rx2
+        rx2=$(echo "$net2" | awk '{print $1}')
+        local tx2
+        tx2=$(echo "$net2" | awk '{print $2}')
+        
+        # Расчет CPU
+        local diff_idle=$(( idle2 - idle1 ))
+        local diff_total=$(( total2 - total1 ))
+        local cpu_pct=0
+        if [ $diff_total -gt 0 ]; then
+            cpu_pct=$(( (diff_total - diff_idle) * 100 / diff_total ))
+        fi
+        
+        # Расчет скорости сети
+        local rx_speed=$(( (rx2 - rx1) / 1024 ))
+        local tx_speed=$(( (tx2 - tx1) / 1024 ))
+        
+        # Расчет RAM
+        local ram_total
+        ram_total=$(free -m | awk '/Mem:/ {print $2}')
+        local ram_used
+        ram_used=$(free -m | awk '/Mem:/ {print $3}')
+        local ram_pct=$(( ram_used * 100 / ram_total ))
+        
+        # Расчет Диска
+        local disk_total
+        disk_total=$(df -h / | awk 'NR==2 {print $2}')
+        local disk_used
+        disk_used=$(df -h / | awk 'NR==2 {print $3}')
+        local disk_pct
+        disk_pct=$(df -h / | awk 'NR==2 {print $5}')
+        
+        # Форматирование скорости сети
+        local rx_str="${rx_speed} KB/s"
+        if [ $rx_speed -gt 1024 ]; then
+            rx_str=$(echo "scale=1; $rx_speed / 1024" | bc 2>/dev/null || echo "$(( rx_speed / 1024 ))")
+            rx_str="${rx_str} MB/s"
+        fi
+        local tx_str="${tx_speed} KB/s"
+        if [ $tx_speed -gt 1024 ]; then
+            tx_str=$(echo "scale=1; $tx_speed / 1024" | bc 2>/dev/null || echo "$(( tx_speed / 1024 ))")
+            tx_str="${tx_str} MB/s"
+        fi
+        
+        # Отрисовка TUI
+        printf "\033[H"
+        print_header "Мониторинг ресурсов" "false"
+        
+        center_print "Загрузка процессора (CPU):"
+        center_print "${BOLD}${cpu_pct}%${RESET}"
+        echo ""
+        center_print "Использование памяти (RAM):"
+        center_print "${BOLD}${ram_used} Мб / ${ram_total} Мб (${ram_pct}%)${RESET}"
+        echo ""
+        center_print "Занятость диска (Disk):"
+        center_print "${BOLD}${disk_used} / ${disk_total} (${disk_pct})${RESET}"
+        echo ""
+        center_print "Скорость сети (Interface: $iface):"
+        center_print "Скачивание (RX): ${BOLD}${rx_str}${RESET}  |  Отдача (TX): ${BOLD}${tx_str}${RESET}"
+        
+        echo ""
+        draw_line "─" "$BLUE"
+        center_print "${DIM}[Нажмите Q или Enter для возврата в меню]${RESET}"
+        printf "\033[J"
     done
 }
 

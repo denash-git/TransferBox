@@ -1,7 +1,7 @@
 import uuid
 import secrets
 import subprocess
-from core.config_manager import load_users, save_users, load_env
+from core.config_manager import load_users, save_users, load_env, build_client_link
 
 def generate_uuid():
     return str(uuid.uuid4())
@@ -69,35 +69,6 @@ def toggle_user(nickname, enabled):
             save_users(users)
             return True, f"User status updated to {'enabled' if enabled else 'disabled'}."
     return False, "User not found."
-
-def build_client_link(user_obj):
-    env = load_env()
-    domain = env.get("DOMAIN", "yourdomain.com")
-    
-    protocol = user_obj.get("protocol")
-    nickname = user_obj.get("nickname")
-    creds = user_obj.get("credentials", {})
-    
-    if protocol == "naive":
-        username = creds.get("username")
-        password = creds.get("password")
-        return f"naive+https://{username}:{password}@{domain}:443#{nickname}"
-        
-    elif protocol == "vless":
-        user_uuid = creds.get("uuid")
-        user_type = creds.get("type", "ws")
-        
-        if user_type == "ws":
-            path = env.get("VLESS_WS_PATH", "/vless-ws")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=ws&path={path}#{nickname}"
-        elif user_type == "grpc":
-            service = env.get("VLESS_GRPC_SERVICE", "vless-grpc")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=grpc&serviceName={service}#{nickname}"
-        elif user_type == "xhttp":
-            path = env.get("VLESS_XHTTP_PATH", "/vless-xhttp")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}"
-            
-    return ""
 
 def print_qr_code(link):
     # Try using system qrencode if available
