@@ -17,10 +17,14 @@ RESET='\033[0m'
 PROJECT_ROOT="/opt/transferbox"
 CADDY_BIN="/usr/local/bin/caddy"
 CADDY_SERVICE="/etc/systemd/system/caddy.service"
-TRANSFERBOX_BIN="/usr/local/bin/transferbox"
+TRANSFERBOX_BIN="/usr/local/bin/menu"
 INSTALL_LOG="/tmp/transferbox_install.log"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IS_PIPED=false
+
+# Очистить экран перед началом установки
+clear
+
 if [[ "$SCRIPT_DIR" == /dev/fd* || "$SCRIPT_DIR" == /proc/* || ! -f "$SCRIPT_DIR/install.sh" ]]; then
     IS_PIPED=true
 fi
@@ -240,7 +244,7 @@ chmod 600 "${PROJECT_ROOT}/users.json"
 # Установка исполняемой команды
 cp "$SCRIPT_DIR/transferbox" "$TRANSFERBOX_BIN"
 chmod +x "$TRANSFERBOX_BIN"
-log_ok "Утилита установлена. Вы можете запустить её командой: transferbox"
+log_ok "Утилита установлена. Вы можете запустить её командой: menu"
 
 # Рендеринг конфигураций и запуск
 step "Запуск прокси-серверов"
@@ -280,9 +284,9 @@ log_ok "UFW фаервол настроен (открыты порты: $ssh_por
 # Вывод результатов
 step "Установка завершена!"
 echo -e "  Домен: ${GREEN}${domain}${RESET}"
-echo -e "  Команда управления: ${GREEN}transferbox${RESET}"
+echo -e "  Команда управления: ${GREEN}menu${RESET}"
 echo
 echo -e "  Сгенерированы стартовые учетные записи для пользователя ${BOLD}admin${RESET}."
-echo -e "  Запустите ${GREEN}transferbox${RESET} -> выберите ${BOLD}1${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
+echo -e "  Запустите ${GREEN}menu${RESET} -> выберите ${BOLD}1${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
 echo
 

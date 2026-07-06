@@ -17,7 +17,7 @@ TransferBox — минималистичная панель управления
 Запустите установщик на сервере одной командой:
 
 ```bash
-bash <(curl -fsSL "https://raw.githubusercontent.com/denash-git/TransferBox/main/install.sh")
+bash <(wget -qO- https://raw.githubusercontent.com/denash-git/TransferBox/main/install.sh)
 ```
 
 ---
@@ -27,7 +27,7 @@ bash <(curl -fsSL "https://raw.githubusercontent.com/denash-git/TransferBox/main
 После завершения установки запустите интерактивное меню управления:
 
 ```bash
-transferbox
+menu
 ```
 
 ---

@@ -82,8 +82,9 @@ def main_menu():
         print_header("TransferBox — Панель Управления")
         print(f"  {CYAN}1){RESET} Пользователи")
         print(f"  {CYAN}2){RESET} Настройки")
-        print(f"  {CYAN}3){RESET} Перезапустить службы")
-        print(f"  {CYAN}4){RESET} Показать логи")
+        print(f"  {CYAN}3){RESET} Бэкап и Восстановление")
+        print(f"  {CYAN}4){RESET} Перезапустить службы")
+        print(f"  {CYAN}5){RESET} Показать логи")
         print(f"\n  {DIM}00) Выход{RESET}\n")
 
         choice = get_menu_choice()
@@ -92,8 +93,10 @@ def main_menu():
         elif choice == "2":
             settings_menu()
         elif choice == "3":
-            apply_settings_menu()
+            backup_restore_menu()
         elif choice == "4":
+            apply_settings_menu()
+        elif choice == "5":
             logs_menu()
 
 # ─── Меню пользователей ──────────────────────────────────────────────────────
@@ -300,7 +303,6 @@ def settings_menu():
         print(f"  {CYAN}2){RESET} Выбор шаблона сайта")
         print(f"  {CYAN}3){RESET} Настройки путей VLESS")
         print(f"  {CYAN}4){RESET} Обновление sing-box")
-        print(f"  {CYAN}5){RESET} Бэкап и Восстановление")
         print(f"\n  {DIM}0) Назад{RESET}\n")
         
         choice = get_menu_choice()
@@ -314,8 +316,6 @@ def settings_menu():
             change_vless_paths_menu()
         elif choice == "4":
             update_singbox_menu()
-        elif choice == "5":
-            backup_restore_menu()
 
 def change_domain_email_menu():
     env = load_env()
@@ -494,11 +494,12 @@ def update_singbox_menu():
 def backup_restore_menu():
     import tarfile
     import datetime
+    import glob
     
     while True:
-        print_header("Настройки → Бэкап и Восстановление")
+        print_header("Бэкап и Восстановление")
         print(f"  {CYAN}1){RESET} Создать бэкап настроек")
-        print(f"  {CYAN}2){RESET} Восстановить настройки из файла")
+        print(f"  {CYAN}2){RESET} Восстановить из последнего бэкапа")
         print(f"\n  {DIM}0) Назад{RESET}\n")
         
         choice = get_menu_choice()
@@ -536,21 +537,29 @@ def backup_restore_menu():
             pause()
             
         elif choice == "2":
-            print_header("Восстановление из резервной копии")
-            print("  Пожалуйста, укажите абсолютный путь к файлу резервной копии.")
-            print("  Например: /opt/transferbox/backups/transferbox_backup_XXXXXXXX_XXXXXX.tar.gz")
-            print(f"{BLUE}─" * 60 + f"{RESET}\n")
+            print_header("Восстановление из последнего бэкапа")
+            backup_dir = "/opt/transferbox/backups"
             
-            backup_path = input("  Путь к файлу бэкапа (или Enter для отмены): ").strip()
-            if not backup_path:
-                continue
-                
-            if not os.path.exists(backup_path):
-                print(f"\n  {RED}✗ Ошибка: Файл по указанному пути не найден!{RESET}")
+            backup_files = glob.glob(os.path.join(backup_dir, "transferbox_backup_*.tar.gz"))
+            if not backup_files:
+                print(f"\n  {RED}✗ Ошибка: В папке {backup_dir} не найдено файлов бэкапов!{RESET}")
                 pause()
                 continue
                 
-            confirm = input(f"  Вы уверены, что хотите переписать текущие настройки? [y/N]: ").strip().lower()
+            # Сортировка файлов по времени изменения (последний в начале)
+            backup_files.sort(key=os.path.getmtime, reverse=True)
+            latest_backup = backup_files[0]
+            latest_filename = os.path.basename(latest_backup)
+            
+            mtime = os.path.getmtime(latest_backup)
+            file_date = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            
+            print(f"  Найден последний файл бэкапа:")
+            print(f"  • Имя:  {BOLD}{latest_filename}{RESET}")
+            print(f"  • Дата: {file_date}")
+            print(f"{BLUE}─" * 60 + f"{RESET}\n")
+            
+            confirm = input("  Восстановить настройки из этого файла? Текущие данные будут перезаписаны! [y/N]: ").strip().lower()
             if confirm != 'y':
                 print("  Операция отменена.")
                 pause()
@@ -558,7 +567,7 @@ def backup_restore_menu():
                 
             print("\n  [*] Восстановление файлов...")
             try:
-                with tarfile.open(backup_path, "r:gz") as tar:
+                with tarfile.open(latest_backup, "r:gz") as tar:
                     tar.extractall(path="/opt/transferbox")
                 
                 print("  [*] Пересборка конфигураций и перезапуск служб...")
