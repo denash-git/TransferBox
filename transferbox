@@ -209,6 +209,7 @@ main_menu() {
         local options=(
             "Пользователи"
             "Настройки"
+            "Модули"
             "Диагностика"
             "Бэкап и Восстановление"
             "Перезапустить службы"
@@ -224,18 +225,146 @@ main_menu() {
         elif [ "$choice" -eq 1 ]; then
             settings_menu
         elif [ "$choice" -eq 2 ]; then
-            diagnostics_menu
+            modules_menu
         elif [ "$choice" -eq 3 ]; then
-            backup_restore_menu
+            diagnostics_menu
         elif [ "$choice" -eq 4 ]; then
-            apply_settings_menu
+            backup_restore_menu
         elif [ "$choice" -eq 5 ]; then
-            logs_menu
+            apply_settings_menu
         elif [ "$choice" -eq 6 ]; then
+            logs_menu
+        elif [ "$choice" -eq 7 ]; then
             system_monitor_menu
-        elif [ "$choice" -eq 7 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 8 ] || [ "$choice" -eq -1 ]; then
             clear_screen
             exit 0
+        fi
+    done
+}
+
+# ─── МОДУЛИ ──────────────────────────────────────────────────────────────────
+
+is_mieru_enabled() {
+    local val
+    val=$(grep -E "^MIERU_ENABLED=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+    [ "$val" == "true" ] && return 0
+    return 1
+}
+
+modules_menu() {
+    while true; do
+        local mieru_status="${RED}отключен${RESET}"
+        if is_mieru_enabled; then
+            mieru_status="${GREEN}включен${RESET}"
+        fi
+        
+        local options=(
+            "Mieru (Статус: $mieru_status)"
+            "Назад"
+        )
+        select_menu "Модули" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            mieru_module_menu
+        elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+mieru_module_menu() {
+    while true; do
+        local is_enabled
+        is_enabled=$(grep -E "^MIERU_ENABLED=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+        [ -z "$is_enabled" ] && is_enabled="false"
+        
+        local status_label="${RED}отключен${RESET}"
+        [ "$is_enabled" == "true" ] && status_label="${GREEN}включен${RESET}"
+        
+        local port
+        port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+        [ -z "$port" ] && port="21000"
+        
+        local options=(
+            "Включить / Выключить (Текущий статус: $status_label)"
+            "Изменить порт (Текущий порт: $port)"
+            "Назад"
+        )
+        select_menu "Модуль: Mieru" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            local new_status="true"
+            [ "$is_enabled" == "true" ] && new_status="false"
+            
+            echo -e "\n  [*] Изменение статуса Mieru на $new_status..."
+            python3 -c "
+import os
+env_path = '/opt/transferbox/instance.env'
+lines = []
+found = False
+with open(env_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        if line.startswith('MIERU_ENABLED='):
+            lines.append('MIERU_ENABLED=$new_status\n')
+            found = True
+        else:
+            lines.append(line)
+if not found:
+    lines.append('MIERU_ENABLED=$new_status\n')
+with open(env_path, 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+"
+            # Ensure MIERU_PORT is also in env
+            if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
+                echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
+            fi
+            
+            # Re-render configurations
+            python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+            pause
+        elif [ "$choice" -eq 1 ]; then
+            local new_port
+            read_prompt "Введите новый порт для Mieru (1024-65535, или 0 для отмены): " new_port
+            if [ ! -z "$new_port" ] && [ "$new_port" != "0" ]; then
+                if [[ "$new_port" =~ ^[0-9]+$ ]] && [ "$new_port" -ge 1024 ] && [ "$new_port" -le 65535 ]; then
+                    echo -e "\n  [*] Изменение порта Mieru на $new_port..."
+                    python3 -c "
+import os
+env_path = '/opt/transferbox/instance.env'
+lines = []
+found = False
+with open(env_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        if line.startswith('MIERU_PORT='):
+            lines.append('MIERU_PORT=$new_port\n')
+            found = True
+        else:
+            lines.append(line)
+if not found:
+    lines.append('MIERU_PORT=$new_port\n')
+with open(env_path, 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+"
+                    python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+                    pause
+                else
+                    echo -e "\n  ${RED}✗ Неверный формат порта. Должно быть число от 1024 до 65535.${RESET}"
+                    pause
+                fi
+            fi
+        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
+            return
         fi
     done
 }
@@ -532,6 +661,8 @@ user_management_menu() {
             local label=""
             if [ "$proto" == "naive" ]; then
                 label="NaiveProxy"
+            elif [ "$proto" == "mieru" ]; then
+                label="Mieru"
             else
                 label="VLESS over ${utype^^}"
             fi
@@ -652,8 +783,13 @@ if user:
     print(build_client_link(user))
 ")
             print_header "Подключение: $nick ($label)" "false"
-            echo -e "  Ссылка подключения:"
-            echo -e "  \033[1;36m$link\033[0m"
+            if [ "$proto" == "mieru" ]; then
+                echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
+                echo -e "${CYAN}$link${RESET}"
+            else
+                echo -e "  Ссылка подключения:"
+                echo -e "  \033[1;36m$link\033[0m"
+            fi
             echo -e "\n  QR-код:"
             qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
             pause
@@ -686,24 +822,31 @@ add_protocol_to_user() {
         "VLESS over gRPC"
         "VLESS over XHTTP"
         "NaiveProxy"
-        "Отмена"
     )
+    if is_mieru_enabled; then
+        options+=("Mieru")
+    fi
+    options+=("Отмена")
+    
     select_menu "Добавить протокол для $nick" "${options[@]}"
     local choice=$SELECTED_INDEX
     
+    local selected_opt="${options[$choice]}"
     local protocol=""
     local user_type=""
-    if [ "$choice" -eq 0 ]; then
+    if [ "$selected_opt" == "VLESS over WebSocket" ]; then
         protocol="vless"
         user_type="ws"
-    elif [ "$choice" -eq 1 ]; then
+    elif [ "$selected_opt" == "VLESS over gRPC" ]; then
         protocol="vless"
         user_type="grpc"
-    elif [ "$choice" -eq 2 ]; then
+    elif [ "$selected_opt" == "VLESS over XHTTP" ]; then
         protocol="vless"
         user_type="xhttp"
-    elif [ "$choice" -eq 3 ]; then
+    elif [ "$selected_opt" == "NaiveProxy" ]; then
         protocol="naive"
+    elif [ "$selected_opt" == "Mieru" ]; then
+        protocol="mieru"
     else
         return
     fi
@@ -736,14 +879,21 @@ if user:
         local label=""
         if [ "$protocol" == "naive" ]; then
             label="NaiveProxy"
+        elif [ "$protocol" == "mieru" ]; then
+            label="Mieru"
         else
             label="VLESS over ${user_type^^}"
         fi
         
         clear_screen
         print_header "Протокол добавлен: $nick ($label)" "false"
-        echo -e "  Ссылка подключения:"
-        echo -e "  \033[1;36m$link\033[0m"
+        if [ "$protocol" == "mieru" ]; then
+            echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
+            echo -e "${CYAN}$link${RESET}"
+        else
+            echo -e "  Ссылка подключения:"
+            echo -e "  \033[1;36m$link\033[0m"
+        fi
         echo -e "\n  QR-код:"
         qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
         pause
@@ -808,24 +958,31 @@ create_user_menu() {
         "VLESS over gRPC"
         "VLESS over XHTTP"
         "NaiveProxy"
-        "Отмена"
     )
+    if is_mieru_enabled; then
+        options+=("Mieru")
+    fi
+    options+=("Отмена")
+
     select_menu "Протокол для $nick" "${options[@]}"
     local choice=$SELECTED_INDEX
     
+    local selected_opt="${options[$choice]}"
     local protocol=""
     local user_type=""
-    if [ "$choice" -eq 0 ]; then
+    if [ "$selected_opt" == "VLESS over WebSocket" ]; then
         protocol="vless"
         user_type="ws"
-    elif [ "$choice" -eq 1 ]; then
+    elif [ "$selected_opt" == "VLESS over gRPC" ]; then
         protocol="vless"
         user_type="grpc"
-    elif [ "$choice" -eq 2 ]; then
+    elif [ "$selected_opt" == "VLESS over XHTTP" ]; then
         protocol="vless"
         user_type="xhttp"
-    elif [ "$choice" -eq 3 ]; then
+    elif [ "$selected_opt" == "NaiveProxy" ]; then
         protocol="naive"
+    elif [ "$selected_opt" == "Mieru" ]; then
+        protocol="mieru"
     else
         return
     fi
@@ -867,6 +1024,8 @@ if user:
         local label=""
         if [ "$protocol" == "naive" ]; then
             label="NaiveProxy"
+        elif [ "$protocol" == "mieru" ]; then
+            label="Mieru"
         else
             label="VLESS over ${user_type^^}"
         fi
@@ -882,8 +1041,13 @@ if user:
             if [ "$sel" -eq 0 ]; then
                 clear_screen
                 print_header "Подключение: $nick ($label)" "false"
-                echo -e "  Ссылка подключения:"
-                echo -e "  \033[1;36m$link\033[0m"
+                if [ "$protocol" == "mieru" ]; then
+                    echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
+                    echo -e "${CYAN}$link${RESET}"
+                else
+                    echo -e "  Ссылка подключения:"
+                    echo -e "  \033[1;36m$link\033[0m"
+                fi
                 echo -e "\n  QR-код:"
                 qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
                 pause

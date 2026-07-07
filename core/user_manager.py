@@ -55,6 +55,20 @@ def add_user(nickname, protocol, user_type="ws"):
             "enabled": True,
             "sub_token": existing_token or secrets.token_hex(8)
         }
+    elif protocol == "mieru":
+        username = generate_username()
+        while any(u.get("credentials", {}).get("username") == username for u in users):
+            username = generate_username()
+        new_user = {
+            "nickname": nickname,
+            "protocol": "mieru",
+            "credentials": {
+                "username": username,
+                "password": generate_password()
+            },
+            "enabled": True,
+            "sub_token": existing_token or secrets.token_hex(8)
+        }
     else:
         return False, "Unsupported protocol."
         

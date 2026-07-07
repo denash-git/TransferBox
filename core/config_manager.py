@@ -79,6 +79,34 @@ def build_client_link(user_obj):
             path = env.get("VLESS_XHTTP_PATH", "/xhttp")
             return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}"
             
+    elif protocol == "mieru":
+        username = creds.get("username")
+        password = creds.get("password")
+        port = int(env.get("MIERU_PORT", 21000))
+        config = {
+            "profileName": f"Mieru-{nickname}",
+            "user": {
+                "name": username,
+                "password": password
+            },
+            "servers": [
+                {
+                    "ipAddress": domain,
+                    "portBindings": [
+                        {
+                            "port": port,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            ],
+            "mtu": 1400,
+            "multiplexing": {
+                "level": "MULTIPLEXING_HIGH"
+            }
+        }
+        return json.dumps(config, indent=2)
+            
     return ""
 
 def render_configs():
@@ -228,6 +256,44 @@ def render_configs():
             with open(sub_file, "w", encoding="utf-8") as sf:
                 sf.write(encoded)
 
+    # 4. Generate Mieru server configuration
+    mieru_enabled = env.get("MIERU_ENABLED", "false").lower() == "true"
+    if mieru_enabled:
+        mieru_port = env.get("MIERU_PORT", "21000")
+        mieru_users = []
+        for u in users:
+            if u.get("protocol") == "mieru" and u.get("enabled", True):
+                creds = u.get("credentials", {})
+                mieru_users.append({
+                    "name": creds.get("username"),
+                    "password": creds.get("password")
+                })
+        
+        mita_config = {
+            "portBindings": [
+                {
+                    "portRange": f"{mieru_port}-{mieru_port}",
+                    "protocol": "TCP"
+                },
+                {
+                    "portRange": f"{mieru_port}-{mieru_port}",
+                    "protocol": "UDP"
+                }
+            ],
+            "users": mieru_users,
+            "loggingLevel": "INFO",
+            "mtu": 1400
+        }
+        
+        tmp_config_path = "/tmp/mita_config.json"
+        with open(tmp_config_path, "w", encoding="utf-8") as f:
+            json.dump(mita_config, f, indent=2)
+            
+        if os.path.exists("/usr/bin/mita"):
+            subprocess.run(["rm", "-f", "/etc/mita/server.conf.pb"])
+            subprocess.run(["/usr/bin/mita", "apply", "config", tmp_config_path])
+            subprocess.run(["chown", "-R", "mita:mita", "/etc/mita"])
+
 def validate_and_restart():
     # 1. Validate Caddyfile
     res = subprocess.run(["caddy", "validate", "--config", CADDY_CONFIG], capture_output=True, text=True)
@@ -242,5 +308,25 @@ def validate_and_restart():
     # Restart services
     subprocess.run(["systemctl", "restart", "caddy"])
     subprocess.run(["systemctl", "restart", "sing-box"])
+
+    # Manage mita service and UFW firewall rules
+    env = load_env()
+    mieru_enabled = env.get("MIERU_ENABLED", "false").lower() == "true"
+    mieru_port = env.get("MIERU_PORT", "21000")
+    mita_installed = os.path.exists("/usr/bin/mita")
+
+    if mita_installed:
+        if mieru_enabled:
+            subprocess.run(["systemctl", "enable", "mita"], capture_output=True)
+            subprocess.run(["systemctl", "restart", "mita"], capture_output=True)
+            # Allow port range in UFW
+            subprocess.run(["ufw", "allow", f"{mieru_port}/tcp", "comment", "Mieru TCP"], capture_output=True)
+            subprocess.run(["ufw", "allow", f"{mieru_port}/udp", "comment", "Mieru UDP"], capture_output=True)
+        else:
+            subprocess.run(["systemctl", "stop", "mita"], capture_output=True)
+            subprocess.run(["systemctl", "disable", "mita"], capture_output=True)
+            # Delete UFW rules
+            subprocess.run(["ufw", "delete", "allow", f"{mieru_port}/tcp"], capture_output=True)
+            subprocess.run(["ufw", "delete", "allow", f"{mieru_port}/udp"], capture_output=True)
 
     return True, "Services successfully reloaded and validated!"

@@ -129,6 +129,20 @@ dpkg -i /tmp/sing-box.deb >/dev/null
 rm -f /tmp/sing-box.deb
 log_ok "sing-box установлен версии ${clean_sb_ver}."
 
+# Скачивание и установка mita (Mieru server)
+step "Установка Mieru (Mita) сервера"
+log_info "Получение последней версии mita..."
+latest_mita_ver=$(curl -fsSL https://api.github.com/repos/enfein/mieru/releases/latest | jq -r .tag_name)
+clean_mita_ver=${latest_mita_ver#v}
+deb_mita_url="https://github.com/enfein/mieru/releases/download/${latest_mita_ver}/mita_${clean_mita_ver}_${go_arch}.deb"
+log_info "Скачивание ${deb_mita_url}..."
+wget -qO /tmp/mita.deb "$deb_mita_url"
+dpkg -i /tmp/mita.deb >/dev/null
+rm -f /tmp/mita.deb
+systemctl stop mita >/dev/null 2>&1 || true
+systemctl disable mita >/dev/null 2>&1 || true
+log_ok "Сервер Mieru (Mita) версии ${clean_mita_ver} установлен (по умолчанию отключен)."
+
 # Сборка Caddy с плагином forwardproxy
 step "Сборка Caddy с плагином NaiveProxy (это может занять 1-2 минуты)"
 if [[ -x "$CADDY_BIN" ]]; then
@@ -236,6 +250,8 @@ FAKE_SITE_TEMPLATE=aether
 VLESS_WS_PATH=/
 VLESS_GRPC_SERVICE=
 VLESS_XHTTP_PATH=/xhttp
+MIERU_ENABLED=false
+MIERU_PORT=21000
 EOF
 chmod 600 "${PROJECT_ROOT}/instance.env"
 
