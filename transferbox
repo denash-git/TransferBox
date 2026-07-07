@@ -792,21 +792,7 @@ if user:
 ")
             print_header "Подключение: $nick ($label)" "false"
             if [ "$proto" == "mieru" ]; then
-                local json_config clash_yaml singbox_json
-                json_config=$(python3 -c "
-from core.config_manager import load_users, build_mieru_json_config
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_json_config(user))
-")
-                clash_yaml=$(python3 -c "
-from core.config_manager import load_users, build_mieru_clash_yaml
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_clash_yaml(user))
-")
+                local singbox_json
                 singbox_json=$(python3 -c "
 from core.config_manager import load_users, build_mieru_singbox_json
 users = load_users()
@@ -814,34 +800,21 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_singbox_json(user))
 ")
-                local m_user m_pass m_port domain
-                m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
-                m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
-                m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
-                [ -z "$m_port" ] && m_port="21000"
-                domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-                [ -z "$domain" ] && domain="yourdomain.com"
-
-                echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
-                echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
-                echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
-                echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
-                echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
-                echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
-                echo -e "  Ссылка подключения (для Hiddify/mihomo):"
+                echo -e "  1. Ссылка подключения (для Hiddify/mihomo):"
                 echo -e "  \033[1;36m$link\033[0m\n"
-                echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+                echo -e "  QR-код для ссылки подключения:"
+                qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+                echo -e "\n  ────────────────────────────────────────────────────────────\n"
+                echo -e "  2. Sing-box JSON (для Karing):"
                 echo -e "${GREEN}$singbox_json${RESET}\n"
-                echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
-                echo -e "${YELLOW}$clash_yaml${RESET}\n"
-                echo -e "  JSON-конфигурация подключения (для официального клиента):"
-                echo -e "${CYAN}$json_config${RESET}"
+                echo -e "  QR-код для Sing-box JSON (сканировать в Karing):"
+                qrencode -t ANSIUTF8 "$singbox_json" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
             else
                 echo -e "  Ссылка подключения:"
                 echo -e "  \033[1;36m$link\033[0m"
+                echo -e "\n  QR-код:"
+                qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
             fi
-            echo -e "\n  QR-код:"
-            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
             pause
         elif [ "$choice" -eq 2 ]; then
             local confirm
@@ -938,21 +911,7 @@ if user:
         clear_screen
         print_header "Протокол добавлен: $nick ($label)" "false"
         if [ "$protocol" == "mieru" ]; then
-            local json_config clash_yaml singbox_json
-            json_config=$(python3 -c "
-from core.config_manager import load_users, build_mieru_json_config
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_json_config(user))
-")
-            clash_yaml=$(python3 -c "
-from core.config_manager import load_users, build_mieru_clash_yaml
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_clash_yaml(user))
-")
+            local singbox_json
             singbox_json=$(python3 -c "
 from core.config_manager import load_users, build_mieru_singbox_json
 users = load_users()
@@ -960,34 +919,21 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_singbox_json(user))
 ")
-            local m_user m_pass m_port domain
-            m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
-            m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
-            m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
-            [ -z "$m_port" ] && m_port="21000"
-            domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-            [ -z "$domain" ] && domain="yourdomain.com"
-
-            echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
-            echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
-            echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
-            echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
-            echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
-            echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
-            echo -e "  Ссылка подключения (для Hiddify/mihomo):"
+            echo -e "  1. Ссылка подключения (для Hiddify/mihomo):"
             echo -e "  \033[1;36m$link\033[0m\n"
-            echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+            echo -e "  QR-код для ссылки подключения:"
+            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+            echo -e "\n  ────────────────────────────────────────────────────────────\n"
+            echo -e "  2. Sing-box JSON (для Karing):"
             echo -e "${GREEN}$singbox_json${RESET}\n"
-            echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
-            echo -e "${YELLOW}$clash_yaml${RESET}\n"
-            echo -e "  JSON-конфигурация подключения (для официального клиента):"
-            echo -e "${CYAN}$json_config${RESET}"
+            echo -e "  QR-код для Sing-box JSON (сканировать в Karing):"
+            qrencode -t ANSIUTF8 "$singbox_json" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
         else
             echo -e "  Ссылка подключения:"
             echo -e "  \033[1;36m$link\033[0m"
+            echo -e "\n  QR-код:"
+            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
         fi
-        echo -e "\n  QR-код:"
-        qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
         pause
     else
         echo -e "\n  ${RED}✗ Ошибка добавления протокола: $create_res${RESET}"
@@ -1134,21 +1080,7 @@ if user:
                 clear_screen
                 print_header "Подключение: $nick ($label)" "false"
                 if [ "$protocol" == "mieru" ]; then
-                    local json_config clash_yaml singbox_json
-                    json_config=$(python3 -c "
-from core.config_manager import load_users, build_mieru_json_config
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_json_config(user))
-")
-                    clash_yaml=$(python3 -c "
-from core.config_manager import load_users, build_mieru_clash_yaml
-users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
-if user:
-    print(build_mieru_clash_yaml(user))
-")
+                    local singbox_json
                     singbox_json=$(python3 -c "
 from core.config_manager import load_users, build_mieru_singbox_json
 users = load_users()
@@ -1156,34 +1088,21 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_singbox_json(user))
 ")
-                    local m_user m_pass m_port domain
-                    m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
-                    m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
-                    m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
-                    [ -z "$m_port" ] && m_port="21000"
-                    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-                    [ -z "$domain" ] && domain="yourdomain.com"
-
-                    echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
-                    echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
-                    echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
-                    echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
-                    echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
-                    echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
-                    echo -e "  Ссылка подключения (для Hiddify/mihomo):"
+                    echo -e "  1. Ссылка подключения (для Hiddify/mihomo):"
                     echo -e "  \033[1;36m$link\033[0m\n"
-                    echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+                    echo -e "  QR-код для ссылки подключения:"
+                    qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+                    echo -e "\n  ────────────────────────────────────────────────────────────\n"
+                    echo -e "  2. Sing-box JSON (для Karing):"
                     echo -e "${GREEN}$singbox_json${RESET}\n"
-                    echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
-                    echo -e "${YELLOW}$clash_yaml${RESET}\n"
-                    echo -e "  JSON-конфигурация подключения (для официального клиента):"
-                    echo -e "${CYAN}$json_config${RESET}"
+                    echo -e "  QR-код для Sing-box JSON (сканировать в Karing):"
+                    qrencode -t ANSIUTF8 "$singbox_json" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
                 else
                     echo -e "  Ссылка подключения:"
                     echo -e "  \033[1;36m$link\033[0m"
+                    echo -e "\n  QR-код:"
+                    qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
                 fi
-                echo -e "\n  QR-код:"
-                qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
                 pause
             elif [ "$sel" -eq 1 ]; then
                 clear_screen
