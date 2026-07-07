@@ -60,6 +60,21 @@ center_print() {
     printf "%${padding}s%b\n" "" "$text"
 }
 
+center_print_no_newline() {
+    local text="$1"
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    
+    local clean_text
+    clean_text=$(printf "%b" "$text" | sed 's/\x1b\[[0-9;]*m//g')
+    local text_len=${#clean_text}
+    
+    local padding=$(( (term_width - text_len) / 2 ))
+    [ $padding -lt 0 ] && padding=0
+    
+    printf "%${padding}s%b" "" "$text"
+}
+
 draw_line() {
     local char="$1"
     local color="$2"
@@ -150,14 +165,18 @@ select_menu() {
         for i in "${!options[@]}"; do
             if [ "$i" -eq "$active_idx" ]; then
                 # Инверсия строки при выборе (код 7) с очисткой остатка строки \033[K
-                printf "%${indent}s\033[7m %b \033[0m\033[K\n" "" "${options[$i]}"
+                printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "${options[$i]}"
             else
-                printf "%${indent}s  %b \033[K\n" "" "${options[$i]}"
+                printf "%${indent}s  %b  \033[K\n" "" "${options[$i]}"
             fi
         done
-        echo ""
-        center_print "${DIM}[Используйте стрелки ↑/↓, Enter для выбора, Q/0 для выхода/назад]${RESET}"
         printf "\033[J" # Очистить всё ниже меню
+        
+        # Отрисовка строки подсказок в самом низу экрана без прокрутки
+        local term_height
+        term_height=$(tput lines 2>/dev/null || echo 24)
+        printf "\033[%d;1H\033[K" "$term_height"
+        center_print_no_newline "${DIM}↑↓ — выбор   Enter — выбрать   q — назад   0 — Выход${RESET}"
         
         # Считывание нажатия клавиши
         local key
@@ -257,6 +276,8 @@ list_users_menu() {
         done < <(jq -r '.[] | "\(.nickname)|\(.protocol)|\(.credentials.type // "")|\(.enabled)"' /opt/transferbox/users.json 2>/dev/null)
         
         local options=()
+        local max_label_len=0
+        local items=()
         for u in "${users_raw[@]}"; do
             IFS='|' read -r nick proto utype enabled <<< "$u"
             local label=""
@@ -265,14 +286,28 @@ list_users_menu() {
             else
                 label="VLESS over ${utype^^}"
             fi
-            
+            local item_label="$nick ($label)"
+            items+=("$item_label|$enabled")
+            if [ ${#item_label} -gt $max_label_len ]; then
+                max_label_len=${#item_label}
+            fi
+        done
+        
+        local col_width=$(( max_label_len + 4 ))
+        for item in "${items[@]}"; do
+            IFS='|' read -r item_label enabled <<< "$item"
             local status_str=""
             if [ "$enabled" == "true" ]; then
                 status_str="${GREEN}активен${RESET}"
             else
                 status_str="${RED}отключен${RESET}"
             fi
-            options+=("$nick ($label) [$status_str]")
+            local pad_spaces=""
+            local pad_len=$(( col_width - ${#item_label} ))
+            if [ $pad_len -gt 0 ]; then
+                pad_spaces=$(printf "%${pad_len}s" "")
+            fi
+            options+=("$item_label$pad_spaces[$status_str]")
         done
         options+=("Назад")
         
@@ -496,7 +531,6 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-        clear_screen
         local link
         link=$(python3 -c "
 from core.config_manager import load_users, build_client_link
@@ -505,16 +539,54 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_client_link(user))
 ")
-        print_header "Пользователь создан: $nick"
-        echo -e "  Пользователь успешно создан и зарегистрирован!\n"
-        echo -e "  Ссылка для подключения:"
-        echo -e "  \033[1;36m$link\033[0m"
-        echo -e "\n  QR-код:"
-        qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+        
+        local sub_token
+        sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" /opt/transferbox/users.json 2>/dev/null | head -n 1)
+        
+        local domain
+        domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+        [ -z "$domain" ] && domain="yourdomain.com"
+        local sub_link="https://${domain}/sub/${sub_token}"
+        
+        local label=""
+        if [ "$protocol" == "naive" ]; then
+            label="NaiveProxy"
+        else
+            label="VLESS over ${user_type^^}"
+        fi
+        
+        while true; do
+            local success_options=(
+                "Показать QR и ссылку подключения ($label)"
+                "Показать QR и ссылку подписки (Все протоколы)"
+                "Завершить"
+            )
+            select_menu "Пользователь создан: $nick" "${success_options[@]}"
+            local sel=$SELECTED_INDEX
+            if [ "$sel" -eq 0 ]; then
+                clear_screen
+                print_header "Подключение: $nick ($label)" "false"
+                echo -e "  Ссылка подключения:"
+                echo -e "  \033[1;36m$link\033[0m"
+                echo -e "\n  QR-код:"
+                qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+                pause
+            elif [ "$sel" -eq 1 ]; then
+                clear_screen
+                print_header "Подписка пользователя: $nick" "false"
+                echo -e "  Ссылка подписки:"
+                echo -e "  \033[1;36m$sub_link\033[0m"
+                echo -e "\n  QR-код:"
+                qrencode -t ANSIUTF8 "$sub_link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+                pause
+            else
+                break
+            fi
+        done
     else
         echo -e "\n  ${RED}✗ Ошибка создания пользователя: $create_res${RESET}"
+        pause
     fi
-    pause
 }
 
 # ─── НАСТРОЙКИ ───────────────────────────────────────────────────────────────
