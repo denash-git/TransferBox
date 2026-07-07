@@ -379,6 +379,19 @@ def validate_and_restart():
     mita_installed = os.path.exists("/usr/bin/mita")
 
     if mita_installed:
+        # Dynamically clean up old UFW rules with Mieru comment
+        import re
+        status_res = subprocess.run(["ufw", "status", "numbered"], capture_output=True, text=True)
+        if status_res.returncode == 0:
+            rule_nums = []
+            for line in status_res.stdout.splitlines():
+                if "Mieru TCP" in line or "Mieru UDP" in line:
+                    m = re.search(r'\[\s*(\d+)\]', line)
+                    if m:
+                        rule_nums.append(int(m.group(1)))
+            for num in sorted(rule_nums, reverse=True):
+                subprocess.run(f"yes | ufw delete {num}", shell=True, capture_output=True)
+
         if mieru_enabled:
             subprocess.run(["systemctl", "enable", "mita"], capture_output=True)
             subprocess.run(["systemctl", "restart", "mita"], capture_output=True)
@@ -388,8 +401,5 @@ def validate_and_restart():
         else:
             subprocess.run(["systemctl", "stop", "mita"], capture_output=True)
             subprocess.run(["systemctl", "disable", "mita"], capture_output=True)
-            # Delete UFW rules
-            subprocess.run(["ufw", "delete", "allow", f"{mieru_port}/tcp"], capture_output=True)
-            subprocess.run(["ufw", "delete", "allow", f"{mieru_port}/udp"], capture_output=True)
 
     return True, "Services successfully reloaded and validated!"

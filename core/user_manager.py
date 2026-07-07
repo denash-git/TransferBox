@@ -28,6 +28,8 @@ def add_user(nickname, protocol, user_type="ws"):
                 return False, f"User '{nickname}' already has NaiveProxy protocol."
             if protocol == "vless" and u_proto == "vless" and u_type == user_type:
                 return False, f"User '{nickname}' already has VLESS over {user_type.upper()} protocol."
+            if protocol == "mieru" and u_proto == "mieru":
+                return False, f"User '{nickname}' already has Mieru protocol."
             
     if protocol == "naive":
         username = generate_username()

@@ -840,19 +840,54 @@ validate_and_restart()
 
 add_protocol_to_user() {
     local nick="$1"
-    local options=(
-        "VLESS over WebSocket"
-        "VLESS over gRPC"
-        "VLESS over XHTTP"
-        "NaiveProxy"
-    )
-    if is_mieru_enabled; then
+    
+    local has_ws=false
+    local has_grpc=false
+    local has_xhttp=false
+    local has_naive=false
+    local has_mieru=false
+    
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"ws\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        has_ws=true
+    fi
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"grpc\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        has_grpc=true
+    fi
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"xhttp\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        has_xhttp=true
+    fi
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        has_naive=true
+    fi
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        has_mieru=true
+    fi
+
+    local options=()
+    [ "$has_ws" == "false" ] && options+=("VLESS over WebSocket")
+    [ "$has_grpc" == "false" ] && options+=("VLESS over gRPC")
+    [ "$has_xhttp" == "false" ] && options+=("VLESS over XHTTP")
+    [ "$has_naive" == "false" ] && options+=("NaiveProxy")
+    if is_mieru_enabled && [ "$has_mieru" == "false" ]; then
         options+=("Mieru")
     fi
+    
+    if [ ${#options[@]} -eq 0 ]; then
+        clear_screen
+        print_header "Добавить протокол для $nick"
+        echo -e "  У этого пользователя уже добавлены все доступные протоколы."
+        pause
+        return
+    fi
+    
     options+=("Отмена")
     
     select_menu "Добавить протокол для $nick" "${options[@]}"
     local choice=$SELECTED_INDEX
+    
+    if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
+        return
+    fi
     
     local selected_opt="${options[$choice]}"
     local protocol=""
@@ -1137,6 +1172,7 @@ settings_menu() {
         local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
         [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
         local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
+        local m_port="${MIERU_PORT:-21000}"
         
         local bbr_status="${RED}отключен${RESET}"
         if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
@@ -1152,6 +1188,7 @@ settings_menu() {
         echo -e "  • Путь VLESS WS:     $vless_ws"
         echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
         echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
+        echo -e "  • Порт Mieru:        $m_port"
         echo -e "  • TCP BBR:           $bbr_status"
         draw_line "─" "$BLUE"
         
@@ -1159,6 +1196,7 @@ settings_menu() {
             "Изменить Домен и Email"
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
+            "Настройки Mieru"
             "Обновить sing-box"
             "Включить / Выключить BBR (Статус: $bbr_status)"
             "Назад"
@@ -1173,8 +1211,10 @@ settings_menu() {
         elif [ "$choice" -eq 2 ]; then
             change_vless_paths_menu
         elif [ "$choice" -eq 3 ]; then
-            update_singbox_menu
+            mieru_settings_menu
         elif [ "$choice" -eq 4 ]; then
+            update_singbox_menu
+        elif [ "$choice" -eq 5 ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
             if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
@@ -1202,7 +1242,62 @@ EOF
                 fi
             fi
             pause
-        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+mieru_settings_menu() {
+    while true; do
+        if [ -f "/opt/transferbox/instance.env" ]; then
+            source /opt/transferbox/instance.env
+        fi
+        local port="${MIERU_PORT:-21000}"
+        
+        clear_screen
+        print_header "Настройки → Mieru" "false"
+        echo -e "  Текущий порт Mieru: ${CYAN}$port${RESET}\n"
+        
+        local options=(
+            "Изменить порт Mieru"
+            "Назад"
+        )
+        select_menu "Настройки → Mieru" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            clear_screen
+            print_header "Настройки → Mieru → Изменение порта" "false"
+            local new_port
+            read_prompt "Введите новый порт для Mieru (1-65535, по умолчанию $port): " new_port
+            [ -z "$new_port" ] && new_port="$port"
+            
+            # Валидация порта
+            if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+                echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+                pause
+                continue
+            fi
+            
+            echo -e "\n  [*] Сохранение настроек порта Mieru..."
+            
+            # Обновление в instance.env
+            if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
+                sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
+            else
+                echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
+            fi
+            
+            # Перерендеринг настроек и перезапуск сервисов (включая UFW!)
+            python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+            echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
+            pause
+        else
             return
         fi
     done
