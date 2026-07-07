@@ -784,8 +784,18 @@ if user:
 ")
             print_header "Подключение: $nick ($label)" "false"
             if [ "$proto" == "mieru" ]; then
-                echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
-                echo -e "${CYAN}$link${RESET}"
+                local json_config
+                json_config=$(python3 -c "
+from core.config_manager import load_users, build_mieru_json_config
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_json_config(user))
+")
+                echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+                echo -e "  \033[1;36m$link\033[0m\n"
+                echo -e "  JSON-конфигурация подключения (для официального клиента):"
+                echo -e "${CYAN}$json_config${RESET}"
             else
                 echo -e "  Ссылка подключения:"
                 echo -e "  \033[1;36m$link\033[0m"
@@ -888,8 +898,18 @@ if user:
         clear_screen
         print_header "Протокол добавлен: $nick ($label)" "false"
         if [ "$protocol" == "mieru" ]; then
-            echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
-            echo -e "${CYAN}$link${RESET}"
+            local json_config
+            json_config=$(python3 -c "
+from core.config_manager import load_users, build_mieru_json_config
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_json_config(user))
+")
+            echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+            echo -e "  \033[1;36m$link\033[0m\n"
+            echo -e "  JSON-конфигурация подключения (для официального клиента):"
+            echo -e "${CYAN}$json_config${RESET}"
         else
             echo -e "  Ссылка подключения:"
             echo -e "  \033[1;36m$link\033[0m"
@@ -1042,8 +1062,18 @@ if user:
                 clear_screen
                 print_header "Подключение: $nick ($label)" "false"
                 if [ "$protocol" == "mieru" ]; then
-                    echo -e "  JSON-конфигурация подключения (скопируйте её целиком):"
-                    echo -e "${CYAN}$link${RESET}"
+                    local json_config
+                    json_config=$(python3 -c "
+from core.config_manager import load_users, build_mieru_json_config
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_json_config(user))
+")
+                    echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+                    echo -e "  \033[1;36m$link\033[0m\n"
+                    echo -e "  JSON-конфигурация подключения (для официального клиента):"
+                    echo -e "${CYAN}$json_config${RESET}"
                 else
                     echo -e "  Ссылка подключения:"
                     echo -e "  \033[1;36m$link\033[0m"

@@ -83,31 +83,44 @@ def build_client_link(user_obj):
         username = creds.get("username")
         password = creds.get("password")
         port = int(env.get("MIERU_PORT", 21000))
-        config = {
-            "profileName": f"Mieru-{nickname}",
-            "user": {
-                "name": username,
-                "password": password
-            },
-            "servers": [
-                {
-                    "ipAddress": domain,
-                    "portBindings": [
-                        {
-                            "port": port,
-                            "protocol": "TCP"
-                        }
-                    ]
-                }
-            ],
-            "mtu": 1400,
-            "multiplexing": {
-                "level": "MULTIPLEXING_HIGH"
-            }
-        }
-        return json.dumps(config, indent=2)
+        import urllib.parse
+        safe_user = urllib.parse.quote(username)
+        safe_pass = urllib.parse.quote(password)
+        safe_profile = urllib.parse.quote(f"Mieru-{nickname}")
+        return f"mierus://{safe_user}:{safe_pass}@{domain}?profile={safe_profile}&port={port}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH"
             
     return ""
+
+def build_mieru_json_config(user_obj):
+    env = load_env()
+    domain = env.get("DOMAIN", "yourdomain.com")
+    creds = user_obj.get("credentials", {})
+    username = creds.get("username")
+    password = creds.get("password")
+    port = int(env.get("MIERU_PORT", 21000))
+    config = {
+        "profileName": f"Mieru-{user_obj['nickname']}",
+        "user": {
+            "name": username,
+            "password": password
+        },
+        "servers": [
+            {
+                "ipAddress": domain,
+                "portBindings": [
+                    {
+                        "port": port,
+                        "protocol": "TCP"
+                    }
+                ]
+            }
+        ],
+        "mtu": 1400,
+        "multiplexing": {
+            "level": "MULTIPLEXING_HIGH"
+        }
+    }
+    return json.dumps(config, indent=2)
 
 def render_configs():
     env = load_env()
@@ -291,7 +304,7 @@ def render_configs():
             
         if os.path.exists("/usr/bin/mita"):
             subprocess.run(["rm", "-f", "/etc/mita/server.conf.pb"])
-            subprocess.run(["/usr/bin/mita", "apply", "config", tmp_config_path])
+            subprocess.run(["/usr/bin/mita", "apply", "config", tmp_config_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["chown", "-R", "mita:mita", "/etc/mita"])
 
 def validate_and_restart():
