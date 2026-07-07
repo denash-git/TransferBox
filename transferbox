@@ -599,7 +599,7 @@ list_users_menu() {
         while IFS= read -r line; do
             [ -z "$line" ] && continue
             users_raw+=("$line")
-        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else "VLESS " + (if .credentials.type == "ws" then "WS" else if .credentials.type == "grpc" then "gRPC" else if .credentials.type == "xhttp" then "XHTTP" else .credentials.type end end end) end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
+        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else if .protocol == "mieru" then "Mieru" else "VLESS " + (if .credentials.type == "ws" then "WS" else if .credentials.type == "grpc" then "gRPC" else if .credentials.type == "xhttp" then "XHTTP" else .credentials.type end end end) end end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
         
         local options=()
         local nicknames=()
@@ -784,7 +784,7 @@ if user:
 ")
             print_header "Подключение: $nick ($label)" "false"
             if [ "$proto" == "mieru" ]; then
-                local json_config
+                local json_config clash_yaml
                 json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -792,8 +792,17 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_json_config(user))
 ")
+                clash_yaml=$(python3 -c "
+from core.config_manager import load_users, build_mieru_clash_yaml
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_clash_yaml(user))
+")
                 echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
                 echo -e "  \033[1;36m$link\033[0m\n"
+                echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+                echo -e "${YELLOW}$clash_yaml${RESET}\n"
                 echo -e "  JSON-конфигурация подключения (для официального клиента):"
                 echo -e "${CYAN}$json_config${RESET}"
             else
@@ -898,7 +907,7 @@ if user:
         clear_screen
         print_header "Протокол добавлен: $nick ($label)" "false"
         if [ "$protocol" == "mieru" ]; then
-            local json_config
+            local json_config clash_yaml
             json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -906,8 +915,17 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_json_config(user))
 ")
+            clash_yaml=$(python3 -c "
+from core.config_manager import load_users, build_mieru_clash_yaml
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_clash_yaml(user))
+")
             echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
             echo -e "  \033[1;36m$link\033[0m\n"
+            echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+            echo -e "${YELLOW}$clash_yaml${RESET}\n"
             echo -e "  JSON-конфигурация подключения (для официального клиента):"
             echo -e "${CYAN}$json_config${RESET}"
         else
@@ -1062,7 +1080,7 @@ if user:
                 clear_screen
                 print_header "Подключение: $nick ($label)" "false"
                 if [ "$protocol" == "mieru" ]; then
-                    local json_config
+                    local json_config clash_yaml
                     json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -1070,8 +1088,17 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_json_config(user))
 ")
+                    clash_yaml=$(python3 -c "
+from core.config_manager import load_users, build_mieru_clash_yaml
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_clash_yaml(user))
+")
                     echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
                     echo -e "  \033[1;36m$link\033[0m\n"
+                    echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+                    echo -e "${YELLOW}$clash_yaml${RESET}\n"
                     echo -e "  JSON-конфигурация подключения (для официального клиента):"
                     echo -e "${CYAN}$json_config${RESET}"
                 else
