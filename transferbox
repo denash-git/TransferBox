@@ -730,6 +730,10 @@ protocol_management_menu() {
             if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
                 return
             fi
+        elif [ "$proto" == "mieru" ]; then
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+                return
+            fi
         else
             if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\")" /opt/transferbox/users.json >/dev/null 2>&1; then
                 return
@@ -737,7 +741,11 @@ protocol_management_menu() {
         fi
         
         # Получаем актуальный статус из базы
-        enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and (.credentials.type // \"\") == \"$utype\") | .enabled" /opt/transferbox/users.json)
+        if [ "$proto" == "naive" ] || [ "$proto" == "mieru" ]; then
+            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\") | .enabled" /opt/transferbox/users.json)
+        else
+            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\") | .enabled" /opt/transferbox/users.json)
+        fi
         
         local status_label="${GREEN}активен${RESET}"
         if [ "$enabled" != "true" ]; then
@@ -799,9 +807,23 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_clash_yaml(user))
 ")
-                echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+                local m_user m_pass m_port domain
+                m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
+                m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
+                m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+                [ -z "$m_port" ] && m_port="21000"
+                domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+                [ -z "$domain" ] && domain="yourdomain.com"
+
+                echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
+                echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
+                echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
+                echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
+                echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
+                echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
+                echo -e "  Ссылка подключения (для Hiddify/mihomo):"
                 echo -e "  \033[1;36m$link\033[0m\n"
-                echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+                echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
                 echo -e "${YELLOW}$clash_yaml${RESET}\n"
                 echo -e "  JSON-конфигурация подключения (для официального клиента):"
                 echo -e "${CYAN}$json_config${RESET}"
@@ -922,9 +944,23 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_clash_yaml(user))
 ")
-            echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+            local m_user m_pass m_port domain
+            m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
+            m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
+            m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+            [ -z "$m_port" ] && m_port="21000"
+            domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+            [ -z "$domain" ] && domain="yourdomain.com"
+
+            echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
+            echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
+            echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
+            echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
+            echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
+            echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
+            echo -e "  Ссылка подключения (для Hiddify/mihomo):"
             echo -e "  \033[1;36m$link\033[0m\n"
-            echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+            echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
             echo -e "${YELLOW}$clash_yaml${RESET}\n"
             echo -e "  JSON-конфигурация подключения (для официального клиента):"
             echo -e "${CYAN}$json_config${RESET}"
@@ -1095,9 +1131,23 @@ user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '
 if user:
     print(build_mieru_clash_yaml(user))
 ")
-                    echo -e "  Ссылка подключения (для Karing/mihomo/Clash):"
+                    local m_user m_pass m_port domain
+                    m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
+                    m_pass=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.password" /opt/transferbox/users.json | head -n 1)
+                    m_port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+                    [ -z "$m_port" ] && m_port="21000"
+                    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+                    [ -z "$domain" ] && domain="yourdomain.com"
+
+                    echo -e "  Данные для ручной настройки в Karing (кликните 'Добавить узел' -> 'Mieru'):"
+                    echo -e "  • Сервер (Server):       ${CYAN}$domain${RESET}"
+                    echo -e "  • Порт (Port):           ${CYAN}$m_port${RESET}"
+                    echo -e "  • Пользователь (User):   ${CYAN}$m_user${RESET}"
+                    echo -e "  • Пароль (Password):     ${CYAN}$m_pass${RESET}"
+                    echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
+                    echo -e "  Ссылка подключения (для Hiddify/mihomo):"
                     echo -e "  \033[1;36m$link\033[0m\n"
-                    echo -e "  Clash YAML конфигурация (скопируйте в файл профиля Karing):"
+                    echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
                     echo -e "${YELLOW}$clash_yaml${RESET}\n"
                     echo -e "  JSON-конфигурация подключения (для официального клиента):"
                     echo -e "${CYAN}$json_config${RESET}"
