@@ -320,9 +320,20 @@ def render_configs():
             json.dump(mita_config, f, indent=2)
             
         if os.path.exists("/usr/bin/mita"):
+            override_dir = "/etc/systemd/system/mita.service.d"
+            os.makedirs(override_dir, exist_ok=True)
+            override_file = os.path.join(override_dir, "override.conf")
+            with open(override_file, "w", encoding="utf-8") as f:
+                f.write("[Service]\nEnvironment=\"MITA_CONFIG_JSON_FILE=/etc/mita/server.conf.json\"\n")
+            
+            mita_json_path = "/etc/mita/server.conf.json"
+            os.makedirs(os.path.dirname(mita_json_path), exist_ok=True)
+            with open(mita_json_path, "w", encoding="utf-8") as f:
+                json.dump(mita_config, f, indent=2)
+                
             subprocess.run(["rm", "-f", "/etc/mita/server.conf.pb"])
-            subprocess.run(["/usr/bin/mita", "apply", "config", tmp_config_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             subprocess.run(["chown", "-R", "mita:mita", "/etc/mita"])
+            subprocess.run(["systemctl", "daemon-reload"])
 
 def validate_and_restart():
     # 1. Validate Caddyfile
