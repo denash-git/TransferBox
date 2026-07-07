@@ -164,11 +164,39 @@ select_menu() {
         [ $indent -lt 0 ] && indent=0
         
         for i in "${!options[@]}"; do
+            local opt="${options[$i]}"
+            local clean_opt
+            clean_opt=$(printf "%b" "$opt" | sed 's/\x1b\[[0-9;]*m//g')
+            
+            # Добавим пустую строку между всеми пунктами меню для крупного/просторного вида
+            if [ "$i" -ne 0 ]; then
+                printf "\n"
+            fi
+            
+            # Добавим еще одну пустую строку перед "Назад", "Отмена", "Выход" для дополнительного отделения
+            if [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]] && [ "$i" -ne 0 ]; then
+                printf "\n"
+            fi
+            
+            # Сделаем "Назад", "Отмена", "Выход" желтыми
+            if [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]]; then
+                if [[ "$opt" != *$'\033'* ]]; then
+                    opt="${YELLOW}${opt}${RESET}"
+                fi
+            fi
+            
+            # Сделаем все действия "Удалить" красными
+            if [[ "$clean_opt" == *"Удалить"* ]]; then
+                if [[ "$opt" != *$'\033'* ]]; then
+                    opt="${RED}${opt}${RESET}"
+                fi
+            fi
+            
             if [ "$i" -eq "$active_idx" ]; then
                 # Инверсия строки при выборе (код 7) с очисткой остатка строки \033[K
-                printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "${options[$i]}"
+                printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$opt"
             else
-                printf "%${indent}s  %b  \033[K\n" "" "${options[$i]}"
+                printf "%${indent}s  %b  \033[K\n" "" "$opt"
             fi
         done
         printf "\033[J" # Очистить всё ниже меню
