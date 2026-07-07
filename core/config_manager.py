@@ -403,3 +403,83 @@ def validate_and_restart():
             subprocess.run(["systemctl", "disable", "mita"], capture_output=True)
 
     return True, "Services successfully reloaded and validated!"
+
+def get_current_ssh_port():
+    port = 22
+    config_path = "/etc/ssh/sshd_config"
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.lower().startswith("port ") or line.lower().startswith("port\t"):
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1].isdigit():
+                        port = int(parts[1])
+                        break
+    return port
+
+def change_ssh_port(new_port):
+    if not (1 <= new_port <= 65535):
+        return False, "Неверный порт. Диапазон: 1-65535."
+        
+    old_port = get_current_ssh_port()
+    if old_port == new_port:
+        return True, f"SSH уже настроен на порт {new_port}."
+        
+    config_path = "/etc/ssh/sshd_config"
+    if not os.path.exists(config_path):
+        return False, f"Конфигурационный файл {config_path} не найден."
+        
+    # 1. Открываем новый порт в UFW до изменения, чтобы не заблокировать пользователя
+    subprocess.run(["ufw", "allow", f"{new_port}/tcp", "comment", "SSH Port"], capture_output=True)
+    
+    # 2. Читаем и обновляем sshd_config
+    with open(config_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        
+    port_replaced = False
+    for i, line in enumerate(lines):
+        clean_line = line.strip()
+        if clean_line.lower().startswith("port ") or clean_line.lower().startswith("port\t"):
+            lines[i] = f"Port {new_port}\n"
+            port_replaced = True
+            break
+            
+    if not port_replaced:
+        for i, line in enumerate(lines):
+            clean_line = line.strip()
+            if clean_line.startswith("#") and ("port " in clean_line.lower() or "port\t" in clean_line.lower()):
+                lines[i] = f"Port {new_port}\n"
+                port_replaced = True
+                break
+                
+    if not port_replaced:
+        lines.append(f"\nPort {new_port}\n")
+        
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+        
+    # 3. Перезапускаем SSH сервис
+    res = subprocess.run(["systemctl", "restart", "ssh"], capture_output=True)
+    if res.returncode != 0:
+        res = subprocess.run(["systemctl", "restart", "sshd"], capture_output=True)
+        
+    # 4. Проверяем, слушает ли SSH новый порт
+    check = subprocess.run(f"ss -tlnp | grep -E ':{new_port}\\s'", shell=True, capture_output=True)
+    if check.returncode != 0:
+        # Revert change
+        for i, line in enumerate(lines):
+            if line.strip() == f"Port {new_port}":
+                lines[i] = f"Port {old_port}\n"
+                break
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        subprocess.run(["systemctl", "restart", "ssh"], capture_output=True)
+        subprocess.run(["systemctl", "restart", "sshd"], capture_output=True)
+        return False, f"Ошибка: SSH-сервер не запустился на порту {new_port}. Изменения отменены."
+        
+    return True, f"Успешно! SSH переведен на порт {new_port}."
+
+def remove_old_ssh_port_ufw(old_port):
+    if old_port and old_port != 22:
+        subprocess.run(["ufw", "delete", "allow", f"{old_port}/tcp"], capture_output=True)
