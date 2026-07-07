@@ -323,11 +323,159 @@ list_users_menu() {
     done
 }
 
-user_submenu() {
-    local user_data="$1"
-    IFS='|' read -r nick proto utype enabled <<< "$user_data"
+list_users_menu() {
+    while true; do
+        if [ ! -f "/opt/transferbox/users.json" ] || [ "$(jq '. | length' /opt/transferbox/users.json 2>/dev/null)" -eq 0 ]; then
+            clear_screen
+            print_header "Список пользователей"
+            echo -e "  Пользователей пока нет."
+            pause
+            return
+        fi
+        
+        # Считывание уникальных пользователей и списка их протоколов
+        local users_raw=()
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            users_raw+=("$line")
+        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else "VLESS " + (.credentials.type | upcase) end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
+        
+        local options=()
+        local nicknames=()
+        local max_nick_len=0
+        
+        for u in "${users_raw[@]}"; do
+            IFS='|' read -r nick protos <<< "$u"
+            nicknames+=("$nick")
+            if [ ${#nick} -gt $max_nick_len ]; then
+                max_nick_len=${#nick}
+            fi
+        done
+        
+        local col_width=$(( max_nick_len + 4 ))
+        for u in "${users_raw[@]}"; do
+            IFS='|' read -r nick protos <<< "$u"
+            local pad_spaces=""
+            local pad_len=$(( col_width - ${#nick} ))
+            if [ $pad_len -gt 0 ]; then
+                pad_spaces=$(printf "%${pad_len}s" "")
+            fi
+            options+=("$nick$pad_spaces(Протоколы: $protos)")
+        done
+        options+=("Назад")
+        
+        select_menu "Список пользователей" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
+            return
+        else
+            local selected_nick="${nicknames[$choice]}"
+            user_management_menu "$selected_nick"
+        fi
+    done
+}
+
+user_management_menu() {
+    local nick="$1"
+    while true; do
+        # Проверяем, существует ли еще пользователь
+        if ! jq -e ".[] | select(.nickname == \"$nick\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+            return
+        fi
+        
+        # Загружаем протоколы этого пользователя
+        local protocols_raw=()
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            protocols_raw+=("$line")
+        done < <(jq -r ".[] | select(.nickname == \"$nick\") | \"\(.protocol)|\(.credentials.type // \"\")|\(.enabled)\"" /opt/transferbox/users.json 2>/dev/null)
+        
+        local options=()
+        local proto_types=()
+        local proto_labels=()
+        
+        for p in "${protocols_raw[@]}"; do
+            IFS='|' read -r proto utype enabled <<< "$p"
+            local label=""
+            if [ "$proto" == "naive" ]; then
+                label="NaiveProxy"
+            else
+                label="VLESS over ${utype^^}"
+            fi
+            proto_labels+=("$label")
+            proto_types+=("$proto|$utype|$enabled")
+            
+            local status_str="${RED}отключен${RESET}"
+            [ "$enabled" == "true" ] && status_str="${GREEN}активен${RESET}"
+            options+=("• $label [$status_str]")
+        done
+        
+        local num_protocols=${#options[@]}
+        
+        options+=("[+] Добавить протокол")
+        options+=("[i] Ссылка подписки & QR")
+        options+=("[x] Удалить пользователя полностью")
+        options+=("Назад")
+        
+        select_menu "Управление: $nick" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
+            return
+        elif [ "$choice" -lt "$num_protocols" ]; then
+            local selected_proto="${proto_types[$choice]}"
+            local selected_label="${proto_labels[$choice]}"
+            IFS='|' read -r proto utype enabled <<< "$selected_proto"
+            protocol_management_menu "$nick" "$proto" "$utype" "$enabled" "$selected_label"
+        elif [ "$choice" -eq "$num_protocols" ]; then
+            add_protocol_to_user "$nick"
+        elif [ "$choice" -eq $(( num_protocols + 1 )) ]; then
+            show_subscription_qr "$nick"
+        elif [ "$choice" -eq $(( num_protocols + 2 )) ]; then
+            local confirm
+            read_prompt "Вы действительно хотите полностью удалить пользователя $nick и все его протоколы? [y/N]: " confirm
+            if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                echo -e "\n  [*] Удаление пользователя..."
+                python3 -c "
+from core.user_manager import delete_user
+success, msg = delete_user('$nick')
+print(msg)
+"
+                python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+                pause
+                return
+            fi
+        fi
+    done
+}
+
+protocol_management_menu() {
+    local nick="$1"
+    local proto="$2"
+    local utype="$3"
+    local enabled="$4"
+    local label="$5"
     
     while true; do
+        # Проверяем существование этого конкретного протокола
+        if [ "$proto" == "naive" ]; then
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+                return
+            fi
+        else
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+                return
+            fi
+        fi
+        
+        # Получаем актуальный статус из базы
+        enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and (.credentials.type // \"\") == \"$utype\") | .enabled" /opt/transferbox/users.json)
+        
         local status_label="${GREEN}активен${RESET}"
         if [ "$enabled" != "true" ]; then
             status_label="${RED}отключен${RESET}"
@@ -336,19 +484,20 @@ user_submenu() {
         local options=(
             "Включить / Выключить (Статус: $status_label)"
             "Показать ссылку подключения и QR-код"
-            "Удалить пользователя"
+            "Удалить этот протокол"
             "Назад"
         )
-        
-        select_menu "Управление: $nick" "${options[@]}"
+        select_menu "$nick ($label)" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq 0 ]; then
+        if [ "$choice" -eq -1 ] || [ "$choice" -eq 3 ]; then
+            return
+        elif [ "$choice" -eq 0 ]; then
             local new_status="True"
             if [ "$enabled" == "true" ]; then
                 new_status="False"
             fi
-            echo -e "\n  [*] Изменение статуса пользователя..."
+            echo -e "\n  [*] Изменение статуса протокола..."
             python3 -c "
 from core.user_manager import toggle_user
 success, msg = toggle_user('$nick', $new_status, '$proto', '$utype')
@@ -359,90 +508,28 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-            if [ "$new_status" == "True" ]; then enabled="true"; else enabled="false"; fi
             pause
         elif [ "$choice" -eq 1 ]; then
-            # Находим все активные записи пользователя
-            local user_records=()
-            while IFS= read -r line; do
-                [ -z "$line" ] && continue
-                user_records+=("$line")
-            done < <(jq -r ".[] | select(.nickname == \"$nick\" and .enabled == true) | \"\(.protocol)|\(.credentials.type // \"\")|\(.sub_token // \"\")\"" /opt/transferbox/users.json 2>/dev/null)
-            
-            if [ ${#user_records[@]} -eq 0 ]; then
-                echo -e "\n  ${RED}✗ Нет активных протоколов для этого пользователя.${RESET}"
-                pause
-                continue
-            fi
-            
-            local qr_options=()
-            local qr_links=()
-            local qr_titles=()
-            
-            for ur in "${user_records[@]}"; do
-                IFS='|' read -r proto_item utype_item token <<< "$ur"
-                local link
-                link=$(python3 -c "
+            clear_screen
+            local link
+            link=$(python3 -c "
 from core.config_manager import load_users, build_client_link
 users = load_users()
-user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$proto_item' and u.get('credentials', {}).get('type', '') == '$utype_item'), None)
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$proto' and u.get('credentials', {}).get('type', '') == '$utype'), None)
 if user:
     print(build_client_link(user))
 ")
-                if [ ! -z "$link" ]; then
-                    local label=""
-                    if [ "$proto_item" == "naive" ]; then
-                        label="NaiveProxy Link & QR"
-                    else
-                        label="VLESS over ${utype_item^^} Link & QR"
-                    fi
-                    qr_options+=("$label")
-                    qr_links+=("$link")
-                    qr_titles+=("Подключение: $nick ($proto_item ${utype_item^^})")
-                fi
-            done
-            
-            local sub_token=""
-            for ur in "${user_records[@]}"; do
-                IFS='|' read -r proto_item utype_item token <<< "$ur"
-                if [ ! -z "$token" ]; then
-                    sub_token="$token"
-                    break
-                fi
-            done
-            
-            if [ ! -z "$sub_token" ]; then
-                local domain
-                domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-                [ -z "$domain" ] && domain="yourdomain.com"
-                local sub_link="https://${domain}/sub/${sub_token}"
-                
-                qr_options+=("Ссылка Подписки & QR (Все протоколы)")
-                qr_links+=("$sub_link")
-                qr_titles+=("Ссылка подписки: $nick")
-            fi
-            qr_options+=("Назад")
-            
-            while true; do
-                select_menu "QR-коды и ссылки: $nick" "${qr_options[@]}"
-                local qr_choice=$SELECTED_INDEX
-                
-                if [ "$qr_choice" -eq -1 ] || [ "$qr_choice" -eq $(( ${#qr_options[@]} - 1 )) ]; then
-                    break
-                fi
-                
-                clear_screen
-                print_header "${qr_titles[$qr_choice]}" "false"
-                echo -e "  Ссылка:"
-                echo -e "  \033[1;36m${qr_links[$qr_choice]}\033[0m"
-                echo -e "\n  QR-код:"
-                qrencode -t ANSIUTF8 "${qr_links[$qr_choice]}" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
-                pause
-            done
+            print_header "Подключение: $nick ($label)" "false"
+            echo -e "  Ссылка подключения:"
+            echo -e "  \033[1;36m$link\033[0m"
+            echo -e "\n  QR-код:"
+            qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+            pause
         elif [ "$choice" -eq 2 ]; then
             local confirm
-            read_prompt "Вы действительно хотите удалить протокол $proto ${utype^^} для $nick? [y/N]: " confirm
+            read_prompt "Вы действительно хотите удалить протокол $label для $nick? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                echo -e "\n  [*] Удаление протокола..."
                 python3 -c "
 from core.user_manager import delete_user
 success, msg = delete_user('$nick', '$proto', '$utype')
@@ -456,10 +543,107 @@ validate_and_restart()
                 pause
                 return
             fi
-        elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
-            return
         fi
     done
+}
+
+add_protocol_to_user() {
+    local nick="$1"
+    local options=(
+        "VLESS over WebSocket"
+        "VLESS over gRPC"
+        "VLESS over XHTTP"
+        "NaiveProxy"
+        "Отмена"
+    )
+    select_menu "Добавить протокол для $nick" "${options[@]}"
+    local choice=$SELECTED_INDEX
+    
+    local protocol=""
+    local user_type=""
+    if [ "$choice" -eq 0 ]; then
+        protocol="vless"
+        user_type="ws"
+    elif [ "$choice" -eq 1 ]; then
+        protocol="vless"
+        user_type="grpc"
+    elif [ "$choice" -eq 2 ]; then
+        protocol="vless"
+        user_type="xhttp"
+    elif [ "$choice" -eq 3 ]; then
+        protocol="naive"
+    else
+        return
+    fi
+    
+    echo -e "\n  [*] Добавление протокола..."
+    local create_res
+    create_res=$(python3 -c "
+from core.user_manager import add_user
+success, user = add_user('$nick', '$protocol', '$user_type')
+if success:
+    print('SUCCESS')
+else:
+    print(user)
+")
+    
+    if [ "$create_res" == "SUCCESS" ]; then
+        python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+        local link
+        link=$(python3 -c "
+from core.config_manager import load_users, build_client_link
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == '$protocol' and u.get('credentials', {}).get('type', '') == '$user_type'), None)
+if user:
+    print(build_client_link(user))
+")
+        local label=""
+        if [ "$protocol" == "naive" ]; then
+            label="NaiveProxy"
+        else
+            label="VLESS over ${user_type^^}"
+        fi
+        
+        clear_screen
+        print_header "Протокол добавлен: $nick ($label)" "false"
+        echo -e "  Ссылка подключения:"
+        echo -e "  \033[1;36m$link\033[0m"
+        echo -e "\n  QR-код:"
+        qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+        pause
+    else
+        echo -e "\n  ${RED}✗ Ошибка добавления протокола: $create_res${RESET}"
+        pause
+    fi
+}
+
+show_subscription_qr() {
+    local nick="$1"
+    local sub_token
+    sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" /opt/transferbox/users.json 2>/dev/null | head -n 1)
+    
+    if [ -z "$sub_token" ] || [ "$sub_token" == "null" ]; then
+        echo -e "\n  ${RED}✗ Ошибка: Не удалось найти токен подписки для этого пользователя.${RESET}"
+        pause
+        return
+    fi
+    
+    local domain
+    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    [ -z "$domain" ] && domain="yourdomain.com"
+    local sub_link="https://${domain}/sub/${sub_token}"
+    
+    clear_screen
+    print_header "Подписка пользователя: $nick" "false"
+    echo -e "  Ссылка подписки:"
+    echo -e "  \033[1;36m$sub_link\033[0m"
+    echo -e "\n  QR-код:"
+    qrencode -t ANSIUTF8 "$sub_link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
+    pause
 }
 
 create_user_menu() {
@@ -467,10 +651,10 @@ create_user_menu() {
     print_header "Новый пользователь"
     
     local nick
-    read_prompt "Введите никнейм пользователя: " nick
+    read_prompt "Введите никнейм пользователя (или 0 для отмены): " nick
     nick="${nick// /}"
-    if [ -z "$nick" ]; then
-        echo -e "\n  ${RED}✗ Никнейм не может быть пустым.${RESET}"
+    if [ -z "$nick" ] || [ "$nick" == "0" ]; then
+        echo -e "\n  Создание пользователя отменено."
         pause
         return
     fi
