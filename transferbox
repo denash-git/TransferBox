@@ -208,6 +208,7 @@ main_menu() {
         local options=(
             "Пользователи"
             "Настройки"
+            "Диагностика"
             "Бэкап и Восстановление"
             "Перезапустить службы"
             "Показать логи"
@@ -222,18 +223,149 @@ main_menu() {
         elif [ "$choice" -eq 1 ]; then
             settings_menu
         elif [ "$choice" -eq 2 ]; then
-            backup_restore_menu
+            diagnostics_menu
         elif [ "$choice" -eq 3 ]; then
-            apply_settings_menu
+            backup_restore_menu
         elif [ "$choice" -eq 4 ]; then
-            logs_menu
+            apply_settings_menu
         elif [ "$choice" -eq 5 ]; then
+            logs_menu
+        elif [ "$choice" -eq 6 ]; then
             system_monitor_menu
-        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 7 ] || [ "$choice" -eq -1 ]; then
             clear_screen
             exit 0
         fi
     done
+}
+
+# ─── ДИАГНОСТИКА (SPEEDTEST) ──────────────────────────────────────────────────
+
+diagnostics_menu() {
+    while true; do
+        local options=(
+            "Тест VPS → Интернет (speedtest-cli)"
+            "Замер скорости Client ↔ VPS (веб-страница)"
+            "Показать текущий префикс speedtest"
+            "Перегенерировать префикс speedtest"
+            "Назад"
+        )
+        select_menu "Диагностика" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            run_speedtest_vps_internet
+        elif [ "$choice" -eq 1 ]; then
+            run_speedtest_client_vps
+        elif [ "$choice" -eq 2 ]; then
+            show_speedtest_prefix
+        elif [ "$choice" -eq 3 ]; then
+            regenerate_speedtest_prefix_menu
+        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+            return
+        fi
+    done
+}
+
+run_speedtest_vps_internet() {
+    clear_screen
+    print_header "Скорость VPS → Интернет" "false"
+    echo -e "  Тест выполняется на сервере через ближайший speedtest-узел."
+    echo -e "  Это показывает пропускную способность канала самого VPS.\n"
+    
+    if ! command -v speedtest-cli >/dev/null 2>&1; then
+        echo -e "  [*] Установка speedtest-cli..."
+        sudo apt-get update >/dev/null 2>&1 && sudo apt-get install -y speedtest-cli >/dev/null 2>&1
+    fi
+    
+    if ! command -v speedtest-cli >/dev/null 2>&1; then
+        echo -e "  ${RED}✗ Не удалось установить speedtest-cli.${RESET}"
+        pause
+        return
+    fi
+    
+    echo -e "  ${CYAN}Запуск теста, подождите...${RESET}\n"
+    speedtest-cli --secure --simple 2>&1 | sed 's/^/  /'
+    echo
+    pause
+}
+
+run_speedtest_client_vps() {
+    clear_screen
+    print_header "Замер скорости: Client ↔ VPS" "false"
+    echo -e "  Временная HTTPS-ссылка на 10 минут для тестирования скорости."
+    echo -e "  Откройте её в браузере для запуска замера (трафик идет по порту 443).\n"
+    
+    if ! systemctl is-active transferbox-speedtest --quiet 2>/dev/null; then
+        echo -e "  [*] Запуск службы speedtest..."
+        sudo systemctl start transferbox-speedtest >/dev/null 2>&1
+    fi
+    
+    local token expires_at expires_human url domain prefix
+    token=$(openssl rand -hex 12)
+    expires_at=$(( $(date +%s) + 600 ))
+    expires_human=$(date -d "@${expires_at}" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || date -u -d "@${expires_at}" '+%Y-%m-%d %H:%M:%S UTC')
+    
+    # Записываем в базу ссылок
+    mkdir -p /opt/transferbox/backups
+    printf '%s\t%s\t%s\n' "$token" "$expires_at" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /opt/transferbox/backups/speedtest-links.tsv
+    chmod 600 /opt/transferbox/backups/speedtest-links.tsv
+    
+    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    prefix=$(grep -E "^SPEEDTEST_PREFIX=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    url="https://${domain}/${prefix}${token}/"
+    
+    echo -e "  ${YELLOW}Ссылка действует до:${RESET} ${CYAN}${expires_human}${RESET}\n"
+    echo -e "  ${YELLOW}Ссылка:${RESET}"
+    echo -e "  \033[1;36m${url}\033[0m\n"
+    echo -e "  ${YELLOW}QR-код:${RESET}"
+    qrencode -t ANSIUTF8 "${url}" 2>/dev/null || echo -e "  [qrencode не установлен]"
+    echo
+    pause
+}
+
+show_speedtest_prefix() {
+    clear_screen
+    print_header "Текущий префикс speedtest" "false"
+    local prefix
+    prefix=$(grep -E "^SPEEDTEST_PREFIX=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    echo -e "  Текущий секретный префикс: ${GREEN}${prefix}${RESET}"
+    echo -e "  Он используется для скрытия тестовой страницы от посторонних сканеров."
+    echo
+    pause
+}
+
+regenerate_speedtest_prefix_menu() {
+    clear_screen
+    print_header "Перегенерация префикса" "false"
+    echo -e "  ${RED}⚠ Внимание: все ранее выданные ссылки speedtest перестанут работать!${RESET}"
+    local confirm
+    read_prompt "Вы действительно хотите сгенерировать новый префикс? [y/N]: " confirm
+    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+        local new_prefix
+        new_prefix=$(openssl rand -hex 4)
+        python3 -c "
+import os
+env_path = '/opt/transferbox/instance.env'
+lines = []
+with open(env_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        if line.startswith('SPEEDTEST_PREFIX='):
+            lines.append(f'SPEEDTEST_PREFIX={new_prefix}\n')
+        else:
+            lines.append(line)
+with open(env_path, 'w', encoding='utf-8') as f:
+    f.writelines(lines)
+"
+        echo -e "\n  [*] Перегенерация конфигураций..."
+        python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+        echo -e "  ${GREEN}✓ Новый префикс успешно сохранен и применен!${RESET}"
+        pause
+    fi
 }
 
 # ─── МЕНЮ ПОЛЬЗОВАТЕЛЕЙ ──────────────────────────────────────────────────────

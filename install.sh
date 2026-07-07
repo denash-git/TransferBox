@@ -183,10 +183,28 @@ RestartSec=5s
 WantedBy=multi-user.target
 EOF
 
+cat > "/etc/systemd/system/transferbox-speedtest.service" <<EOF
+[Unit]
+Description=TransferBox LibreSpeed backend
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/usr/bin/env python3 ${PROJECT_ROOT}/core/librespeed_server.py
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 systemctl enable caddy >/dev/null 2>&1
 systemctl enable sing-box >/dev/null 2>&1
-log_ok "Службы caddy и sing-box зарегистрированы и добавлены в автозагрузку."
+systemctl enable transferbox-speedtest >/dev/null 2>&1
+log_ok "Службы caddy, sing-box и speedtest зарегистрированы и добавлены в автозагрузку."
 
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"

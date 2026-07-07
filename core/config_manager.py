@@ -83,6 +83,13 @@ def build_client_link(user_obj):
 
 def render_configs():
     env = load_env()
+    speedtest_prefix = env.get("SPEEDTEST_PREFIX", "")
+    if not speedtest_prefix:
+        import secrets
+        speedtest_prefix = secrets.token_hex(4)
+        env["SPEEDTEST_PREFIX"] = speedtest_prefix
+        save_env(env)
+
     users = load_users()
 
     domain = env.get("DOMAIN", "example.com")
@@ -137,6 +144,7 @@ def render_configs():
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
     caddy_content = caddy_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
+    caddy_content = caddy_content.replace("{{SPEEDTEST_PREFIX}}", speedtest_prefix)
 
     # 2. Render sing-box base config
     vless_ws_users = []
