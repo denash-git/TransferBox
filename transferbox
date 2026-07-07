@@ -113,9 +113,30 @@ print_header() {
     center_print "${YELLOW}${title}${RESET}"
     center_print "${BLUE}${line_single}${RESET}"
     if [ "$show_status" == "true" ]; then
-        center_print "Домен: ${BOLD}${domain}${RESET}"
-        center_print "Caddy: $(get_service_status caddy)"
-        center_print "sing-box: $(get_service_status sing-box)"
+        # Вычисляем максимальную длину для красивого выравнивания в столбик
+        local status_cad_raw
+        status_cad_raw=$(get_service_status caddy | sed 's/\x1b\[[0-9;]*m//g')
+        local status_sb_raw
+        status_sb_raw=$(get_service_status sing-box | sed 's/\x1b\[[0-9;]*m//g')
+        
+        local len_dom=$(( 10 + ${#domain} ))
+        local len_cad=$(( 10 + ${#status_cad_raw} ))
+        local len_sb=$(( 10 + ${#status_sb_raw} ))
+        
+        local max_block_len=$len_dom
+        [ $len_cad -gt $max_block_len ] && max_block_len=$len_cad
+        [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
+        
+        local term_width
+        term_width=$(tput cols 2>/dev/null || echo 80)
+        local indent=$(( (term_width - max_block_len) / 2 ))
+        [ $indent -lt 0 ] && indent=0
+        local pad_spaces
+        pad_spaces=$(printf "%${indent}s" "")
+        
+        echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
+        echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
+        echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
         center_print "${BLUE}${line_double}${RESET}"
     fi
     echo ""
@@ -192,28 +213,45 @@ select_menu() {
                 fi
             fi
             
-            # Вычисляем паддинг пробелами до максимальной длины, чтобы ширина выделения была одинаковой
+            # Вычисляем паддинг для центрирования или левого выравнивания
             local padding_len=$(( max_len - ${#clean_opt} ))
-            local padding=""
-            [ $padding_len -gt 0 ] && padding=$(printf "%${padding_len}s" "")
+            local text_to_draw=""
             
-            if [ "$i" -eq "$active_idx" ]; then
-                # Очищаем все цвета из строки, чтобы не было битых инверсий
-                local text_to_draw="$clean_opt$padding"
+            if [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]]; then
+                # Центрируем эти кнопки внутри общей ширины меню
+                local pad_left=$(( padding_len / 2 ))
+                local pad_right=$(( padding_len - pad_left ))
+                local spaces_left=""
+                local spaces_right=""
+                [ $pad_left -gt 0 ] && spaces_left=$(printf "%${pad_left}s" "")
+                [ $pad_right -gt 0 ] && spaces_right=$(printf "%${pad_right}s" "")
                 
-                if [[ "$clean_opt" == *"Удалить"* ]]; then
-                    # Красный фон, черный текст для удаления
-                    printf "%${indent}s\033[41;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
-                elif [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]]; then
-                    # Желтый фон, черный текст для назад/выхода
+                if [ "$i" -eq "$active_idx" ]; then
+                    text_to_draw="$spaces_left$clean_opt$spaces_right"
+                    # Желтый фон, черный текст
                     printf "%${indent}s\033[43;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
                 else
-                    # Стандартная инверсия (белый/серый фон, черный текст)
-                    printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                    text_to_draw="$spaces_left$opt$spaces_right"
+                    printf "%${indent}s  %b  \033[K\n" "" "$text_to_draw"
                 fi
             else
-                local text_to_draw="$opt$padding"
-                printf "%${indent}s  %b  \033[K\n" "" "$text_to_draw"
+                # Левое выравнивание для обычных пунктов
+                local padding=""
+                [ $padding_len -gt 0 ] && padding=$(printf "%${padding_len}s" "")
+                
+                if [ "$i" -eq "$active_idx" ]; then
+                    text_to_draw="$clean_opt$padding"
+                    if [[ "$clean_opt" == *"Удалить"* ]]; then
+                        # Красный фон, черный текст
+                        printf "%${indent}s\033[41;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                    else
+                        # Стандартная инверсия (белый/серый фон, черный текст)
+                        printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                    fi
+                else
+                    text_to_draw="$opt$padding"
+                    printf "%${indent}s  %b  \033[K\n" "" "$text_to_draw"
+                fi
             fi
         done
         printf "\033[J" # Очистить всё ниже меню
