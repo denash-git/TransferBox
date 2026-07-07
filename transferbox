@@ -269,7 +269,7 @@ modules_menu() {
         if [ "$choice" -eq 0 ]; then
             mieru_module_menu
         elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -364,7 +364,7 @@ validate_and_restart()
                 fi
             fi
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -392,7 +392,7 @@ diagnostics_menu() {
         elif [ "$choice" -eq 3 ]; then
             regenerate_speedtest_prefix_menu
         elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -412,7 +412,7 @@ run_speedtest_vps_internet() {
     if ! command -v speedtest >/dev/null 2>&1; then
         echo -e "  ${RED}✗ Не удалось установить speedtest.${RESET}"
         pause
-        return
+        return 0
     fi
 
     while true; do
@@ -431,7 +431,7 @@ run_speedtest_vps_internet() {
             speedtest --accept-license --accept-gdpr 2>&1 | sed 's/^/  /'
             echo
             pause
-            return
+            return 0
         elif [ "$choice" -eq 1 ]; then
             clear_screen
             print_header "Поиск ближайших серверов" "false"
@@ -477,9 +477,9 @@ run_speedtest_vps_internet() {
             speedtest -s "$selected_id" --accept-license --accept-gdpr 2>&1 | sed 's/^/  /'
             echo
             pause
-            return
+            return 0
         else
-            return
+            return 0
         fi
     done
 }
@@ -579,7 +579,7 @@ users_menu() {
         elif [ "$choice" -eq 1 ]; then
             create_user_menu
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -591,7 +591,7 @@ list_users_menu() {
             print_header "Список пользователей"
             echo -e "  Пользователей пока нет."
             pause
-            return
+            return 0
         fi
         
         # Считывание уникальных пользователей и списка их протоколов
@@ -629,7 +629,7 @@ list_users_menu() {
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
-            return
+            return 0
         else
             local selected_nick="${nicknames[$choice]}"
             user_management_menu "$selected_nick"
@@ -642,7 +642,7 @@ user_management_menu() {
     while true; do
         # Проверяем, существует ли еще пользователь
         if ! jq -e ".[] | select(.nickname == \"$nick\")" /opt/transferbox/users.json >/dev/null 2>&1; then
-            return
+            return 0
         fi
         
         # Загружаем протоколы этого пользователя
@@ -685,7 +685,7 @@ user_management_menu() {
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
-            return
+            return 0
         elif [ "$choice" -lt "$num_protocols" ]; then
             local selected_proto="${proto_types[$choice]}"
             local selected_label="${proto_labels[$choice]}"
@@ -711,7 +711,7 @@ render_configs()
 validate_and_restart()
 "
                 pause
-                return
+                return 0
             fi
         fi
     done
@@ -728,15 +728,15 @@ protocol_management_menu() {
         # Проверяем существование этого конкретного протокола
         if [ "$proto" == "naive" ]; then
             if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
-                return
+                return 0
             fi
         elif [ "$proto" == "mieru" ]; then
             if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" /opt/transferbox/users.json >/dev/null 2>&1; then
-                return
+                return 0
             fi
         else
             if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\")" /opt/transferbox/users.json >/dev/null 2>&1; then
-                return
+                return 0
             fi
         fi
         
@@ -762,7 +762,7 @@ protocol_management_menu() {
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq -1 ] || [ "$choice" -eq 3 ]; then
-            return
+            return 0
         elif [ "$choice" -eq 0 ]; then
             local new_status="True"
             if [ "$enabled" == "true" ]; then
@@ -832,7 +832,7 @@ render_configs()
 validate_and_restart()
 "
                 pause
-                return
+                return 0
             fi
         fi
     done
@@ -877,7 +877,7 @@ add_protocol_to_user() {
         print_header "Добавить протокол для $nick"
         echo -e "  У этого пользователя уже добавлены все доступные протоколы."
         pause
-        return
+        return 0
     fi
     
     options+=("Отмена")
@@ -886,7 +886,7 @@ add_protocol_to_user() {
     local choice=$SELECTED_INDEX
     
     if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
-        return
+        return 0
     fi
     
     local selected_opt="${options[$choice]}"
@@ -906,7 +906,7 @@ add_protocol_to_user() {
     elif [ "$selected_opt" == "Mieru" ]; then
         protocol="mieru"
     else
-        return
+        return 0
     fi
     
     echo -e "\n  [*] Добавление протокола..."
@@ -984,7 +984,7 @@ show_subscription_qr() {
     if [ -z "$sub_token" ] || [ "$sub_token" == "null" ]; then
         echo -e "\n  ${RED}✗ Ошибка: Не удалось найти токен подписки для этого пользователя.${RESET}"
         pause
-        return
+        return 0
     fi
     
     local domain
@@ -1011,7 +1011,7 @@ create_user_menu() {
     if [ -z "$nick" ] || [ "$nick" == "0" ]; then
         echo -e "\n  Создание пользователя отменено."
         pause
-        return
+        return 0
     fi
     
     # Проверить, существует ли никнейм уже в базе
@@ -1022,7 +1022,7 @@ create_user_menu() {
         if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
             echo -e "  Создание пользователя отменено."
             pause
-            return
+            return 0
         fi
     fi
     
@@ -1057,7 +1057,7 @@ create_user_menu() {
     elif [ "$selected_opt" == "Mieru" ]; then
         protocol="mieru"
     else
-        return
+        return 0
     fi
     
     echo -e "\n  [*] Добавление пользователя..."
@@ -1243,7 +1243,7 @@ EOF
             fi
             pause
         elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -1298,7 +1298,7 @@ validate_and_restart()
             echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
             pause
         else
-            return
+            return 0
         fi
     done
 }
@@ -1372,7 +1372,7 @@ change_site_template_menu() {
     elif [ "$choice" -eq 2 ]; then name="synapse"
     elif [ "$choice" -eq 3 ]; then name="chronos"
     elif [ "$choice" -eq 4 ]; then name="stratum"
-    else return; fi
+    else return 0; fi
     
     python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FAKE_SITE_TEMPLATE'] = '$name'; save_env(env)"
     echo -e "\n  Применяем настройки..."
@@ -1434,7 +1434,7 @@ change_vless_paths_menu() {
                 pause
             fi
         else
-            return
+            return 0
         fi
         
         if [ "$changed" == "true" ]; then
@@ -1464,7 +1464,7 @@ update_singbox_menu() {
     if [ -z "$latest" ]; then
         echo -e "  ${RED}✗ Ошибка: Не удалось получить последнюю версию с GitHub.${RESET}"
         pause
-        return
+        return 0
     fi
     
     echo -e "\n  Текущая установленная версия: ${BOLD}$current${RESET}"
@@ -1669,7 +1669,7 @@ else:
             fi
             pause
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -1733,7 +1733,7 @@ logs_menu() {
             echo -e "  Следим за логами sing-box... (Нажмите Ctrl+C для выхода)\n"
             journalctl -u sing-box -f
         elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
-            return
+            return 0
         fi
     done
 }
@@ -1772,7 +1772,7 @@ system_monitor_menu() {
         if read -t 1 -rsn1 key; then
             if [[ "$key" == "q" || "$key" == "Q" || "$key" == "0" || "$key" == "" ]]; then
                 tput cnorm
-                return
+                return 0
             fi
         fi
         
