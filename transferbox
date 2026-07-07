@@ -202,11 +202,11 @@ select_menu() {
                 local text_to_draw="$clean_opt$padding"
                 
                 if [[ "$clean_opt" == *"Удалить"* ]]; then
-                    # Красный фон, белый текст для удаления
-                    printf "%${indent}s\033[41;1;37m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                    # Красный фон, черный текст для удаления
+                    printf "%${indent}s\033[41;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
                 elif [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]]; then
                     # Желтый фон, черный текст для назад/выхода
-                    printf "%${indent}s\033[43;1;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                    printf "%${indent}s\033[43;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
                 else
                     # Стандартная инверсия (белый/серый фон, черный текст)
                     printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$text_to_draw"
