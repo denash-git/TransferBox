@@ -139,6 +139,28 @@ def build_mieru_clash_yaml(user_obj):
     transport: tcp"""
     return yaml_str
 
+def build_mieru_singbox_json(user_obj):
+    env = load_env()
+    domain = env.get("DOMAIN", "yourdomain.com")
+    creds = user_obj.get("credentials", {})
+    username = creds.get("username")
+    password = creds.get("password")
+    port = int(env.get("MIERU_PORT", 21000))
+    config = {
+        "outbounds": [
+            {
+                "type": "mieru",
+                "tag": f"Mieru-{user_obj['nickname']}",
+                "server": domain,
+                "server_port": port,
+                "transport": "TCP",
+                "username": username,
+                "password": password
+            }
+        ]
+    }
+    return json.dumps(config, indent=2)
+
 def render_configs():
     env = load_env()
     speedtest_prefix = env.get("SPEEDTEST_PREFIX", "")

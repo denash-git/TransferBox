@@ -792,7 +792,7 @@ if user:
 ")
             print_header "Подключение: $nick ($label)" "false"
             if [ "$proto" == "mieru" ]; then
-                local json_config clash_yaml
+                local json_config clash_yaml singbox_json
                 json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -806,6 +806,13 @@ users = load_users()
 user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
 if user:
     print(build_mieru_clash_yaml(user))
+")
+                singbox_json=$(python3 -c "
+from core.config_manager import load_users, build_mieru_singbox_json
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_singbox_json(user))
 ")
                 local m_user m_pass m_port domain
                 m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
@@ -823,6 +830,8 @@ if user:
                 echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
                 echo -e "  Ссылка подключения (для Hiddify/mihomo):"
                 echo -e "  \033[1;36m$link\033[0m\n"
+                echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+                echo -e "${GREEN}$singbox_json${RESET}\n"
                 echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
                 echo -e "${YELLOW}$clash_yaml${RESET}\n"
                 echo -e "  JSON-конфигурация подключения (для официального клиента):"
@@ -929,7 +938,7 @@ if user:
         clear_screen
         print_header "Протокол добавлен: $nick ($label)" "false"
         if [ "$protocol" == "mieru" ]; then
-            local json_config clash_yaml
+            local json_config clash_yaml singbox_json
             json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -943,6 +952,13 @@ users = load_users()
 user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
 if user:
     print(build_mieru_clash_yaml(user))
+")
+            singbox_json=$(python3 -c "
+from core.config_manager import load_users, build_mieru_singbox_json
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_singbox_json(user))
 ")
             local m_user m_pass m_port domain
             m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
@@ -960,6 +976,8 @@ if user:
             echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
             echo -e "  Ссылка подключения (для Hiddify/mihomo):"
             echo -e "  \033[1;36m$link\033[0m\n"
+            echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+            echo -e "${GREEN}$singbox_json${RESET}\n"
             echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
             echo -e "${YELLOW}$clash_yaml${RESET}\n"
             echo -e "  JSON-конфигурация подключения (для официального клиента):"
@@ -1116,7 +1134,7 @@ if user:
                 clear_screen
                 print_header "Подключение: $nick ($label)" "false"
                 if [ "$protocol" == "mieru" ]; then
-                    local json_config clash_yaml
+                    local json_config clash_yaml singbox_json
                     json_config=$(python3 -c "
 from core.config_manager import load_users, build_mieru_json_config
 users = load_users()
@@ -1130,6 +1148,13 @@ users = load_users()
 user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
 if user:
     print(build_mieru_clash_yaml(user))
+")
+                    singbox_json=$(python3 -c "
+from core.config_manager import load_users, build_mieru_singbox_json
+users = load_users()
+user = next((u for u in users if u['nickname'] == '$nick' and u['protocol'] == 'mieru'), None)
+if user:
+    print(build_mieru_singbox_json(user))
 ")
                     local m_user m_pass m_port domain
                     m_user=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\") | .credentials.username" /opt/transferbox/users.json | head -n 1)
@@ -1147,6 +1172,8 @@ if user:
                     echo -e "  • Протокол (Protocol):   ${CYAN}TCP${RESET}\n"
                     echo -e "  Ссылка подключения (для Hiddify/mihomo):"
                     echo -e "  \033[1;36m$link\033[0m\n"
+                    echo -e "  Sing-box JSON (для импорта в Karing через 'Из буфера'):"
+                    echo -e "${GREEN}$singbox_json${RESET}\n"
                     echo -e "  Clash YAML конфигурация (для вставки в файл профиля Karing):"
                     echo -e "${YELLOW}$clash_yaml${RESET}\n"
                     echo -e "  JSON-конфигурация подключения (для официального клиента):"
