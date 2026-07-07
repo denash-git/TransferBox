@@ -192,11 +192,28 @@ select_menu() {
                 fi
             fi
             
+            # Вычисляем паддинг пробелами до максимальной длины, чтобы ширина выделения была одинаковой
+            local padding_len=$(( max_len - ${#clean_opt} ))
+            local padding=""
+            [ $padding_len -gt 0 ] && padding=$(printf "%${padding_len}s" "")
+            
             if [ "$i" -eq "$active_idx" ]; then
-                # Инверсия строки при выборе (код 7) с очисткой остатка строки \033[K
-                printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$opt"
+                # Очищаем все цвета из строки, чтобы не было битых инверсий
+                local text_to_draw="$clean_opt$padding"
+                
+                if [[ "$clean_opt" == *"Удалить"* ]]; then
+                    # Красный фон, белый текст для удаления
+                    printf "%${indent}s\033[41;1;37m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                elif [[ "$clean_opt" =~ ^(Назад|Отмена|Выход)$ ]]; then
+                    # Желтый фон, черный текст для назад/выхода
+                    printf "%${indent}s\033[43;1;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                else
+                    # Стандартная инверсия (белый/серый фон, черный текст)
+                    printf "%${indent}s\033[7m  %b  \033[0m\033[K\n" "" "$text_to_draw"
+                fi
             else
-                printf "%${indent}s  %b  \033[K\n" "" "$opt"
+                local text_to_draw="$opt$padding"
+                printf "%${indent}s  %b  \033[K\n" "" "$text_to_draw"
             fi
         done
         printf "\033[J" # Очистить всё ниже меню
