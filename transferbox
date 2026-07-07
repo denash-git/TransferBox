@@ -416,7 +416,7 @@ lines = []
 with open(env_path, 'r', encoding='utf-8') as f:
     for line in f:
         if line.startswith('SPEEDTEST_PREFIX='):
-            lines.append(f'SPEEDTEST_PREFIX={new_prefix}\n')
+            lines.append('SPEEDTEST_PREFIX=$new_prefix\n')
         else:
             lines.append(line)
 with open(env_path, 'w', encoding='utf-8') as f:
