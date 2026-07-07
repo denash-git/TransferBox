@@ -268,77 +268,12 @@ list_users_menu() {
             return
         fi
         
-        # Считывание пользователей
-        local users_raw=()
-        while IFS= read -r line; do
-            [ -z "$line" ] && continue
-            users_raw+=("$line")
-        done < <(jq -r '.[] | "\(.nickname)|\(.protocol)|\(.credentials.type // "")|\(.enabled)"' /opt/transferbox/users.json 2>/dev/null)
-        
-        local options=()
-        local max_label_len=0
-        local items=()
-        for u in "${users_raw[@]}"; do
-            IFS='|' read -r nick proto utype enabled <<< "$u"
-            local label=""
-            if [ "$proto" == "naive" ]; then
-                label="NaiveProxy"
-            else
-                label="VLESS over ${utype^^}"
-            fi
-            local item_label="$nick ($label)"
-            items+=("$item_label|$enabled")
-            if [ ${#item_label} -gt $max_label_len ]; then
-                max_label_len=${#item_label}
-            fi
-        done
-        
-        local col_width=$(( max_label_len + 4 ))
-        for item in "${items[@]}"; do
-            IFS='|' read -r item_label enabled <<< "$item"
-            local status_str=""
-            if [ "$enabled" == "true" ]; then
-                status_str="${GREEN}активен${RESET}"
-            else
-                status_str="${RED}отключен${RESET}"
-            fi
-            local pad_spaces=""
-            local pad_len=$(( col_width - ${#item_label} ))
-            if [ $pad_len -gt 0 ]; then
-                pad_spaces=$(printf "%${pad_len}s" "")
-            fi
-            options+=("$item_label$pad_spaces[$status_str]")
-        done
-        options+=("Назад")
-        
-        select_menu "Список пользователей" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
-            return
-        else
-            local user_data="${users_raw[$choice]}"
-            user_submenu "$user_data"
-        fi
-    done
-}
-
-list_users_menu() {
-    while true; do
-        if [ ! -f "/opt/transferbox/users.json" ] || [ "$(jq '. | length' /opt/transferbox/users.json 2>/dev/null)" -eq 0 ]; then
-            clear_screen
-            print_header "Список пользователей"
-            echo -e "  Пользователей пока нет."
-            pause
-            return
-        fi
-        
         # Считывание уникальных пользователей и списка их протоколов
         local users_raw=()
         while IFS= read -r line; do
             [ -z "$line" ] && continue
             users_raw+=("$line")
-        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else "VLESS " + (.credentials.type | upcase) end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
+        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else "VLESS " + (if .credentials.type == "ws" then "WS" else if .credentials.type == "grpc" then "gRPC" else if .credentials.type == "xhttp" then "XHTTP" else .credentials.type end end end) end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
         
         local options=()
         local nicknames=()
