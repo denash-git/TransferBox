@@ -66,7 +66,7 @@ read -rp "  Включить BBR (TCP оптимизация)? [Y/n]: " bbr_inpu
 enable_bbr="true"
 [[ "${bbr_input,,}" == "n" ]] && enable_bbr="false"
 
-# Установка базовых пакетов
+# Установка необходимых пакетов
 step "Установка необходимых пакетов"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -74,7 +74,12 @@ apt-get install -y -qq \
     build-essential curl wget git ca-certificates \
     python3 python3-pip ufw openssl qrencode jq libcap2-bin >/dev/null
 
-log_ok "Базовые пакеты установлены."
+# Настройка официального репозитория Ookla Speedtest
+log_info "Настройка репозитория Ookla Speedtest..."
+curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash >/dev/null 2>&1
+apt-get install -y -qq speedtest >/dev/null 2>&1
+
+log_ok "Базовые пакеты и Ookla Speedtest установлены."
 
 # Настройка UFW
 step "Настройка UFW брандмауэра"

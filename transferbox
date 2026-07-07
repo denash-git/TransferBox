@@ -269,26 +269,90 @@ diagnostics_menu() {
 }
 
 run_speedtest_vps_internet() {
-    clear_screen
-    print_header "Скорость VPS → Интернет" "false"
-    echo -e "  Тест выполняется на сервере через ближайший speedtest-узел."
-    echo -e "  Это показывает пропускную способность канала самого VPS.\n"
-    
-    if ! command -v speedtest-cli >/dev/null 2>&1; then
-        echo -e "  [*] Установка speedtest-cli..."
-        sudo apt-get update >/dev/null 2>&1 && sudo apt-get install -y speedtest-cli >/dev/null 2>&1
+    # Check if official speedtest is installed, if not install it
+    if ! dpkg -s speedtest >/dev/null 2>&1; then
+        clear_screen
+        print_header "Скорость VPS → Интернет" "false"
+        echo -e "  [*] Установка официального Ookla Speedtest..."
+        sudo apt-get purge -y speedtest-cli >/dev/null 2>&1 || true
+        sudo apt-get install -f -y >/dev/null 2>&1 || true
+        curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash >/dev/null 2>&1
+        sudo apt-get install -y speedtest >/dev/null 2>&1
     fi
-    
-    if ! command -v speedtest-cli >/dev/null 2>&1; then
-        echo -e "  ${RED}✗ Не удалось установить speedtest-cli.${RESET}"
+
+    if ! command -v speedtest >/dev/null 2>&1; then
+        echo -e "  ${RED}✗ Не удалось установить speedtest.${RESET}"
         pause
         return
     fi
-    
-    echo -e "  ${CYAN}Запуск теста, подождите...${RESET}\n"
-    speedtest-cli --secure --simple 2>&1 | sed 's/^/  /'
-    echo
-    pause
+
+    while true; do
+        local options=(
+            "Тест на ближайшем сервере (автовыбор)"
+            "Выбрать сервер из списка ближайших"
+            "Назад"
+        )
+        select_menu "VPS → Интернет" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$choice" -eq 0 ]; then
+            clear_screen
+            print_header "Скорость VPS → Интернет (Автовыбор)" "false"
+            echo -e "  ${CYAN}Запуск теста, подождите...${RESET}\n"
+            speedtest --accept-license --accept-gdpr 2>&1 | sed 's/^/  /'
+            echo
+            pause
+            return
+        elif [ "$choice" -eq 1 ]; then
+            clear_screen
+            print_header "Поиск ближайших серверов" "false"
+            echo -e "  [*] Получение списка серверов..."
+            
+            local servers_raw=()
+            while IFS= read -r line; do
+                [ -z "$line" ] && continue
+                if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.*)$ ]]; then
+                    servers_raw+=("${BASH_REMATCH[1]}|${BASH_REMATCH[2]}")
+                fi
+            done < <(speedtest -L --accept-license --accept-gdpr 2>/dev/null)
+            
+            if [ ${#servers_raw[@]} -eq 0 ]; then
+                echo -e "\n  ${RED}✗ Не удалось получить список серверов.${RESET}"
+                pause
+                continue
+            fi
+            
+            local select_opts=()
+            local select_ids=()
+            for s in "${servers_raw[@]}"; do
+                IFS='|' read -r id details <<< "$s"
+                details=$(echo "$details" | tr -s ' ')
+                select_opts+=("[$id] $details")
+                select_ids+=("$id")
+            done
+            select_opts+=("Назад")
+            
+            select_menu "Выберите сервер" "${select_opts[@]}"
+            local sel_choice=$SELECTED_INDEX
+            
+            if [ "$sel_choice" -eq -1 ] || [ "$sel_choice" -eq $(( ${#select_opts[@]} - 1 )) ]; then
+                continue
+            fi
+            
+            local selected_id="${select_ids[$sel_choice]}"
+            local selected_name="${select_opts[$sel_choice]}"
+            
+            clear_screen
+            print_header "VPS → Интернет ($selected_name)" "false"
+            echo -e "  ${CYAN}Запуск теста на сервере $selected_id, подождите...${RESET}\n"
+            speedtest -s "$selected_id" --accept-license --accept-gdpr 2>&1 | sed 's/^/  /'
+            echo
+            pause
+            return
+        else
+            return
+        fi
+    done
 }
 
 run_speedtest_client_vps() {
