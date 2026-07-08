@@ -169,6 +169,7 @@ print_header() {
         
         echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
         echo -e "${pad_spaces}FQDN VPS: ${BOLD}${vps_fqdn}${RESET}"
+        echo -e "${pad_spaces}TCP BBR:  $bbr_dot"
         echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
         echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
         if [ "$show_mieru" == "true" ]; then
@@ -177,7 +178,6 @@ print_header() {
         if [ "$show_netbird" == "true" ]; then
             echo -e "${pad_spaces}NetBird:  $(get_netbird_status)"
         fi
-        echo -e "${pad_spaces}TCP BBR:  $bbr_dot"
         center_print "${BLUE}${line_double}${RESET}"
     fi
     echo ""
