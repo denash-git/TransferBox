@@ -2530,118 +2530,207 @@ logs_menu() {
 # ─── МОНИТОРИНГ РЕСУРСОВ ──────────────────────────────────────────────────────
 
 system_monitor_menu() {
-    # Скрыть курсор
     tput civis
     clear_screen
-    
-    # Найти главный сетевой интерфейс
+
     local iface
     iface=$(ip route | grep default | awk '{print $5}' | head -n 1)
     [ -z "$iface" ] && iface="eth0"
-    
+
+    # Helper: draw a progress bar
+    # usage: _mon_bar <pct_int> <color>
+    _mon_bar() {
+        local pct=$1 color=$2
+        local filled=$(( pct * 20 / 100 ))
+        local empty=$(( 20 - filled ))
+        printf "${color}"
+        for ((i=0;i<filled;i++)); do printf "█"; done
+        printf "${RESET}${DIM}"
+        for ((i=0;i<empty;i++)); do printf "░"; done
+        printf "${RESET}"
+    }
+
+    # Helper: color by thresholds
+    _mon_color() {
+        local pct=$1
+        if   [ "$pct" -ge 85 ]; then echo "$RED"
+        elif [ "$pct" -ge 60 ]; then echo "$YELLOW"
+        else echo "$GREEN"
+        fi
+    }
+
+    # Helper: format bytes/s → KB/s or MB/s
+    _mon_speed() {
+        local kb=$1
+        if [ "$kb" -gt 1024 ]; then
+            local mb
+            mb=$(echo "scale=1; $kb/1024" | bc 2>/dev/null || echo "$(( kb/1024 ))")
+            echo "${mb} MB/s"
+        else
+            echo "${kb} KB/s"
+        fi
+    }
+
+    # Center-pad a string to given width (no color codes in width calc)
+    _mon_pad() {
+        local str="$1" width="$2"
+        # strip ANSI for length calc
+        local plain
+        plain=$(printf '%s' "$str" | sed 's/\x1b\[[0-9;]*m//g')
+        local len=${#plain}
+        local pad=$(( (width - len) / 2 ))
+        [ "$pad" -lt 0 ] && pad=0
+        printf "%${pad}s%s" "" "$str"
+    }
+
     while true; do
-        # Считывание CPU stats 1
+        # ── Sample 1
         local cpu_stat1
         cpu_stat1=$(grep '^cpu ' /proc/stat)
         local stats1=($cpu_stat1)
         local idle1=${stats1[4]}
         local total1=0
-        for val in "${stats1[@]:1}"; do total1=$(( total1 + val )); done
-        
-        # Считывание Net stats 1
+        for v in "${stats1[@]:1}"; do total1=$(( total1+v )); done
+
         local net1
-        net1=$(grep "$iface:" /proc/net/dev | awk '{print $2 " " $10}' || echo "0 0")
-        local rx1
-        rx1=$(echo "$net1" | awk '{print $1}')
-        local tx1
-        tx1=$(echo "$net1" | awk '{print $2}')
-        
-        # Ожидание 1 секунды и считывание клавиши
+        net1=$(grep "${iface}:" /proc/net/dev | awk '{print $2" "$10}')
+        local rx1=$(echo "$net1" | awk '{print $1}')
+        local tx1=$(echo "$net1" | awk '{print $2}')
+
+        # ── Wait 1s, detect key
         local key=""
         if read -t 1 -rsn1 key; then
             if [[ "$key" == "q" || "$key" == "Q" || "$key" == "0" || "$key" == "" ]]; then
-                tput cnorm
-                return 0
+                tput cnorm; return 0
             fi
         fi
-        
-        # Считывание CPU stats 2
+
+        # ── Sample 2
         local cpu_stat2
         cpu_stat2=$(grep '^cpu ' /proc/stat)
         local stats2=($cpu_stat2)
         local idle2=${stats2[4]}
         local total2=0
-        for val in "${stats2[@]:1}"; do total2=$(( total2 + val )); done
-        
-        # Считывание Net stats 2
+        for v in "${stats2[@]:1}"; do total2=$(( total2+v )); done
+
         local net2
-        net2=$(grep "$iface:" /proc/net/dev | awk '{print $2 " " $10}' || echo "0 0")
-        local rx2
-        rx2=$(echo "$net2" | awk '{print $1}')
-        local tx2
-        tx2=$(echo "$net2" | awk '{print $2}')
-        
-        # Расчет CPU
-        local diff_idle=$(( idle2 - idle1 ))
-        local diff_total=$(( total2 - total1 ))
+        net2=$(grep "${iface}:" /proc/net/dev | awk '{print $2" "$10}')
+        local rx2=$(echo "$net2" | awk '{print $1}')
+        local tx2=$(echo "$net2" | awk '{print $2}')
+
+        # ── CPU %
+        local diff_idle=$(( idle2-idle1 ))
+        local diff_total=$(( total2-total1 ))
         local cpu_pct=0
-        if [ $diff_total -gt 0 ]; then
-            cpu_pct=$(( (diff_total - diff_idle) * 100 / diff_total ))
-        fi
-        
-        # Расчет скорости сети
-        local rx_speed=$(( (rx2 - rx1) / 1024 ))
-        local tx_speed=$(( (tx2 - tx1) / 1024 ))
-        
-        # Расчет RAM
-        local ram_total
-        ram_total=$(free -m | awk '/Mem:/ {print $2}')
-        local ram_used
-        ram_used=$(free -m | awk '/Mem:/ {print $3}')
-        local ram_pct=$(( ram_used * 100 / ram_total ))
-        
-        # Расчет Диска
-        local disk_total
-        disk_total=$(df -h / | awk 'NR==2 {print $2}')
-        local disk_used
-        disk_used=$(df -h / | awk 'NR==2 {print $3}')
-        local disk_pct
-        disk_pct=$(df -h / | awk 'NR==2 {print $5}')
-        
-        # Форматирование скорости сети
-        local rx_str="${rx_speed} KB/s"
-        if [ $rx_speed -gt 1024 ]; then
-            rx_str=$(echo "scale=1; $rx_speed / 1024" | bc 2>/dev/null || echo "$(( rx_speed / 1024 ))")
-            rx_str="${rx_str} MB/s"
-        fi
-        local tx_str="${tx_speed} KB/s"
-        if [ $tx_speed -gt 1024 ]; then
-            tx_str=$(echo "scale=1; $tx_speed / 1024" | bc 2>/dev/null || echo "$(( tx_speed / 1024 ))")
-            tx_str="${tx_str} MB/s"
-        fi
-        
-        # Отрисовка TUI
+        [ "$diff_total" -gt 0 ] && cpu_pct=$(( (diff_total-diff_idle)*100/diff_total ))
+
+        # ── RAM
+        local ram_total ram_used ram_free ram_cache ram_pct
+        ram_total=$(free -m | awk '/Mem:/{print $2}')
+        ram_used=$(free -m  | awk '/Mem:/{print $3}')
+        ram_free=$(free -m  | awk '/Mem:/{print $4}')
+        ram_cache=$(free -m | awk '/Mem:/{print $6}')
+        ram_pct=$(( ram_used*100/ram_total ))
+
+        # ── Disk
+        local disk_total disk_used disk_pct_str disk_pct_int
+        disk_total=$(df -h / | awk 'NR==2{print $2}')
+        disk_used=$(df -h /  | awk 'NR==2{print $3}')
+        disk_pct_str=$(df -h / | awk 'NR==2{print $5}')
+        disk_pct_int=$(df /   | awk 'NR==2{print $5}' | tr -d '%')
+
+        # ── Net
+        local rx_kb=$(( (rx2-rx1)/1024 ))
+        local tx_kb=$(( (tx2-tx1)/1024 ))
+        local rx_str tx_str
+        rx_str=$(_mon_speed $rx_kb)
+        tx_str=$(_mon_speed $tx_kb)
+
+        # ── Uptime & Load
+        local uptime_str load_str
+        uptime_str=$(uptime -p 2>/dev/null | sed 's/up //' || uptime | awk -F'up |,' '{print $2}' | xargs)
+        load_str=$(awk '{print $1" "$2" "$3}' /proc/loadavg)
+
+        # ── Colors
+        local cpu_col ram_col disk_col
+        cpu_col=$(_mon_color $cpu_pct)
+        ram_col=$(_mon_color $ram_pct)
+        disk_col=$(_mon_color $disk_pct_int)
+
+        # ── Draw dashboard
         printf "\033[H"
         print_header "Мониторинг ресурсов" "false"
-        
-        center_print "Загрузка процессора (CPU):"
-        center_print "${BOLD}${cpu_pct}%${RESET}"
         echo ""
-        center_print "Использование памяти (RAM):"
-        center_print "${BOLD}${ram_used} Мб / ${ram_total} Мб (${ram_pct}%)${RESET}"
+
+        local W
+        W=$(tput cols 2>/dev/null || echo 80)
+        local col_w=$(( W/2 - 2 ))
+
+        # ── Row 1: CPU | RAM
+        # CPU block
+        local cpu_bar; cpu_bar=$(_mon_bar $cpu_pct "$cpu_col")
+        local ram_bar; ram_bar=$(_mon_bar $ram_pct "$ram_col")
+
+        # ─ CPU panel ─
+        printf "  ${BOLD}${BLUE}┌─ CPU ──────────────────────────${RESET}"
+        printf "   "
+        printf "${BOLD}${BLUE}┌─ RAM ──────────────────────────${RESET}\n"
+
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  %s  " "$cpu_bar"
+        printf "${cpu_col}${BOLD}%3d%%${RESET}" $cpu_pct
+        printf "             "
+        printf "${BOLD}${BLUE}│${RESET}"
+        printf "  %s  " "$ram_bar"
+        printf "${ram_col}${BOLD}%3d%%${RESET}\n" $ram_pct
+
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  Load avg: ${CYAN}%-24s${RESET}" "$load_str"
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  ${CYAN}${ram_used}${RESET} / ${ram_total} MB  "
+        printf "(свободно: ${GREEN}${ram_free}${RESET}, кэш: ${DIM}${ram_cache}${RESET} MB)\n"
+
+        printf "  ${BOLD}${BLUE}└────────────────────────────────${RESET}"
+        printf "   "
+        printf "${BOLD}${BLUE}└────────────────────────────────${RESET}\n"
+
         echo ""
-        center_print "Занятость диска (Disk):"
-        center_print "${BOLD}${disk_used} / ${disk_total} (${disk_pct})${RESET}"
+
+        # ── Row 2: Disk | Network
+        local disk_bar; disk_bar=$(_mon_bar $disk_pct_int "$disk_col")
+
+        printf "  ${BOLD}${BLUE}┌─ DISK (/) ─────────────────────${RESET}"
+        printf "   "
+        printf "${BOLD}${BLUE}┌─ NETWORK ($iface) ───────────────${RESET}\n"
+
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  %s  " "$disk_bar"
+        printf "${disk_col}${BOLD}%s${RESET}     " "$disk_pct_str"
+        printf "   ${BOLD}${BLUE}│${RESET}"
+        printf "  ↓ RX: ${GREEN}${BOLD}%-14s${RESET}" "$rx_str"
+        printf "  ↑ TX: ${YELLOW}${BOLD}%-10s${RESET}\n" "$tx_str"
+
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  Использовано: ${CYAN}${disk_used}${RESET} из ${disk_total}"
+        printf "          "
+        printf "  ${BOLD}${BLUE}│${RESET}"
+        printf "  Интерфейс: ${CYAN}%-22s${RESET}\n" "$iface"
+
+        printf "  ${BOLD}${BLUE}└────────────────────────────────${RESET}"
+        printf "   "
+        printf "${BOLD}${BLUE}└────────────────────────────────${RESET}\n"
+
         echo ""
-        center_print "Скорость сети (Interface: $iface):"
-        center_print "Скачивание (RX): ${BOLD}${rx_str}${RESET}  |  Отдача (TX): ${BOLD}${tx_str}${RESET}"
-        
+
+        # ── Uptime footer
+        center_print "${DIM}Аптайм: ${RESET}${CYAN}${uptime_str}${RESET}"
         echo ""
         draw_line "─" "$BLUE"
-        center_print "${DIM}[Нажмите Q или Enter для возврата в меню]${RESET}"
+        center_print "${DIM}[Q / Enter — вернуться в меню]${RESET}"
         printf "\033[J"
     done
 }
+
 
 # Запуск главного меню
 main_menu
