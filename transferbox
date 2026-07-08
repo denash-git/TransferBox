@@ -112,7 +112,6 @@ print_header() {
     
     center_print "${BLUE}${line_double}${RESET}"
     center_print "${YELLOW}${title}${RESET}"
-    center_print "${BLUE}${line_single}${RESET}"
     if [ "$show_status" == "true" ]; then
         # Вычисляем максимальную длину для красивого выравнивания в столбик
         local vps_fqdn
@@ -167,8 +166,12 @@ print_header() {
         local pad_spaces
         pad_spaces=$(printf "%${indent}s" "")
         
+        echo ""
         echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
         echo -e "${pad_spaces}FQDN VPS: ${BOLD}${vps_fqdn}${RESET}"
+    fi
+    center_print "${BLUE}${line_single}${RESET}"
+    if [ "$show_status" == "true" ]; then
         echo -e "${pad_spaces}TCP BBR:  $bbr_dot"
         echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
         echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
