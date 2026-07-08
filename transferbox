@@ -115,18 +115,32 @@ print_header() {
     center_print "${BLUE}${line_single}${RESET}"
     if [ "$show_status" == "true" ]; then
         # Вычисляем максимальную длину для красивого выравнивания в столбик
+        local vps_fqdn
+        vps_fqdn=$(hostname -f 2>/dev/null || hostname)
+        
+        local bbr_dot="${RED}● отключен${RESET}"
+        local bbr_dot_raw="● отключен"
+        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+            bbr_dot="${GREEN}● активен${RESET}"
+            bbr_dot_raw="● активен"
+        fi
+        
         local status_cad_raw
         status_cad_raw=$(get_service_status caddy | sed 's/\x1b\[[0-9;]*m//g')
         local status_sb_raw
         status_sb_raw=$(get_service_status sing-box | sed 's/\x1b\[[0-9;]*m//g')
         
         local len_dom=$(( 10 + ${#domain} ))
+        local len_fqdn=$(( 10 + ${#vps_fqdn} ))
         local len_cad=$(( 10 + ${#status_cad_raw} ))
         local len_sb=$(( 10 + ${#status_sb_raw} ))
+        local len_bbr=$(( 10 + ${#bbr_dot_raw} ))
         
         local max_block_len=$len_dom
+        [ $len_fqdn -gt $max_block_len ] && max_block_len=$len_fqdn
         [ $len_cad -gt $max_block_len ] && max_block_len=$len_cad
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
+        [ $len_bbr -gt $max_block_len ] && max_block_len=$len_bbr
         
         local show_mieru=false
         if [ -f "/usr/bin/mita" ]; then
@@ -154,6 +168,7 @@ print_header() {
         pad_spaces=$(printf "%${indent}s" "")
         
         echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
+        echo -e "${pad_spaces}FQDN VPS: ${BOLD}${vps_fqdn}${RESET}"
         echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
         echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
         if [ "$show_mieru" == "true" ]; then
@@ -162,6 +177,7 @@ print_header() {
         if [ "$show_netbird" == "true" ]; then
             echo -e "${pad_spaces}NetBird:  $(get_netbird_status)"
         fi
+        echo -e "${pad_spaces}TCP BBR:  $bbr_dot"
         center_print "${BLUE}${line_double}${RESET}"
     fi
     echo ""
