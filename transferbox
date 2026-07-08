@@ -467,17 +467,20 @@ singbox_module_menu() {
         elif [ "$clean_sel" == "Запустить службу" ]; then
             echo -e "\n  [*] Запуск службы sing-box..."
             systemctl start sing-box
-            echo -e "  ${GREEN}✓ Служба sing-box запущена.${RESET}"
+            echo ""
+            center_print "${GREEN}✓ Служба sing-box запущена.${RESET}"
             pause
         elif [ "$clean_sel" == "Остановить службу" ]; then
             echo -e "\n  [*] Остановка службы sing-box..."
             systemctl stop sing-box
-            echo -e "  ${GREEN}✓ Служба sing-box остановлена.${RESET}"
+            echo ""
+            center_print "${GREEN}✓ Служба sing-box остановлена.${RESET}"
             pause
         elif [ "$clean_sel" == "Перезапустить службу" ]; then
             echo -e "\n  [*] Перезапуск службы sing-box..."
             systemctl restart sing-box
-            echo -e "  ${GREEN}✓ Служба sing-box перезапущена.${RESET}"
+            echo ""
+            center_print "${GREEN}✓ Служба sing-box перезапущена.${RESET}"
             pause
         elif [ "$clean_sel" == "Просмотреть логи службы" ]; then
             clear_screen
@@ -524,9 +527,11 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-        echo -e "\n  ${GREEN}✓ Mieru (Mita) успешно установлен!${RESET}"
+        echo ""
+        center_print "${GREEN}✓ Mieru (Mita) успешно установлен!${RESET}"
     else
-        echo -e "\n  ${RED}✗ Не удалось скачать пакет Mieru. Проверьте интернет-соединение.${RESET}"
+        echo ""
+        center_print "${RED}✗ Не удалось скачать пакет Mieru. Проверьте интернет-соединение.${RESET}"
     fi
 }
 
@@ -550,7 +555,8 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-    echo -e "\n  ${GREEN}✓ Mieru (Mita) успешно удален.${RESET}"
+    echo ""
+    center_print "${GREEN}✓ Mieru (Mita) успешно удален.${RESET}"
 }
 
 mieru_module_menu() {
@@ -640,7 +646,8 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-                echo -e "\n  ${GREEN}✓ Служба Mieru запущена. Сервисы перезапущены.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба Mieru запущена. Сервисы перезапущены.${RESET}"
                 pause
             elif [ "$clean_sel" == "Остановить службу" ]; then
                 echo -e "\n  [*] Остановка службы Mieru..."
@@ -654,12 +661,14 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-                echo -e "\n  ${GREEN}✓ Служба Mieru остановлена. Сервисы перезапущены.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба Mieru остановлена. Сервисы перезапущены.${RESET}"
                 pause
             elif [ "$clean_sel" == "Перезапустить службу" ]; then
                 echo -e "\n  [*] Перезапуск службы Mieru..."
                 systemctl restart mita >/dev/null 2>&1 || true
-                echo -e "\n  ${GREEN}✓ Служба Mieru перезапущена.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба Mieru перезапущенa.${RESET}"
                 pause
             elif [ "$clean_sel" == "Изменить порт (Текущий порт: $port)" ]; then
                 clear_screen
@@ -669,7 +678,8 @@ validate_and_restart()
                 [ -z "$new_port" ] && new_port="$port"
                 
                 if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-                    echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
                     pause
                     continue
                 fi
@@ -686,7 +696,8 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-                echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
                 pause
             elif [ "$clean_sel" == "Обновить Mieru (Mita)" ]; then
                 clear_screen
@@ -702,7 +713,8 @@ validate_and_restart()
                 if [[ "$confirm" =~ ^[yY]$ ]]; then
                     uninstall_mieru
                 else
-                    echo -e "\n  Удаление отменено."
+                    echo ""
+                    center_print "Удаление отменено."
                 fi
                 pause
             fi
@@ -720,7 +732,7 @@ netbird_module_menu() {
             source /opt/transferbox/instance.env
         fi
         local nb_key="${NETBIRD_SETUP_KEY:-}"
-        local nb_url="${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}"
+        local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
         
         # Display current status info
         local is_installed=false
@@ -748,10 +760,12 @@ netbird_module_menu() {
                 
                 export SKIP_UI_APP=true
                 if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
-                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно установлен!${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ NetBird клиент успешно установлен!${RESET}"
                     systemctl enable --now netbird >/dev/null 2>&1 || true
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при установке NetBird клиента.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка при установке NetBird клиента.${RESET}"
                 fi
                 pause
             elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
@@ -786,15 +800,21 @@ netbird_module_menu() {
                 fi
             fi
             echo -e "  • Setup Key:       ${CYAN}$masked_key${RESET}"
-            echo -e "  • Management URL:  ${CYAN}$nb_url${RESET}"
+            echo -e "  • Management URL:  ${CYAN}${nb_url:-[не задан]}${RESET}"
             draw_line "─" "$BLUE"
             
             local active_status
             active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
             
+            local key_lbl="Setup Key [не задан]"
+            [ ! -z "$nb_key" ] && key_lbl="Setup Key [задан]"
+            
+            local url_lbl="Management URL [не задан]"
+            [ ! -z "$nb_url" ] && url_lbl="Management URL [задан]"
+            
             local options=(
-                "Ввести / Изменить Setup Key"
-                "Ввести / Изменить Management URL"
+                "$key_lbl"
+                "$url_lbl"
                 "Выполнить регистрацию и запуск (netbird up)"
             )
             
@@ -820,79 +840,90 @@ netbird_module_menu() {
             select_menu "Модуль: NetBird" "${options[@]}"
             local choice=$SELECTED_INDEX
             
-            # Нам нужно надежно определить выбранный пункт по строке
             local selected_option="${options[$choice]}"
             local clean_sel
             clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
             
             if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
                 return 0
-            elif [ "$clean_sel" == "Ввести / Изменить Setup Key" ]; then
+            elif [[ "$clean_sel" == "Setup Key"* ]]; then
                 clear_screen
                 print_header "Модули → NetBird → Ввод Setup Key" "false"
                 local new_key
-                read_prompt "Введите Setup Key (токен авторизации): " new_key
+                read_prompt "Введите Setup Key (или Enter для отмены): " new_key
                 if [ ! -z "$new_key" ]; then
                     if grep -q "^NETBIRD_SETUP_KEY=" /opt/transferbox/instance.env; then
                         sed -i "s/^NETBIRD_SETUP_KEY=.*/NETBIRD_SETUP_KEY=$new_key/" /opt/transferbox/instance.env
                     else
                         echo "NETBIRD_SETUP_KEY=$new_key" >> /opt/transferbox/instance.env
                     fi
-                    echo -e "\n  ${GREEN}✓ Setup Key успешно сохранен.${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ Setup Key успешно сохранен.${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Отменено. Ключ не изменен.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Отменено. Ключ не изменен.${RESET}"
                 fi
                 pause
-            elif [ "$clean_sel" == "Ввести / Изменить Management URL" ]; then
+            elif [[ "$clean_sel" == "Management URL"* ]]; then
                 clear_screen
                 print_header "Модули → NetBird → Ввод Management URL" "false"
                 local new_url
-                read_prompt "Введите Management URL (по умолчанию https://api.netbird.io): " new_url
-                [ -z "$new_url" ] && new_url="https://api.netbird.io"
-                
-                if grep -q "^NETBIRD_MANAGEMENT_URL=" /opt/transferbox/instance.env; then
-                    sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$new_url|" /opt/transferbox/instance.env
+                read_prompt "Введите Management URL (или Enter для отмены): " new_url
+                if [ ! -z "$new_url" ]; then
+                    if grep -q "^NETBIRD_MANAGEMENT_URL=" /opt/transferbox/instance.env; then
+                        sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$new_url|" /opt/transferbox/instance.env
+                    else
+                        echo "NETBIRD_MANAGEMENT_URL=$new_url" >> /opt/transferbox/instance.env
+                    fi
+                    echo ""
+                    center_print "${GREEN}✓ Management URL успешно сохранен.${RESET}"
                 else
-                    echo "NETBIRD_MANAGEMENT_URL=$new_url" >> /opt/transferbox/instance.env
+                    echo ""
+                    center_print "${RED}✗ Отменено. URL не изменен.${RESET}"
                 fi
-                echo -e "\n  ${GREEN}✓ Management URL успешно сохранен.${RESET}"
                 pause
             elif [ "$clean_sel" == "Выполнить регистрацию и запуск (netbird up)" ]; then
                 clear_screen
                 print_header "Модули → NetBird → Регистрация" "false"
                 if [ -z "$nb_key" ]; then
-                    echo -e "  ${RED}✗ Ошибка: Сначала необходимо указать Setup Key!${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка: Сначала необходимо указать Setup Key!${RESET}"
                     pause
                     continue
                 fi
                 
                 echo -e "  [*] Запуск регистрации пира в сети NetBird..."
                 local cmd="netbird up --setup-key $nb_key"
-                if [ ! -z "$nb_url" ] && [ "$nb_url" != "https://api.netbird.io" ]; then
+                if [ ! -z "$nb_url" ]; then
                     cmd="$cmd --management-url $nb_url"
                 fi
                 
                 echo -e "  [*] Выполняется: $cmd"
                 if eval "$cmd" || true; then
-                    echo -e "\n  ${GREEN}✓ Команда подключения выполнена!${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ Команда подключения выполнена!${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при регистрации.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка при регистрации.${RESET}"
                 fi
                 pause
             elif [ "$clean_sel" == "Запустить службу" ]; then
                 echo -e "\n  [*] Запуск службы NetBird..."
                 systemctl start netbird
-                echo -e "  ${GREEN}✓ Служба запущена.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба запущена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Остановить службу" ]; then
                 echo -e "\n  [*] Остановка службы NetBird..."
                 systemctl stop netbird
-                echo -e "  ${GREEN}✓ Служба остановлена.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба остановлена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Перезапустить службу" ]; then
                 echo -e "\n  [*] Перезапуск службы NetBird..."
                 systemctl restart netbird
-                echo -e "  ${GREEN}✓ Служба перезапущена.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба перезапущена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Показать подробный статус" ]; then
                 clear_screen
@@ -900,7 +931,8 @@ netbird_module_menu() {
                 if systemctl is-active --quiet netbird; then
                     netbird status -d || true
                 else
-                    echo -e "  ${RED}Служба NetBird остановлена. Подробная информация недоступна.${RESET}"
+                    echo ""
+                    center_print "${RED}Служба NetBird остановлена. Подробная информация недоступна.${RESET}"
                 fi
                 pause
             elif [ "$clean_sel" == "Просмотреть логи службы" ]; then
@@ -914,9 +946,11 @@ netbird_module_menu() {
                 echo -e "  [*] Обновление NetBird клиента из официального репозитория..."
                 apt-get update >/dev/null 2>&1 || true
                 if apt-get install --only-upgrade -y netbird; then
-                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно обновлен!${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ NetBird клиент успешно обновлен!${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при обновлении NetBird.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка при обновлении NetBird.${RESET}"
                 fi
                 pause
             elif [ "$clean_sel" == "Удалить NetBird клиент" ]; then
@@ -939,9 +973,11 @@ netbird_module_menu() {
                     # Удаляем сохраненные ключи
                     sed -i '/^NETBIRD_SETUP_KEY=/d' /opt/transferbox/instance.env
                     sed -i '/^NETBIRD_MANAGEMENT_URL=/d' /opt/transferbox/instance.env
-                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно удален.${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ NetBird клиент успешно удален.${RESET}"
                 else
-                    echo -e "\n  Удаление отменено."
+                    echo ""
+                    center_print "Удаление отменено."
                 fi
                 pause
             fi
@@ -2175,11 +2211,13 @@ else:
             res=$(cat /tmp/backup_res.txt)
             if [[ "$res" == SUCCESS:* ]]; then
                 local path="${res#SUCCESS:}"
-                echo -e "  ${GREEN}✓ Бэкап успешно создан!${RESET}"
-                echo -e "  Файл сохранен: ${BOLD}${path}${RESET}"
-                echo -e "  Скачайте этот файл на свой компьютер для надежного хранения."
+                echo ""
+                center_print "${GREEN}✓ Бэкап успешно создан!${RESET}"
+                center_print "Файл сохранен: ${BOLD}${path}${RESET}"
+                center_print "Скачайте этот файл на свой компьютер для надежного хранения."
             else
-                echo -e "  ${RED}✗ Ошибка создания бэкапа: ${res#ERROR:}${RESET}"
+                echo ""
+                center_print "${RED}✗ Ошибка создания бэкапа: ${res#ERROR:}${RESET}"
             fi
             rm -f /tmp/backup_res.txt
             pause
@@ -2208,7 +2246,8 @@ else:
             rm -f /tmp/restore_find.txt
             
             if [[ "$res" == ERROR:* ]]; then
-                echo -e "  ${RED}✗ Ошибка: В папке $backup_dir не найдено файлов бэкапов!${RESET}"
+                echo ""
+                center_print "${RED}✗ Ошибка: В папке $backup_dir не найдено файлов бэкапов!${RESET}"
                 pause
                 continue
             fi
@@ -2227,7 +2266,8 @@ else:
             local confirm
             read_prompt "Восстановить настройки из этого файла? Текущие данные будут перезаписаны! [y/N]: " confirm
             if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-                echo -e "  Операция отменена."
+                echo ""
+                center_print "Операция отменена."
                 pause
                 continue
             fi
@@ -2310,13 +2350,16 @@ else:
                 rm -f /tmp/restore_apply.txt
                 
                 if [ "$apply_res" == "SUCCESS" ]; then
-                    echo -e "\n  ${GREEN}✓ Настройки успешно восстановлены и применены!${RESET}"
-                    echo -e "  Все службы запущены и функционируют на восстановленных данных."
+                    echo ""
+                    center_print "${GREEN}✓ Настройки успешно восстановлены и применены!${RESET}"
+                    center_print "Все службы запущены и функционируют на восстановленных данных."
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при применении восстановленных настроек: ${apply_res#ERROR:}${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка при применении восстановленных настроек: ${apply_res#ERROR:}${RESET}"
                 fi
             else
-                echo -e "\n  ${RED}✗ Ошибка при распаковке архива: ${ext_res#ERROR:}${RESET}"
+                echo ""
+                center_print "${RED}✗ Ошибка при распаковке архива: ${ext_res#ERROR:}${RESET}"
             fi
             pause
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
