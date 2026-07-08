@@ -397,9 +397,15 @@ modules_menu() {
         local netbird_status
         netbird_status=$(get_netbird_status)
         
+        local sb_status="${RED}отключен${RESET}"
+        if systemctl is-active --quiet sing-box; then
+            sb_status="${GREEN}включен${RESET}"
+        fi
+        
         local options=(
             "Mieru (Статус: $mieru_status)"
             "NetBird (Статус: $netbird_status)"
+            "sing-box (Статус: $sb_status)"
             "Назад"
         )
         select_menu "Модули" "${options[@]}"
@@ -409,8 +415,77 @@ modules_menu() {
             mieru_module_menu
         elif [ "$choice" -eq 1 ]; then
             netbird_module_menu
-        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 2 ]; then
+            singbox_module_menu
+        elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
             return 0
+        fi
+    done
+}
+
+singbox_module_menu() {
+    while true; do
+        clear_screen
+        print_header "Модули → sing-box" "false"
+        
+        local status_label="${RED}отключен${RESET}"
+        if systemctl is-active --quiet sing-box; then
+            status_label="${GREEN}включен${RESET}"
+        fi
+        
+        echo -e "  Состояние sing-box:"
+        echo -e "  • Статус:          $status_label"
+        draw_line "─" "$BLUE"
+        
+        local options=()
+        if systemctl is-active --quiet sing-box; then
+            options+=(
+                "Остановить службу"
+                "Перезапустить службу"
+            )
+        else
+            options+=(
+                "Запустить службу"
+            )
+        fi
+        
+        options+=(
+            "Просмотреть логи службы"
+            "Обновить sing-box"
+            "Назад"
+        )
+        
+        select_menu "Модуль: sing-box" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Запустить службу" ]; then
+            echo -e "\n  [*] Запуск службы sing-box..."
+            systemctl start sing-box
+            echo -e "  ${GREEN}✓ Служба sing-box запущена.${RESET}"
+            pause
+        elif [ "$clean_sel" == "Остановить службу" ]; then
+            echo -e "\n  [*] Остановка службы sing-box..."
+            systemctl stop sing-box
+            echo -e "  ${GREEN}✓ Служба sing-box остановлена.${RESET}"
+            pause
+        elif [ "$clean_sel" == "Перезапустить службу" ]; then
+            echo -e "\n  [*] Перезапуск службы sing-box..."
+            systemctl restart sing-box
+            echo -e "  ${GREEN}✓ Служба sing-box перезапущена.${RESET}"
+            pause
+        elif [ "$clean_sel" == "Просмотреть логи службы" ]; then
+            clear_screen
+            print_header "Модули → sing-box → Логи службы" "false"
+            journalctl -u sing-box -n 50 --no-pager || true
+            pause
+        elif [ "$clean_sel" == "Обновить sing-box" ]; then
+            update_singbox_menu
         fi
     done
 }
@@ -1704,7 +1779,6 @@ settings_menu() {
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
             "Изменить порт SSH"
-            "Обновить sing-box"
             "Включить / Выключить BBR (Статус: $bbr_status)"
             "Назад"
         )
@@ -1720,8 +1794,6 @@ settings_menu() {
         elif [ "$choice" -eq 3 ]; then
             change_ssh_port_menu
         elif [ "$choice" -eq 4 ]; then
-            update_singbox_menu
-        elif [ "$choice" -eq 5 ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
             if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
@@ -1749,7 +1821,7 @@ EOF
                 fi
             fi
             pause
-        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
     done
@@ -1984,7 +2056,7 @@ validate_and_restart()
 
 update_singbox_menu() {
     clear_screen
-    print_header "Настройки → Обновление sing-box"
+    print_header "Модули → sing-box → Обновление"
     echo -e "  Получение информации о версиях..."
     
     local current
