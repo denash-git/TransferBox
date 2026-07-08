@@ -366,12 +366,12 @@ is_mieru_enabled() {
 
 get_netbird_status() {
     if ! command -v netbird &>/dev/null; then
-        echo -e "${RED}не установлен${RESET}"
+        echo -e "${RED}● не установлен${RESET}"
         return 0
     fi
     
     if ! systemctl is-active --quiet netbird; then
-        echo -e "${YELLOW}остановлен (служба)${RESET}"
+        echo -e "${RED}● остановлен (служба)${RESET}"
         return 0
     fi
     
@@ -379,11 +379,11 @@ get_netbird_status() {
     status_out=$(netbird status 2>&1 || true)
     
     if echo "$status_out" | grep -qi "NeedsLogin"; then
-        echo -e "${YELLOW}требует авторизации${RESET}"
+        echo -e "${YELLOW}● требует авторизации${RESET}"
     elif echo "$status_out" | grep -qi "Connected" && ! echo "$status_out" | grep -qi "Management: Disconnected"; then
-        echo -e "${GREEN}подключен${RESET}"
+        echo -e "${GREEN}● подключен${RESET}"
     else
-        echo -e "${RED}отключен${RESET}"
+        echo -e "${RED}● отключен${RESET}"
     fi
 }
 
@@ -1960,66 +1960,49 @@ else:
 }
 
 change_vps_fqdn_menu() {
-    while true; do
-        clear_screen
-        print_header "Настройки → FQDN имя VPS" "false"
-        local cur_fqdn
-        cur_fqdn=$(hostname -f 2>/dev/null || hostname)
-        echo -e "  Текущее FQDN имя VPS: ${CYAN}$cur_fqdn${RESET}\n"
-        
-        local options=(
-            "Изменить FQDN имя VPS"
-            "Назад"
-        )
-        select_menu "Настройки → FQDN имя VPS" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        local selected_option="${options[$choice]}"
-        local clean_sel
-        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
-        
-        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
-            return 0
-        elif [ "$clean_sel" == "Изменить FQDN имя VPS" ]; then
-            clear_screen
-            print_header "Настройки → Изменение FQDN" "false"
-            local new_fqdn
-            read_prompt "Введите новое FQDN имя VPS (или Enter для отмены): " new_fqdn
-            new_fqdn="${new_fqdn// /}"
-            
-            if [ -z "$new_fqdn" ]; then
-                echo ""
-                center_print "${RED}✗ Отменено. Имя не изменено.${RESET}"
-                pause
-                continue
-            fi
-            
-            # Simple validation (must not contain spaces or special chars other than dot/dash)
-            if [[ ! "$new_fqdn" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-                echo ""
-                center_print "${RED}✗ Неверный формат! Допускаются только буквы, цифры, точки и дефисы.${RESET}"
-                pause
-                continue
-            fi
-            
-            echo -e "\n  [*] Изменение системного имени хоста..."
-            local old_fqdn
-            old_fqdn=$(hostname)
-            
-            if hostnamectl set-hostname "$new_fqdn" 2>/dev/null; then
-                # Update /etc/hosts
-                if [ -f /etc/hosts ]; then
-                    sed -i "s/\b$old_fqdn\b/$new_fqdn/g" /etc/hosts
-                fi
-                echo ""
-                center_print "${GREEN}✓ FQDN имя VPS успешно изменено на $new_fqdn!${RESET}"
-            else
-                echo ""
-                center_print "${RED}✗ Не удалось изменить имя хоста.${RESET}"
-            fi
-            pause
+    clear_screen
+    print_header "Настройки → FQDN имя VPS" "false"
+    local cur_fqdn
+    cur_fqdn=$(hostname -f 2>/dev/null || hostname)
+    center_print "Текущее FQDN имя VPS: ${CYAN}$cur_fqdn${RESET}"
+    echo ""
+    
+    local new_fqdn
+    read_prompt "Введите новое FQDN имя VPS (или Enter для отмены): " new_fqdn
+    new_fqdn="${new_fqdn// /}"
+    
+    if [ -z "$new_fqdn" ]; then
+        echo ""
+        center_print "${RED}✗ Отменено. Имя не изменено.${RESET}"
+        pause
+        return 0
+    fi
+    
+    # Simple validation (must not contain spaces or special chars other than dot/dash)
+    if [[ ! "$new_fqdn" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+        echo ""
+        center_print "${RED}✗ Неверный формат! Допускаются только буквы, цифры, точки и дефисы.${RESET}"
+        pause
+        return 0
+    fi
+    
+    echo ""
+    center_print "${DIM}[*] Изменение системного имени хоста...${RESET}"
+    local old_fqdn
+    old_fqdn=$(hostname)
+    
+    if hostnamectl set-hostname "$new_fqdn" 2>/dev/null; then
+        # Update /etc/hosts
+        if [ -f /etc/hosts ]; then
+            sed -i "s/\b$old_fqdn\b/$new_fqdn/g" /etc/hosts
         fi
-    done
+        echo ""
+        center_print "${GREEN}✓ FQDN имя VPS успешно изменено на $new_fqdn!${RESET}"
+    else
+        echo ""
+        center_print "${RED}✗ Не удалось изменить имя хоста.${RESET}"
+    fi
+    pause
 }
 
 change_domain_email_menu() {
