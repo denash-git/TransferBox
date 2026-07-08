@@ -403,9 +403,9 @@ modules_menu() {
         fi
         
         local options=(
-            "Mieru (Статус: $mieru_status)"
-            "NetBird (Статус: $netbird_status)"
-            "sing-box (Статус: $sb_status)"
+            "Mieru [$mieru_status]"
+            "NetBird [$netbird_status]"
+            "sing-box [$sb_status]"
             "Назад"
         )
         select_menu "Модули" "${options[@]}"
@@ -2248,6 +2248,52 @@ except Exception as e:
             rm -f /tmp/restore_extract.txt
             
             if [ "$ext_res" == "SUCCESS" ]; then
+                # Восстанавливаем состояния служб и устанавливаем их при отсутствии
+                if [ -f "/opt/transferbox/instance.env" ]; then
+                    source /opt/transferbox/instance.env
+                fi
+                
+                # Восстановление Mieru
+                local m_enabled="${MIERU_ENABLED:-false}"
+                if [ "$m_enabled" == "true" ]; then
+                    if [ ! -f "/usr/bin/mita" ]; then
+                        echo -e "  [*] Обнаружена конфигурация Mieru. Автоматическая установка..."
+                        install_mieru
+                    else
+                        echo -e "  [*] Включение службы Mieru..."
+                        systemctl enable --now mita >/dev/null 2>&1 || true
+                    fi
+                else
+                    if [ -f "/usr/bin/mita" ]; then
+                        echo -e "  [*] Отключение службы Mieru..."
+                        systemctl disable --now mita >/dev/null 2>&1 || true
+                    fi
+                fi
+                
+                # Восстановление NetBird
+                local nb_key="${NETBIRD_SETUP_KEY:-}"
+                if [ ! -z "$nb_key" ]; then
+                    if ! command -v netbird &>/dev/null; then
+                        echo -e "  [*] Обнаружена конфигурация NetBird. Автоматическая установка..."
+                        export SKIP_UI_APP=true
+                        if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
+                            systemctl enable --now netbird >/dev/null 2>&1 || true
+                        fi
+                    fi
+                    if command -v netbird &>/dev/null; then
+                        echo -e "  [*] Подключение NetBird..."
+                        local nb_url="${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}"
+                        local cmd="netbird up --setup-key $nb_key"
+                        if [ ! -z "$nb_url" ] && [ "$nb_url" != "https://api.netbird.io" ]; then
+                            cmd="$cmd --management-url $nb_url"
+                        fi
+                        eval "$cmd" || true
+                    fi
+                fi
+                
+                # Восстановление sing-box
+                systemctl enable --now sing-box >/dev/null 2>&1 || true
+                
                 echo -e "  [*] Пересборка конфигураций и перезапуск служб..."
                 python3 -c "
 from core.config_manager import render_configs, validate_and_restart
