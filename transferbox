@@ -277,10 +277,14 @@ select_menu() {
             SELECTED_INDEX=$active_idx
             tput cnorm # Показать курсор
             return 0
-        elif [[ "$key" == "q" || "$key" == "Q" || "$key" == "0" ]]; then
+        elif [[ "$key" == "q" || "$key" == "Q" ]]; then
             SELECTED_INDEX=-1
             tput cnorm # Показать курсор
-            return 1
+            return 0
+        elif [[ "$key" == "0" ]]; then
+            clear_screen
+            tput cnorm # Показать курсор
+            exit 0
         fi
     done
 }
