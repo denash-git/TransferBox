@@ -403,9 +403,9 @@ modules_menu() {
         fi
         
         local options=(
-            "Mieru [$mieru_status]"
-            "NetBird [$netbird_status]"
-            "sing-box [$sb_status]"
+            "Mieru       [$mieru_status]"
+            "NetBird     [$netbird_status]"
+            "sing-box    [$sb_status]"
             "Назад"
         )
         select_menu "Модули" "${options[@]}"
