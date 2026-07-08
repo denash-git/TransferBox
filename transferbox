@@ -359,16 +359,14 @@ modules_menu() {
 
 mieru_module_menu() {
     while true; do
-        local is_enabled
-        is_enabled=$(grep -E "^MIERU_ENABLED=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
-        [ -z "$is_enabled" ] && is_enabled="false"
-        
+        if [ -f "/opt/transferbox/instance.env" ]; then
+            source /opt/transferbox/instance.env
+        fi
+        local is_enabled="${MIERU_ENABLED:-false}"
         local status_label="${RED}отключен${RESET}"
         [ "$is_enabled" == "true" ] && status_label="${GREEN}включен${RESET}"
         
-        local port
-        port=$(grep -E "^MIERU_PORT=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
-        [ -z "$port" ] && port="21000"
+        local port="${MIERU_PORT:-21000}"
         
         local options=(
             "Включить / Выключить (Текущий статус: $status_label)"
@@ -383,23 +381,12 @@ mieru_module_menu() {
             [ "$is_enabled" == "true" ] && new_status="false"
             
             echo -e "\n  [*] Изменение статуса Mieru на $new_status..."
-            python3 -c "
-import os
-env_path = '/opt/transferbox/instance.env'
-lines = []
-found = False
-with open(env_path, 'r', encoding='utf-8') as f:
-    for line in f:
-        if line.startswith('MIERU_ENABLED='):
-            lines.append('MIERU_ENABLED=$new_status\n')
-            found = True
-        else:
-            lines.append(line)
-if not found:
-    lines.append('MIERU_ENABLED=$new_status\n')
-with open(env_path, 'w', encoding='utf-8') as f:
-    f.writelines(lines)
-"
+            if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
+                sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=$new_status/" /opt/transferbox/instance.env
+            else
+                echo "MIERU_ENABLED=$new_status" >> /opt/transferbox/instance.env
+            fi
+            
             # Ensure MIERU_PORT is also in env
             if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
                 echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
@@ -411,41 +398,39 @@ from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+            echo -e "\n  ${GREEN}✓ Статус Mieru изменен на $new_status. Сервисы перезапущены.${RESET}"
             pause
         elif [ "$choice" -eq 1 ]; then
+            clear_screen
+            print_header "Модули → Mieru → Изменение порта" "false"
             local new_port
-            read_prompt "Введите новый порт для Mieru (1024-65535, или 0 для отмены): " new_port
-            if [ ! -z "$new_port" ] && [ "$new_port" != "0" ]; then
-                if [[ "$new_port" =~ ^[0-9]+$ ]] && [ "$new_port" -ge 1024 ] && [ "$new_port" -le 65535 ]; then
-                    echo -e "\n  [*] Изменение порта Mieru на $new_port..."
-                    python3 -c "
-import os
-env_path = '/opt/transferbox/instance.env'
-lines = []
-found = False
-with open(env_path, 'r', encoding='utf-8') as f:
-    for line in f:
-        if line.startswith('MIERU_PORT='):
-            lines.append('MIERU_PORT=$new_port\n')
-            found = True
-        else:
-            lines.append(line)
-if not found:
-    lines.append('MIERU_PORT=$new_port\n')
-with open(env_path, 'w', encoding='utf-8') as f:
-    f.writelines(lines)
-"
-                    python3 -c "
+            read_prompt "Введите новый порт для Mieru (1-65535, по умолчанию $port): " new_port
+            [ -z "$new_port" ] && new_port="$port"
+            
+            # Валидация порта
+            if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+                echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+                pause
+                continue
+            fi
+            
+            echo -e "\n  [*] Сохранение настроек порта Mieru..."
+            
+            # Обновление в instance.env
+            if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
+                sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
+            else
+                echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
+            fi
+            
+            # Перерендеринг настроек и перезапуск сервисов (включая UFW!)
+            python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-                    pause
-                else
-                    echo -e "\n  ${RED}✗ Неверный формат порта. Должно быть число от 1024 до 65535.${RESET}"
-                    pause
-                fi
-            fi
+            echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
+            pause
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
@@ -1255,7 +1240,6 @@ settings_menu() {
         local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
         [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
         local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
-        local m_port="${MIERU_PORT:-21000}"
         
         local ssh_port
         ssh_port=$(python3 -c "from core.config_manager import get_current_ssh_port; print(get_current_ssh_port())")
@@ -1274,7 +1258,6 @@ settings_menu() {
         echo -e "  • Путь VLESS WS:     $vless_ws"
         echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
         echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
-        echo -e "  • Порт Mieru:        $m_port"
         echo -e "  • Порт SSH:          $ssh_port"
         echo -e "  • TCP BBR:           $bbr_status"
         draw_line "─" "$BLUE"
@@ -1283,7 +1266,6 @@ settings_menu() {
             "Изменить Домен и Email"
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
-            "Настройки Mieru"
             "Изменить порт SSH"
             "Обновить sing-box"
             "Включить / Выключить BBR (Статус: $bbr_status)"
@@ -1299,12 +1281,10 @@ settings_menu() {
         elif [ "$choice" -eq 2 ]; then
             change_vless_paths_menu
         elif [ "$choice" -eq 3 ]; then
-            mieru_settings_menu
-        elif [ "$choice" -eq 4 ]; then
             change_ssh_port_menu
-        elif [ "$choice" -eq 5 ]; then
+        elif [ "$choice" -eq 4 ]; then
             update_singbox_menu
-        elif [ "$choice" -eq 6 ]; then
+        elif [ "$choice" -eq 5 ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
             if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
@@ -1332,7 +1312,7 @@ EOF
                 fi
             fi
             pause
-        elif [ "$choice" -eq 7 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
     done
@@ -1413,61 +1393,6 @@ else:
                 echo -e "\n  ${RED}✗ Ошибка: $res${RESET}"
                 pause
             fi
-        else
-            return 0
-        fi
-    done
-}
-
-mieru_settings_menu() {
-    while true; do
-        if [ -f "/opt/transferbox/instance.env" ]; then
-            source /opt/transferbox/instance.env
-        fi
-        local port="${MIERU_PORT:-21000}"
-        
-        clear_screen
-        print_header "Настройки → Mieru" "false"
-        echo -e "  Текущий порт Mieru: ${CYAN}$port${RESET}\n"
-        
-        local options=(
-            "Изменить порт Mieru"
-            "Назад"
-        )
-        select_menu "Настройки → Mieru" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        if [ "$choice" -eq 0 ]; then
-            clear_screen
-            print_header "Настройки → Mieru → Изменение порта" "false"
-            local new_port
-            read_prompt "Введите новый порт для Mieru (1-65535, по умолчанию $port): " new_port
-            [ -z "$new_port" ] && new_port="$port"
-            
-            # Валидация порта
-            if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-                echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
-                pause
-                continue
-            fi
-            
-            echo -e "\n  [*] Сохранение настроек порта Mieru..."
-            
-            # Обновление в instance.env
-            if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
-                sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
-            else
-                echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
-            fi
-            
-            # Перерендеринг настроек и перезапуск сервисов (включая UFW!)
-            python3 -c "
-from core.config_manager import render_configs, validate_and_restart
-render_configs()
-validate_and_restart()
-"
-            echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
-            pause
         else
             return 0
         fi
