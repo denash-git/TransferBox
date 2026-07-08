@@ -1386,13 +1386,13 @@ protocol_management_menu() {
             enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\") | .enabled" /opt/transferbox/users.json)
         fi
         
-        local status_label="${GREEN}активен${RESET}"
-        if [ "$enabled" != "true" ]; then
-            status_label="${RED}отключен${RESET}"
+        local toggle_lbl="Включить протокол ${RED}[отключен]${RESET}"
+        if [ "$enabled" == "true" ]; then
+            toggle_lbl="Отключить протокол ${GREEN}[активен]${RESET}"
         fi
         
         local options=(
-            "Включить / Выключить (Статус: $status_label)"
+            "$toggle_lbl"
             "Показать ссылку подключения и QR-код"
             "Удалить этот протокол"
             "Назад"
@@ -1400,24 +1400,46 @@ protocol_management_menu() {
         select_menu "$nick ($label)" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq -1 ] || [ "$choice" -eq 3 ]; then
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
-        elif [ "$choice" -eq 0 ]; then
+        elif [[ "$clean_sel" == "Отключить протокол"* ]] || [[ "$clean_sel" == "Включить протокол"* ]]; then
             local new_status="True"
             if [ "$enabled" == "true" ]; then
                 new_status="False"
             fi
-            echo -e "\n  [*] Изменение статуса протокола..."
-            python3 -c "
+            echo ""
+            center_print "${DIM}[*] Изменение статуса протокола...${RESET}"
+            
+            local res
+            res=$(python3 -c "
 from core.user_manager import toggle_user
 success, msg = toggle_user('$nick', $new_status, '$proto', '$utype')
-print(msg)
-"
-            python3 -c "
+if success:
+    print('SUCCESS')
+else:
+    print(msg)
+")
+            
+            if [ "$res" == "SUCCESS" ]; then
+                python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+                echo ""
+                if [ "$new_status" == "True" ]; then
+                    center_print "${GREEN}✓ Протокол успешно включен!${RESET}"
+                else
+                    center_print "${GREEN}✓ Протокол успешно отключен.${RESET}"
+                fi
+            else
+                echo ""
+                center_print "${RED}✗ Ошибка: $res${RESET}"
+            fi
             pause
         elif [ "$choice" -eq 1 ]; then
             clear_screen
