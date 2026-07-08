@@ -1124,11 +1124,19 @@ run_speedtest_client_vps() {
     clear_screen
     print_header "Замер скорости: Client ↔ VPS (iperf3)" "false"
     
-    if ! command -v iperf3 >/dev/null 2>&1; then
+    # Check iperf3 is present, install if missing
+    if ! dpkg -l iperf3 2>/dev/null | grep -q '^ii'; then
         echo ""
         center_print "${DIM}[*] Установка iperf3 на VPS...${RESET}"
-        sudo apt-get update >/dev/null 2>&1
-        sudo apt-get install -y iperf3 >/dev/null 2>&1
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iperf3 2>/dev/null
+        if ! dpkg -l iperf3 2>/dev/null | grep -q '^ii'; then
+            echo ""
+            center_print "${RED}✗ Не удалось установить iperf3. Установите вручную: apt install iperf3${RESET}"
+            pause
+            return 0
+        fi
+        echo ""
+        center_print "${GREEN}✓ iperf3 установлен.${RESET}"
     fi
     
     # Open UFW port temporarily
@@ -1136,37 +1144,43 @@ run_speedtest_client_vps() {
     sudo ufw allow 5201/udp comment "iperf3 UDP" >/dev/null 2>&1
     
     local vps_ip
-    vps_ip=$(curl -s ifconfig.me || curl -s api.ipify.org || echo "IP вашего VPS")
+    vps_ip=$(curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || curl -4 -s --connect-timeout 5 api.ipify.org 2>/dev/null || echo "ВАШ_IP_VPS")
     
     echo ""
-    center_print "Запуск iperf3 сервера на VPS..."
+    draw_line "─" "$BLUE"
     echo ""
-    center_print "Для тестирования запустите на клиенте (ПК):"
+    center_print "Сервер iperf3 запущен и ожидает подключения"
+    echo ""
+    center_print "Скачивание (клиент → VPS):"
     center_print "${CYAN}iperf3 -c $vps_ip${RESET}"
     echo ""
-    center_print "Для теста в обратную сторону (отдача от VPS к клиенту):"
+    center_print "Отдача (VPS → клиент):"
     center_print "${CYAN}iperf3 -c $vps_ip -R${RESET}"
     echo ""
-    center_print "На телефоне используйте приложения ${YELLOW}Magic iPerf${RESET} (Android)"
-    center_print "или ${YELLOW}HE.NET Network Tools${RESET} (iOS) с адресом сервера ${CYAN}$vps_ip${RESET}."
+    center_print "Телефон: ${YELLOW}Magic iPerf${RESET} (Android) / ${YELLOW}HE.NET Network Tools${RESET} (iOS)"
+    center_print "Адрес сервера: ${CYAN}$vps_ip${RESET}"
     echo ""
-    center_print "${DIM}Для отмены и возврата в меню нажмите Ctrl+C.${RESET}"
+    center_print "${DIM}Ctrl+C — выйти из теста и вернуться в меню.${RESET}"
     echo ""
     draw_line "─" "$BLUE"
     echo ""
     
-    # Run iperf3 server for 1 client session, catch Ctrl+C to return to menu gracefully
-    (
-        trap 'exit 0' INT
-        iperf3 -s -1
-    )
+    # Run iperf3 server, one client at a time, exit cleanly on Ctrl+C
+    local iperf_pid
+    iperf3 -s &
+    iperf_pid=$!
     
-    # Remove firewall rules on exit
+    # Wait for iperf3 to finish, handle Ctrl+C
+    trap "kill $iperf_pid 2>/dev/null; wait $iperf_pid 2>/dev/null" INT
+    wait $iperf_pid
+    trap - INT
+    
+    # Remove firewall rules
     sudo ufw delete allow 5201/tcp >/dev/null 2>&1
     sudo ufw delete allow 5201/udp >/dev/null 2>&1
     
     echo ""
-    center_print "${GREEN}Тестирование завершено.${RESET}"
+    center_print "${GREEN}✓ Тестирование завершено.${RESET}"
     pause
 }
 # ─── МЕНЮ ПОЛЬЗОВАТЕЛЕЙ ──────────────────────────────────────────────────────
