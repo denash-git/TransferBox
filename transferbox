@@ -899,11 +899,7 @@ netbird_module_menu() {
                 echo -e "  [*] Запуск регистрации пира в сети NetBird..."
                 local cmd="netbird up --setup-key $nb_key"
                 if [ ! -z "$nb_url" ]; then
-                    local clean_url="$nb_url"
-                    if [[ ! "$clean_url" =~ ^https?:// ]]; then
-                        clean_url="https://$clean_url"
-                    fi
-                    cmd="$cmd --management-url $clean_url"
+                    cmd="$cmd --management-url $nb_url"
                 fi
                 
                 echo -e "  [*] Выполняется: $cmd"
@@ -1805,11 +1801,15 @@ settings_menu() {
             bbr_status="${GREEN}активен${RESET}"
         fi
         
+        local vps_fqdn
+        vps_fqdn=$(hostname -f 2>/dev/null || hostname)
+        
         clear_screen
         print_header "Настройки"
         echo -e "  Текущая конфигурация:"
         echo -e "  • Домен:             $domain"
         echo -e "  • Email Let's Encrypt: $email"
+        echo -e "  • FQDN имя VPS:      $vps_fqdn"
         echo -e "  • Шаблон сайта:      $template"
         echo -e "  • Путь VLESS WS:     $vless_ws"
         echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
@@ -1820,6 +1820,7 @@ settings_menu() {
         
         local options=(
             "Изменить Домен и Email"
+            "Изменить FQDN имя VPS"
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
             "Изменить порт SSH"
@@ -1832,12 +1833,14 @@ settings_menu() {
         if [ "$choice" -eq 0 ]; then
             change_domain_email_menu
         elif [ "$choice" -eq 1 ]; then
-            change_site_template_menu
+            change_vps_fqdn_menu
         elif [ "$choice" -eq 2 ]; then
-            change_vless_paths_menu
+            change_site_template_menu
         elif [ "$choice" -eq 3 ]; then
-            change_ssh_port_menu
+            change_vless_paths_menu
         elif [ "$choice" -eq 4 ]; then
+            change_ssh_port_menu
+        elif [ "$choice" -eq 5 ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
             if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
@@ -1845,9 +1848,11 @@ settings_menu() {
                 if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
                     rm -f /etc/sysctl.d/99-transferbox-bbr.conf
                     sysctl --system >/dev/null 2>&1
-                    echo -e "\n  ${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при отключении BBR.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка при отключении BBR.${RESET}"
                 fi
             else
                 echo -e "  [*] Включение BBR оптимизации..."
@@ -1859,13 +1864,15 @@ net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
                     sysctl --system >/dev/null 2>&1
-                    echo -e "\n  ${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
+                    echo ""
+                    center_print "${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка: Ядро вашей системы не поддерживает BBR.${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка: Ядро вашей системы не поддерживает BBR.${RESET}"
                 fi
             fi
             pause
-        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
     done
@@ -1948,6 +1955,69 @@ else:
             fi
         else
             return 0
+        fi
+    done
+}
+
+change_vps_fqdn_menu() {
+    while true; do
+        clear_screen
+        print_header "Настройки → FQDN имя VPS" "false"
+        local cur_fqdn
+        cur_fqdn=$(hostname -f 2>/dev/null || hostname)
+        echo -e "  Текущее FQDN имя VPS: ${CYAN}$cur_fqdn${RESET}\n"
+        
+        local options=(
+            "Изменить FQDN имя VPS"
+            "Назад"
+        )
+        select_menu "Настройки → FQDN имя VPS" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Изменить FQDN имя VPS" ]; then
+            clear_screen
+            print_header "Настройки → Изменение FQDN" "false"
+            local new_fqdn
+            read_prompt "Введите новое FQDN имя VPS (или Enter для отмены): " new_fqdn
+            new_fqdn="${new_fqdn// /}"
+            
+            if [ -z "$new_fqdn" ]; then
+                echo ""
+                center_print "${RED}✗ Отменено. Имя не изменено.${RESET}"
+                pause
+                continue
+            fi
+            
+            # Simple validation (must not contain spaces or special chars other than dot/dash)
+            if [[ ! "$new_fqdn" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+                echo ""
+                center_print "${RED}✗ Неверный формат! Допускаются только буквы, цифры, точки и дефисы.${RESET}"
+                pause
+                continue
+            fi
+            
+            echo -e "\n  [*] Изменение системного имени хоста..."
+            local old_fqdn
+            old_fqdn=$(hostname)
+            
+            if hostnamectl set-hostname "$new_fqdn" 2>/dev/null; then
+                # Update /etc/hosts
+                if [ -f /etc/hosts ]; then
+                    sed -i "s/\b$old_fqdn\b/$new_fqdn/g" /etc/hosts
+                fi
+                echo ""
+                center_print "${GREEN}✓ FQDN имя VPS успешно изменено на $new_fqdn!${RESET}"
+            else
+                echo ""
+                center_print "${RED}✗ Не удалось изменить имя хоста.${RESET}"
+            fi
+            pause
         fi
     done
 }
@@ -2333,11 +2403,7 @@ except Exception as e:
                         local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
                         local cmd="netbird up --setup-key $nb_key"
                         if [ ! -z "$nb_url" ]; then
-                            local clean_url="$nb_url"
-                            if [[ ! "$clean_url" =~ ^https?:// ]]; then
-                                clean_url="https://$clean_url"
-                            fi
-                            cmd="$cmd --management-url $clean_url"
+                            cmd="$cmd --management-url $nb_url"
                         fi
                         eval "$cmd" || true
                     fi
