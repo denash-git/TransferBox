@@ -806,11 +806,11 @@ netbird_module_menu() {
             local active_status
             active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
             
-            local key_lbl="Setup Key [не задан]"
-            [ ! -z "$nb_key" ] && key_lbl="Setup Key [задан]"
+            local key_lbl="Setup Key ${RED}[не задан]${RESET}"
+            [ ! -z "$nb_key" ] && key_lbl="Setup Key ${GREEN}[задан]${RESET}"
             
-            local url_lbl="Management URL [не задан]"
-            [ ! -z "$nb_url" ] && url_lbl="Management URL [задан]"
+            local url_lbl="Management URL ${RED}[не задан]${RESET}"
+            [ ! -z "$nb_url" ] && url_lbl="Management URL ${GREEN}[задан]${RESET}"
             
             local options=(
                 "$key_lbl"
