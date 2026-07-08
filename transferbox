@@ -870,10 +870,14 @@ netbird_module_menu() {
                 local new_url
                 read_prompt "Введите Management URL (или Enter для отмены): " new_url
                 if [ ! -z "$new_url" ]; then
+                    local clean_url="$new_url"
+                    if [[ ! "$clean_url" =~ ^https?:// ]]; then
+                        clean_url="https://$clean_url"
+                    fi
                     if grep -q "^NETBIRD_MANAGEMENT_URL=" /opt/transferbox/instance.env; then
-                        sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$new_url|" /opt/transferbox/instance.env
+                        sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$clean_url|" /opt/transferbox/instance.env
                     else
-                        echo "NETBIRD_MANAGEMENT_URL=$new_url" >> /opt/transferbox/instance.env
+                        echo "NETBIRD_MANAGEMENT_URL=$clean_url" >> /opt/transferbox/instance.env
                     fi
                     echo ""
                     center_print "${GREEN}✓ Management URL успешно сохранен.${RESET}"
@@ -895,11 +899,15 @@ netbird_module_menu() {
                 echo -e "  [*] Запуск регистрации пира в сети NetBird..."
                 local cmd="netbird up --setup-key $nb_key"
                 if [ ! -z "$nb_url" ]; then
-                    cmd="$cmd --management-url $nb_url"
+                    local clean_url="$nb_url"
+                    if [[ ! "$clean_url" =~ ^https?:// ]]; then
+                        clean_url="https://$clean_url"
+                    fi
+                    cmd="$cmd --management-url $clean_url"
                 fi
                 
                 echo -e "  [*] Выполняется: $cmd"
-                if eval "$cmd" || true; then
+                if eval "$cmd"; then
                     echo ""
                     center_print "${GREEN}✓ Команда подключения выполнена!${RESET}"
                 else
