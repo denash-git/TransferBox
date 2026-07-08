@@ -86,11 +86,12 @@ draw_line() {
 
 get_service_status() {
     local service_name="$1"
-    if systemctl is-active "$service_name" >/dev/null 2>&1; then
+    if systemctl is-active --quiet "$service_name" 2>/dev/null; then
         echo -e "${GREEN}● работает${RESET}"
     else
         local status
-        status=$(systemctl is-active "$service_name" 2>/dev/null || echo "не установлен")
+        status=$(systemctl is-active "$service_name" 2>/dev/null)
+        [ -z "$status" ] && status="inactive"
         echo -e "${RED}● не запущен ($status)${RESET}"
     fi
 }
@@ -521,39 +522,71 @@ mieru_module_menu() {
             echo -e "  • Порт:            ${CYAN}$port${RESET}"
             draw_line "─" "$BLUE"
             
-            local options=(
-                "Включить / Выключить (Текущий статус: $status_label)"
+            local options=()
+            if [ "$is_enabled" == "true" ]; then
+                options+=(
+                    "Остановить службу"
+                    "Перезапустить службу"
+                )
+            else
+                options+=(
+                    "Запустить службу"
+                )
+            fi
+            
+            options+=(
                 "Изменить порт (Текущий порт: $port)"
                 "Обновить Mieru (Mita)"
                 "Удалить Mieru (Mita)"
                 "Назад"
             )
+            
             select_menu "Модуль: Mieru" "${options[@]}"
             local choice=$SELECTED_INDEX
             
-            if [ "$choice" -eq 0 ]; then
-                local new_status="true"
-                [ "$is_enabled" == "true" ] && new_status="false"
-                
-                echo -e "\n  [*] Изменение статуса Mieru на $new_status..."
+            local selected_option="${options[$choice]}"
+            local clean_sel
+            clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+            
+            if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+                return 0
+            elif [ "$clean_sel" == "Запустить службу" ]; then
+                echo -e "\n  [*] Запуск службы Mieru..."
                 if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
-                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=$new_status/" /opt/transferbox/instance.env
+                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=true/" /opt/transferbox/instance.env
                 else
-                    echo "MIERU_ENABLED=$new_status" >> /opt/transferbox/instance.env
+                    echo "MIERU_ENABLED=true" >> /opt/transferbox/instance.env
                 fi
-                
                 if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
                     echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
                 fi
-                
                 python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-                echo -e "\n  ${GREEN}✓ Статус Mieru изменен на $new_status. Сервисы перезапущены.${RESET}"
+                echo -e "\n  ${GREEN}✓ Служба Mieru запущена. Сервисы перезапущены.${RESET}"
                 pause
-            elif [ "$choice" -eq 1 ]; then
+            elif [ "$clean_sel" == "Остановить службу" ]; then
+                echo -e "\n  [*] Остановка службы Mieru..."
+                if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
+                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" /opt/transferbox/instance.env
+                else
+                    echo "MIERU_ENABLED=false" >> /opt/transferbox/instance.env
+                fi
+                python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+                echo -e "\n  ${GREEN}✓ Служба Mieru остановлена. Сервисы перезапущены.${RESET}"
+                pause
+            elif [ "$clean_sel" == "Перезапустить службу" ]; then
+                echo -e "\n  [*] Перезапуск службы Mieru..."
+                systemctl restart mita >/dev/null 2>&1 || true
+                echo -e "\n  ${GREEN}✓ Служба Mieru перезапущена.${RESET}"
+                pause
+            elif [ "$clean_sel" == "Изменить порт (Текущий порт: $port)" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Изменение порта" "false"
                 local new_port
@@ -580,12 +613,12 @@ validate_and_restart()
 "
                 echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
                 pause
-            elif [ "$choice" -eq 2 ]; then
+            elif [ "$clean_sel" == "Обновить Mieru (Mita)" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Обновление" "false"
                 install_mieru
                 pause
-            elif [ "$choice" -eq 3 ]; then
+            elif [ "$clean_sel" == "Удалить Mieru (Mita)" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Удаление" "false"
                 echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит Mieru с этого сервера !${RESET}"
@@ -597,8 +630,6 @@ validate_and_restart()
                     echo -e "\n  Удаление отменено."
                 fi
                 pause
-            elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
-                return 0
             fi
         fi
     done
