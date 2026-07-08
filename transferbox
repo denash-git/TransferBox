@@ -127,6 +127,24 @@ print_header() {
         [ $len_cad -gt $max_block_len ] && max_block_len=$len_cad
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
         
+        local show_mieru=false
+        if is_mieru_enabled; then
+            show_mieru=true
+            local status_mita_raw
+            status_mita_raw=$(get_service_status mita | sed 's/\x1b\[[0-9;]*m//g')
+            local len_mita=$(( 10 + ${#status_mita_raw} ))
+            [ $len_mita -gt $max_block_len ] && max_block_len=$len_mita
+        fi
+        
+        local show_netbird=false
+        if command -v netbird &>/dev/null; then
+            show_netbird=true
+            local status_nb_raw
+            status_nb_raw=$(get_netbird_status | sed 's/\x1b\[[0-9;]*m//g')
+            local len_nb=$(( 10 + ${#status_nb_raw} ))
+            [ $len_nb -gt $max_block_len ] && max_block_len=$len_nb
+        fi
+        
         local term_width
         term_width=$(tput cols 2>/dev/null || echo 80)
         local indent=$(( (term_width - max_block_len) / 2 ))
@@ -137,6 +155,12 @@ print_header() {
         echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
         echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
         echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
+        if [ "$show_mieru" == "true" ]; then
+            echo -e "${pad_spaces}Mieru:    $(get_service_status mita)"
+        fi
+        if [ "$show_netbird" == "true" ]; then
+            echo -e "${pad_spaces}NetBird:  $(get_netbird_status)"
+        fi
         center_print "${BLUE}${line_double}${RESET}"
     fi
     echo ""
@@ -351,7 +375,7 @@ get_netbird_status() {
     fi
     
     local status_out
-    status_out=$(netbird status 2>&1)
+    status_out=$(netbird status 2>&1 || true)
     
     if echo "$status_out" | grep -qi "NeedsLogin"; then
         echo -e "${YELLOW}требует авторизации${RESET}"
@@ -490,13 +514,16 @@ netbird_module_menu() {
             echo -e "  • Статус:          $status_text"
             
             if systemctl is-active --quiet netbird; then
+                local status_raw
+                status_raw=$(netbird status 2>&1 || true)
+                
                 local ip_info
-                ip_info=$(netbird status 2>&1 | grep -i "NetBird IP:" | awk '{print $3}')
+                ip_info=$(echo "$status_raw" | grep -i "NetBird IP:" | awk '{print $3}' || true)
                 [ -z "$ip_info" ] && ip_info="N/A"
                 echo -e "  • NetBird IP:      ${CYAN}$ip_info${RESET}"
                 
                 local peers_info
-                peers_info=$(netbird status 2>&1 | grep -i "Peers count:" | cut -d':' -f2- | xargs)
+                peers_info=$(echo "$status_raw" | grep -i "Peers count:" | cut -d':' -f2- | xargs || true)
                 [ -z "$peers_info" ] && peers_info="N/A"
                 echo -e "  • Пиры:            ${CYAN}$peers_info${RESET}"
             fi
@@ -569,10 +596,10 @@ netbird_module_menu() {
                     cmd="$cmd --management-url $m_url"
                 fi
                 
-                if eval "$cmd"; then
-                    echo -e "\n  ${GREEN}✓ Успешное подключение к NetBird!${RESET}"
+                if eval "$cmd" || true; then
+                    echo -e "\n  ${GREEN}✓ Успешный запуск команды подключения!${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Не удалось подключиться к NetBird. Проверьте ключ и логи.${RESET}"
+                    echo -e "\n  ${RED}✗ Ошибка при запуске команды подключения.${RESET}"
                 fi
                 pause
             elif [ "$choice" -eq 1 ]; then
@@ -592,7 +619,7 @@ netbird_module_menu() {
                 clear_screen
                 print_header "Модули → NetBird → Подробный статус" "false"
                 if systemctl is-active --quiet netbird; then
-                    netbird status -d
+                    netbird status -d || true
                 else
                     echo -e "  ${RED}Служба NetBird остановлена. Подробная информация недоступна.${RESET}"
                 fi
