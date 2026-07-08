@@ -2330,10 +2330,14 @@ except Exception as e:
                     fi
                     if command -v netbird &>/dev/null; then
                         echo -e "  [*] Подключение NetBird..."
-                        local nb_url="${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}"
+                        local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
                         local cmd="netbird up --setup-key $nb_key"
-                        if [ ! -z "$nb_url" ] && [ "$nb_url" != "https://api.netbird.io" ]; then
-                            cmd="$cmd --management-url $nb_url"
+                        if [ ! -z "$nb_url" ]; then
+                            local clean_url="$nb_url"
+                            if [[ ! "$clean_url" =~ ^https?:// ]]; then
+                                clean_url="https://$clean_url"
+                            fi
+                            cmd="$cmd --management-url $clean_url"
                         fi
                         eval "$cmd" || true
                     fi
