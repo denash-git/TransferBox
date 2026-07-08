@@ -339,6 +339,29 @@ is_mieru_enabled() {
     return 1
 }
 
+get_netbird_status() {
+    if ! command -v netbird &>/dev/null; then
+        echo -e "${RED}не установлен${RESET}"
+        return 0
+    fi
+    
+    if ! systemctl is-active --quiet netbird; then
+        echo -e "${YELLOW}остановлен (служба)${RESET}"
+        return 0
+    fi
+    
+    local status_out
+    status_out=$(netbird status 2>&1)
+    
+    if echo "$status_out" | grep -qi "NeedsLogin"; then
+        echo -e "${YELLOW}требует авторизации${RESET}"
+    elif echo "$status_out" | grep -qi "Connected" && ! echo "$status_out" | grep -qi "Management: Disconnected"; then
+        echo -e "${GREEN}подключен${RESET}"
+    else
+        echo -e "${RED}отключен${RESET}"
+    fi
+}
+
 modules_menu() {
     while true; do
         local mieru_status="${RED}отключен${RESET}"
@@ -346,8 +369,12 @@ modules_menu() {
             mieru_status="${GREEN}включен${RESET}"
         fi
         
+        local netbird_status
+        netbird_status=$(get_netbird_status)
+        
         local options=(
             "Mieru (Статус: $mieru_status)"
+            "NetBird (Статус: $netbird_status)"
             "Назад"
         )
         select_menu "Модули" "${options[@]}"
@@ -355,7 +382,9 @@ modules_menu() {
         
         if [ "$choice" -eq 0 ]; then
             mieru_module_menu
-        elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 1 ]; then
+            netbird_module_menu
+        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
     done
@@ -437,6 +466,161 @@ validate_and_restart()
             pause
         elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
             return 0
+        fi
+    done
+}
+
+netbird_module_menu() {
+    while true; do
+        clear_screen
+        print_header "Модули → NetBird" "false"
+        
+        # Display current status info
+        local is_installed=false
+        if command -v netbird &>/dev/null; then
+            is_installed=true
+        fi
+        
+        echo -e "  Состояние NetBird клиента:"
+        if [ "$is_installed" == "false" ]; then
+            echo -e "  • Статус:          ${RED}не установлен${RESET}"
+        else
+            local status_text
+            status_text=$(get_netbird_status)
+            echo -e "  • Статус:          $status_text"
+            
+            if systemctl is-active --quiet netbird; then
+                local ip_info
+                ip_info=$(netbird status 2>&1 | grep -i "NetBird IP:" | awk '{print $3}')
+                [ -z "$ip_info" ] && ip_info="N/A"
+                echo -e "  • NetBird IP:      ${CYAN}$ip_info${RESET}"
+                
+                local peers_info
+                peers_info=$(netbird status 2>&1 | grep -i "Peers count:" | cut -d':' -f2- | xargs)
+                [ -z "$peers_info" ] && peers_info="N/A"
+                echo -e "  • Пиры:            ${CYAN}$peers_info${RESET}"
+            fi
+        fi
+        draw_line "─" "$BLUE"
+        
+        local options=()
+        if [ "$is_installed" == "false" ]; then
+            options=(
+                "Установить NetBird клиент"
+                "Назад"
+            )
+        else
+            local active_status
+            active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
+            
+            local toggle_lbl="Запустить службу"
+            [ "$active_status" == "active" ] && toggle_lbl="Остановить службу"
+            
+            options=(
+                "Подключить с помощью Setup Key (netbird up)"
+                "$toggle_lbl"
+                "Показать подробный статус"
+                "Удалить NetBird клиент"
+                "Назад"
+            )
+        fi
+        
+        select_menu "Модуль: NetBird" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        if [ "$is_installed" == "false" ]; then
+            if [ "$choice" -eq 0 ]; then
+                clear_screen
+                print_header "Модули → NetBird → Установка" "false"
+                echo -e "  [*] Начало установки NetBird клиента..."
+                echo -e "  [*] Загрузка и запуск официального инсталлятора..."
+                
+                # Run installation
+                export SKIP_UI_APP=true
+                if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
+                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно установлен!${RESET}"
+                    systemctl enable --now netbird >/dev/null 2>&1 || true
+                else
+                    echo -e "\n  ${RED}✗ Ошибка при установке NetBird клиента.${RESET}"
+                fi
+                pause
+            elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
+                return 0
+            fi
+        else
+            if [ "$choice" -eq 0 ]; then
+                clear_screen
+                print_header "Модули → NetBird → Подключение" "false"
+                
+                local setup_key
+                read_prompt "Введите Setup Key (токен авторизации): " setup_key
+                if [ -z "$setup_key" ]; then
+                    echo -e "\n  ${RED}✗ Отменено. Setup Key не может быть пустым.${RESET}"
+                    pause
+                    continue
+                fi
+                
+                local m_url
+                read_prompt "Введите Management URL (оставьте пустым для app.netbird.io): " m_url
+                
+                echo -e "\n  [*] Подключение к сети NetBird..."
+                local cmd="netbird up --setup-key $setup_key"
+                if [ ! -z "$m_url" ]; then
+                    cmd="$cmd --management-url $m_url"
+                fi
+                
+                if eval "$cmd"; then
+                    echo -e "\n  ${GREEN}✓ Успешное подключение к NetBird!${RESET}"
+                else
+                    echo -e "\n  ${RED}✗ Не удалось подключиться к NetBird. Проверьте ключ и логи.${RESET}"
+                fi
+                pause
+            elif [ "$choice" -eq 1 ]; then
+                local active_status
+                active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
+                if [ "$active_status" == "active" ]; then
+                    echo -e "\n  [*] Остановка службы NetBird..."
+                    systemctl stop netbird
+                    echo -e "  ${GREEN}✓ Служба остановлена.${RESET}"
+                else
+                    echo -e "\n  [*] Запуск службы NetBird..."
+                    systemctl start netbird
+                    echo -e "  ${GREEN}✓ Служба запущена.${RESET}"
+                fi
+                pause
+            elif [ "$choice" -eq 2 ]; then
+                clear_screen
+                print_header "Модули → NetBird → Подробный статус" "false"
+                if systemctl is-active --quiet netbird; then
+                    netbird status -d
+                else
+                    echo -e "  ${RED}Служба NetBird остановлена. Подробная информация недоступна.${RESET}"
+                fi
+                pause
+            elif [ "$choice" -eq 3 ]; then
+                clear_screen
+                print_header "Модули → NetBird → Удаление" "false"
+                echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит NetBird с этого сервера !${RESET}"
+                local confirm
+                read_prompt "Вы уверены, что хотите удалить NetBird? (y/N): " confirm
+                if [[ "$confirm" =~ ^[yY]$ ]]; then
+                    echo -e "\n  [*] Остановка службы..."
+                    systemctl stop netbird >/dev/null 2>&1 || true
+                    systemctl disable netbird >/dev/null 2>&1 || true
+                    echo -e "  [*] Удаление пакета..."
+                    apt-get remove --purge -y netbird >/dev/null 2>&1 || true
+                    echo -e "  [*] Удаление репозитория..."
+                    rm -f /etc/apt/sources.list.d/netbird.list
+                    rm -f /usr/share/keyrings/netbird-archive-keyring.gpg
+                    apt-get update >/dev/null 2>&1 || true
+                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно удален.${RESET}"
+                else
+                    echo -e "\n  Удаление отменено."
+                fi
+                pause
+            elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+                return 0
+            fi
         fi
     done
 }
