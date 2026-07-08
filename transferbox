@@ -128,7 +128,7 @@ print_header() {
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
         
         local show_mieru=false
-        if is_mieru_enabled; then
+        if [ -f "/usr/bin/mita" ]; then
             show_mieru=true
             local status_mita_raw
             status_mita_raw=$(get_service_status mita | sed 's/\x1b\[[0-9;]*m//g')
@@ -414,82 +414,192 @@ modules_menu() {
     done
 }
 
+install_mieru() {
+    echo -e "  [*] Поиск последней версии mita (Mieru)..."
+    local latest_mita_ver
+    latest_mita_ver=$(curl -fsSL https://api.github.com/repos/enfein/mieru/releases/latest | jq -r .tag_name || true)
+    if [ -z "$latest_mita_ver" ] || [ "$latest_mita_ver" == "null" ]; then
+        latest_mita_ver="v3.34.0" # Fallback
+    fi
+    local clean_mita_ver=${latest_mita_ver#v}
+    
+    local go_arch="amd64"
+    local arch_raw
+    arch_raw=$(uname -m)
+    if [ "$arch_raw" == "x86_64" ]; then
+        go_arch="amd64"
+    elif [ "$arch_raw" == "aarch64" ]; then
+        go_arch="arm64"
+    fi
+    
+    local deb_mita_url="https://github.com/enfein/mieru/releases/download/${latest_mita_ver}/mita_${clean_mita_ver}_${go_arch}.deb"
+    echo -e "  [*] Скачивание пакета с официального GitHub: $deb_mita_url"
+    if wget -qO /tmp/mita.deb "$deb_mita_url"; then
+        echo -e "  [*] Установка пакета..."
+        dpkg -i /tmp/mita.deb >/dev/null
+        rm -f /tmp/mita.deb
+        
+        systemctl daemon-reload
+        systemctl enable mita >/dev/null 2>&1 || true
+        
+        # Re-render configurations
+        python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+        echo -e "\n  ${GREEN}✓ Mieru (Mita) успешно установлен!${RESET}"
+    else
+        echo -e "\n  ${RED}✗ Не удалось скачать пакет Mieru. Проверьте интернет-соединение.${RESET}"
+    fi
+}
+
+uninstall_mieru() {
+    echo -e "  [*] Останавливаем и отключаем службу..."
+    systemctl stop mita >/dev/null 2>&1 || true
+    systemctl disable mita >/dev/null 2>&1 || true
+    echo -e "  [*] Удаление пакета..."
+    dpkg -P mita >/dev/null 2>&1 || true
+    rm -rf /etc/mita
+    rm -f /etc/systemd/system/mita.service.d/override.conf
+    systemctl daemon-reload
+    
+    if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
+        sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" /opt/transferbox/instance.env
+    fi
+    
+    # Re-render configurations
+    python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+    echo -e "\n  ${GREEN}✓ Mieru (Mita) успешно удален.${RESET}"
+}
+
 mieru_module_menu() {
     while true; do
-        if [ -f "/opt/transferbox/instance.env" ]; then
-            source /opt/transferbox/instance.env
+        clear_screen
+        print_header "Модули → Mieru" "false"
+        
+        local is_installed=false
+        if [ -f "/usr/bin/mita" ]; then
+            is_installed=true
         fi
-        local is_enabled="${MIERU_ENABLED:-false}"
-        local status_label="${RED}отключен${RESET}"
-        [ "$is_enabled" == "true" ] && status_label="${GREEN}включен${RESET}"
         
-        local port="${MIERU_PORT:-21000}"
-        
-        local options=(
-            "Включить / Выключить (Текущий статус: $status_label)"
-            "Изменить порт (Текущий порт: $port)"
-            "Назад"
-        )
-        select_menu "Модуль: Mieru" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        if [ "$choice" -eq 0 ]; then
-            local new_status="true"
-            [ "$is_enabled" == "true" ] && new_status="false"
+        echo -e "  Состояние Mieru (Mita):"
+        if [ "$is_installed" == "false" ]; then
+            echo -e "  • Статус:          ${RED}не установлен${RESET}"
+            draw_line "─" "$BLUE"
             
-            echo -e "\n  [*] Изменение статуса Mieru на $new_status..."
-            if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
-                sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=$new_status/" /opt/transferbox/instance.env
-            else
-                echo "MIERU_ENABLED=$new_status" >> /opt/transferbox/instance.env
-            fi
+            local options=(
+                "Установить Mieru (Mita)"
+                "Назад"
+            )
+            select_menu "Модуль: Mieru" "${options[@]}"
+            local choice=$SELECTED_INDEX
             
-            # Ensure MIERU_PORT is also in env
-            if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
-                echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
-            fi
-            
-            # Re-render configurations
-            python3 -c "
-from core.config_manager import render_configs, validate_and_restart
-render_configs()
-validate_and_restart()
-"
-            echo -e "\n  ${GREEN}✓ Статус Mieru изменен на $new_status. Сервисы перезапущены.${RESET}"
-            pause
-        elif [ "$choice" -eq 1 ]; then
-            clear_screen
-            print_header "Модули → Mieru → Изменение порта" "false"
-            local new_port
-            read_prompt "Введите новый порт для Mieru (1-65535, по умолчанию $port): " new_port
-            [ -z "$new_port" ] && new_port="$port"
-            
-            # Валидация порта
-            if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-                echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+            if [ "$choice" -eq 0 ]; then
+                clear_screen
+                print_header "Модули → Mieru → Установка" "false"
+                install_mieru
                 pause
-                continue
+            elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
+                return 0
             fi
-            
-            echo -e "\n  [*] Сохранение настроек порта Mieru..."
-            
-            # Обновление в instance.env
-            if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
-                sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
-            else
-                echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
+        else
+            if [ -f "/opt/transferbox/instance.env" ]; then
+                source /opt/transferbox/instance.env
             fi
+            local is_enabled="${MIERU_ENABLED:-false}"
+            local status_label="${RED}отключен${RESET}"
+            [ "$is_enabled" == "true" ] && status_label="${GREEN}включен${RESET}"
             
-            # Перерендеринг настроек и перезапуск сервисов (включая UFW!)
-            python3 -c "
+            local port="${MIERU_PORT:-21000}"
+            
+            echo -e "  • Статус:          $status_label"
+            echo -e "  • Порт:            ${CYAN}$port${RESET}"
+            draw_line "─" "$BLUE"
+            
+            local options=(
+                "Включить / Выключить (Текущий статус: $status_label)"
+                "Изменить порт (Текущий порт: $port)"
+                "Обновить Mieru (Mita)"
+                "Удалить Mieru (Mita)"
+                "Назад"
+            )
+            select_menu "Модуль: Mieru" "${options[@]}"
+            local choice=$SELECTED_INDEX
+            
+            if [ "$choice" -eq 0 ]; then
+                local new_status="true"
+                [ "$is_enabled" == "true" ] && new_status="false"
+                
+                echo -e "\n  [*] Изменение статуса Mieru на $new_status..."
+                if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
+                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=$new_status/" /opt/transferbox/instance.env
+                else
+                    echo "MIERU_ENABLED=$new_status" >> /opt/transferbox/instance.env
+                fi
+                
+                if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
+                    echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
+                fi
+                
+                python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
-            echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
-            pause
-        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
-            return 0
+                echo -e "\n  ${GREEN}✓ Статус Mieru изменен на $new_status. Сервисы перезапущены.${RESET}"
+                pause
+            elif [ "$choice" -eq 1 ]; then
+                clear_screen
+                print_header "Модули → Mieru → Изменение порта" "false"
+                local new_port
+                read_prompt "Введите новый порт для Mieru (1-65535, по умолчанию $port): " new_port
+                [ -z "$new_port" ] && new_port="$port"
+                
+                if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+                    echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+                    pause
+                    continue
+                fi
+                
+                echo -e "\n  [*] Сохранение настроек порта Mieru..."
+                if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
+                    sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
+                else
+                    echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
+                fi
+                
+                python3 -c "
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+validate_and_restart()
+"
+                echo -e "\n  ${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
+                pause
+            elif [ "$choice" -eq 2 ]; then
+                clear_screen
+                print_header "Модули → Mieru → Обновление" "false"
+                install_mieru
+                pause
+            elif [ "$choice" -eq 3 ]; then
+                clear_screen
+                print_header "Модули → Mieru → Удаление" "false"
+                echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит Mieru с этого сервера !${RESET}"
+                local confirm
+                read_prompt "Вы уверены, что хотите удалить Mieru? (y/N): " confirm
+                if [[ "$confirm" =~ ^[yY]$ ]]; then
+                    uninstall_mieru
+                else
+                    echo -e "\n  Удаление отменено."
+                fi
+                pause
+            elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+                return 0
+            fi
         fi
     done
 }
@@ -498,6 +608,13 @@ netbird_module_menu() {
     while true; do
         clear_screen
         print_header "Модули → NetBird" "false"
+        
+        # Source env variables
+        if [ -f "/opt/transferbox/instance.env" ]; then
+            source /opt/transferbox/instance.env
+        fi
+        local nb_key="${NETBIRD_SETUP_KEY:-}"
+        local nb_url="${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}"
         
         # Display current status info
         local is_installed=false
@@ -508,6 +625,32 @@ netbird_module_menu() {
         echo -e "  Состояние NetBird клиента:"
         if [ "$is_installed" == "false" ]; then
             echo -e "  • Статус:          ${RED}не установлен${RESET}"
+            draw_line "─" "$BLUE"
+            
+            local options=(
+                "Установить NetBird клиент"
+                "Назад"
+            )
+            select_menu "Модуль: NetBird" "${options[@]}"
+            local choice=$SELECTED_INDEX
+            
+            if [ "$choice" -eq 0 ]; then
+                clear_screen
+                print_header "Модули → NetBird → Установка" "false"
+                echo -e "  [*] Начало установки NetBird клиента..."
+                echo -e "  [*] Загрузка и запуск официального инсталлятора..."
+                
+                export SKIP_UI_APP=true
+                if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
+                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно установлен!${RESET}"
+                    systemctl enable --now netbird >/dev/null 2>&1 || true
+                else
+                    echo -e "\n  ${RED}✗ Ошибка при установке NetBird клиента.${RESET}"
+                fi
+                pause
+            elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
+                return 0
+            fi
         else
             local status_text
             status_text=$(get_netbird_status)
@@ -527,95 +670,125 @@ netbird_module_menu() {
                 [ -z "$peers_info" ] && peers_info="N/A"
                 echo -e "  • Пиры:            ${CYAN}$peers_info${RESET}"
             fi
-        fi
-        draw_line "─" "$BLUE"
-        
-        local options=()
-        if [ "$is_installed" == "false" ]; then
-            options=(
-                "Установить NetBird клиент"
-                "Назад"
-            )
-        else
+            
+            local masked_key="[не задан]"
+            if [ ! -z "$nb_key" ]; then
+                if [ ${#nb_key} -gt 8 ]; then
+                    masked_key="${nb_key:0:4}...${nb_key: -4}"
+                else
+                    masked_key="[задан]"
+                fi
+            fi
+            echo -e "  • Setup Key:       ${CYAN}$masked_key${RESET}"
+            echo -e "  • Management URL:  ${CYAN}$nb_url${RESET}"
+            draw_line "─" "$BLUE"
+            
             local active_status
             active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
             
-            local toggle_lbl="Запустить службу"
-            [ "$active_status" == "active" ] && toggle_lbl="Остановить службу"
+            local options=(
+                "Ввести / Изменить Setup Key"
+                "Ввести / Изменить Management URL"
+                "Выполнить регистрацию и запуск (netbird up)"
+            )
             
-            options=(
-                "Подключить с помощью Setup Key (netbird up)"
-                "$toggle_lbl"
+            if [ "$active_status" == "active" ]; then
+                options+=(
+                    "Остановить службу"
+                    "Перезапустить службу"
+                )
+            else
+                options+=(
+                    "Запустить службу"
+                )
+            fi
+            
+            options+=(
                 "Показать подробный статус"
+                "Просмотреть логи службы"
+                "Обновить NetBird клиент"
                 "Удалить NetBird клиент"
                 "Назад"
             )
-        fi
-        
-        select_menu "Модуль: NetBird" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        if [ "$is_installed" == "false" ]; then
-            if [ "$choice" -eq 0 ]; then
+            
+            select_menu "Модуль: NetBird" "${options[@]}"
+            local choice=$SELECTED_INDEX
+            
+            # Нам нужно надежно определить выбранный пункт по строке
+            local selected_option="${options[$choice]}"
+            local clean_sel
+            clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+            
+            if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+                return 0
+            elif [ "$clean_sel" == "Ввести / Изменить Setup Key" ]; then
                 clear_screen
-                print_header "Модули → NetBird → Установка" "false"
-                echo -e "  [*] Начало установки NetBird клиента..."
-                echo -e "  [*] Загрузка и запуск официального инсталлятора..."
-                
-                # Run installation
-                export SKIP_UI_APP=true
-                if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
-                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно установлен!${RESET}"
-                    systemctl enable --now netbird >/dev/null 2>&1 || true
+                print_header "Модули → NetBird → Ввод Setup Key" "false"
+                local new_key
+                read_prompt "Введите Setup Key (токен авторизации): " new_key
+                if [ ! -z "$new_key" ]; then
+                    if grep -q "^NETBIRD_SETUP_KEY=" /opt/transferbox/instance.env; then
+                        sed -i "s/^NETBIRD_SETUP_KEY=.*/NETBIRD_SETUP_KEY=$new_key/" /opt/transferbox/instance.env
+                    else
+                        echo "NETBIRD_SETUP_KEY=$new_key" >> /opt/transferbox/instance.env
+                    fi
+                    echo -e "\n  ${GREEN}✓ Setup Key успешно сохранен.${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при установке NetBird клиента.${RESET}"
+                    echo -e "\n  ${RED}✗ Отменено. Ключ не изменен.${RESET}"
                 fi
                 pause
-            elif [ "$choice" -eq 1 ] || [ "$choice" -eq -1 ]; then
-                return 0
-            fi
-        else
-            if [ "$choice" -eq 0 ]; then
+            elif [ "$clean_sel" == "Ввести / Изменить Management URL" ]; then
                 clear_screen
-                print_header "Модули → NetBird → Подключение" "false"
+                print_header "Модули → NetBird → Ввод Management URL" "false"
+                local new_url
+                read_prompt "Введите Management URL (по умолчанию https://api.netbird.io): " new_url
+                [ -z "$new_url" ] && new_url="https://api.netbird.io"
                 
-                local setup_key
-                read_prompt "Введите Setup Key (токен авторизации): " setup_key
-                if [ -z "$setup_key" ]; then
-                    echo -e "\n  ${RED}✗ Отменено. Setup Key не может быть пустым.${RESET}"
+                if grep -q "^NETBIRD_MANAGEMENT_URL=" /opt/transferbox/instance.env; then
+                    sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$new_url|" /opt/transferbox/instance.env
+                else
+                    echo "NETBIRD_MANAGEMENT_URL=$new_url" >> /opt/transferbox/instance.env
+                fi
+                echo -e "\n  ${GREEN}✓ Management URL успешно сохранен.${RESET}"
+                pause
+            elif [ "$clean_sel" == "Выполнить регистрацию и запуск (netbird up)" ]; then
+                clear_screen
+                print_header "Модули → NetBird → Регистрация" "false"
+                if [ -z "$nb_key" ]; then
+                    echo -e "  ${RED}✗ Ошибка: Сначала необходимо указать Setup Key!${RESET}"
                     pause
                     continue
                 fi
                 
-                local m_url
-                read_prompt "Введите Management URL (оставьте пустым для app.netbird.io): " m_url
-                
-                echo -e "\n  [*] Подключение к сети NetBird..."
-                local cmd="netbird up --setup-key $setup_key"
-                if [ ! -z "$m_url" ]; then
-                    cmd="$cmd --management-url $m_url"
+                echo -e "  [*] Запуск регистрации пира в сети NetBird..."
+                local cmd="netbird up --setup-key $nb_key"
+                if [ ! -z "$nb_url" ] && [ "$nb_url" != "https://api.netbird.io" ]; then
+                    cmd="$cmd --management-url $nb_url"
                 fi
                 
+                echo -e "  [*] Выполняется: $cmd"
                 if eval "$cmd" || true; then
-                    echo -e "\n  ${GREEN}✓ Успешный запуск команды подключения!${RESET}"
+                    echo -e "\n  ${GREEN}✓ Команда подключения выполнена!${RESET}"
                 else
-                    echo -e "\n  ${RED}✗ Ошибка при запуске команды подключения.${RESET}"
+                    echo -e "\n  ${RED}✗ Ошибка при регистрации.${RESET}"
                 fi
                 pause
-            elif [ "$choice" -eq 1 ]; then
-                local active_status
-                active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
-                if [ "$active_status" == "active" ]; then
-                    echo -e "\n  [*] Остановка службы NetBird..."
-                    systemctl stop netbird
-                    echo -e "  ${GREEN}✓ Служба остановлена.${RESET}"
-                else
-                    echo -e "\n  [*] Запуск службы NetBird..."
-                    systemctl start netbird
-                    echo -e "  ${GREEN}✓ Служба запущена.${RESET}"
-                fi
+            elif [ "$clean_sel" == "Запустить службу" ]; then
+                echo -e "\n  [*] Запуск службы NetBird..."
+                systemctl start netbird
+                echo -e "  ${GREEN}✓ Служба запущена.${RESET}"
                 pause
-            elif [ "$choice" -eq 2 ]; then
+            elif [ "$clean_sel" == "Остановить службу" ]; then
+                echo -e "\n  [*] Остановка службы NetBird..."
+                systemctl stop netbird
+                echo -e "  ${GREEN}✓ Служба остановлена.${RESET}"
+                pause
+            elif [ "$clean_sel" == "Перезапустить службу" ]; then
+                echo -e "\n  [*] Перезапуск службы NetBird..."
+                systemctl restart netbird
+                echo -e "  ${GREEN}✓ Служба перезапущена.${RESET}"
+                pause
+            elif [ "$clean_sel" == "Показать подробный статус" ]; then
                 clear_screen
                 print_header "Модули → NetBird → Подробный статус" "false"
                 if systemctl is-active --quiet netbird; then
@@ -624,7 +797,23 @@ netbird_module_menu() {
                     echo -e "  ${RED}Служба NetBird остановлена. Подробная информация недоступна.${RESET}"
                 fi
                 pause
-            elif [ "$choice" -eq 3 ]; then
+            elif [ "$clean_sel" == "Просмотреть логи службы" ]; then
+                clear_screen
+                print_header "Модули → NetBird → Логи службы" "false"
+                journalctl -u netbird -n 50 --no-pager || true
+                pause
+            elif [ "$clean_sel" == "Обновить NetBird клиент" ]; then
+                clear_screen
+                print_header "Модули → NetBird → Обновление" "false"
+                echo -e "  [*] Обновление NetBird клиента из официального репозитория..."
+                apt-get update >/dev/null 2>&1 || true
+                if apt-get install --only-upgrade -y netbird; then
+                    echo -e "\n  ${GREEN}✓ NetBird клиент успешно обновлен!${RESET}"
+                else
+                    echo -e "\n  ${RED}✗ Ошибка при обновлении NetBird.${RESET}"
+                fi
+                pause
+            elif [ "$clean_sel" == "Удалить NetBird клиент" ]; then
                 clear_screen
                 print_header "Модули → NetBird → Удаление" "false"
                 echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит NetBird с этого сервера !${RESET}"
@@ -640,13 +829,15 @@ netbird_module_menu() {
                     rm -f /etc/apt/sources.list.d/netbird.list
                     rm -f /usr/share/keyrings/netbird-archive-keyring.gpg
                     apt-get update >/dev/null 2>&1 || true
+                    
+                    # Удаляем сохраненные ключи
+                    sed -i '/^NETBIRD_SETUP_KEY=/d' /opt/transferbox/instance.env
+                    sed -i '/^NETBIRD_MANAGEMENT_URL=/d' /opt/transferbox/instance.env
                     echo -e "\n  ${GREEN}✓ NetBird клиент успешно удален.${RESET}"
                 else
                     echo -e "\n  Удаление отменено."
                 fi
                 pause
-            elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
-                return 0
             fi
         fi
     done
