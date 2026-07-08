@@ -1824,27 +1824,39 @@ settings_menu() {
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
             "Изменить порт SSH"
-            "Включить / Выключить BBR (Статус: $bbr_status)"
-            "Назад"
         )
+        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+            options+=("Отключить BBR оптимизацию")
+        else
+            options+=("Включить BBR оптимизацию")
+        fi
+        options+=("Назад")
+        
         select_menu "Настройки" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq 0 ]; then
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Изменить Домен и Email" ]; then
             change_domain_email_menu
-        elif [ "$choice" -eq 1 ]; then
+        elif [ "$clean_sel" == "Изменить FQDN имя VPS" ]; then
             change_vps_fqdn_menu
-        elif [ "$choice" -eq 2 ]; then
+        elif [ "$clean_sel" == "Выбрать шаблон маскировочного сайта" ]; then
             change_site_template_menu
-        elif [ "$choice" -eq 3 ]; then
+        elif [ "$clean_sel" == "Настроить пути VLESS" ]; then
             change_vless_paths_menu
-        elif [ "$choice" -eq 4 ]; then
+        elif [ "$clean_sel" == "Изменить порт SSH" ]; then
             change_ssh_port_menu
-        elif [ "$choice" -eq 5 ]; then
+        elif [ "$clean_sel" == "Включить BBR оптимизацию" ] || [ "$clean_sel" == "Отключить BBR оптимизацию" ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
             if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-                echo -e "  [*] Отключение BBR оптимизации..."
+                echo ""
+                center_print "${DIM}[*] Отключение BBR оптимизации...${RESET}"
                 if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
                     rm -f /etc/sysctl.d/99-transferbox-bbr.conf
                     sysctl --system >/dev/null 2>&1
@@ -1855,7 +1867,8 @@ settings_menu() {
                     center_print "${RED}✗ Ошибка при отключении BBR.${RESET}"
                 fi
             else
-                echo -e "  [*] Включение BBR оптимизации..."
+                echo ""
+                center_print "${DIM}[*] Включение BBR оптимизации...${RESET}"
                 if modprobe tcp_bbr 2>/dev/null; then
                     sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
                     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
@@ -1872,8 +1885,6 @@ EOF
                 fi
             fi
             pause
-        elif [ "$choice" -eq 6 ] || [ "$choice" -eq -1 ]; then
-            return 0
         fi
     done
 }
