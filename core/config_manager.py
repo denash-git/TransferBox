@@ -63,7 +63,7 @@ def build_client_link(user_obj):
     if protocol == "naive":
         username = creds.get("username")
         password = creds.get("password")
-        return f"naive+https://{username}:{password}@{domain}:443#{nickname}"
+        return f"naive://{username}:{password}@{domain}:443#{nickname}"
         
     elif protocol == "vless":
         user_uuid = creds.get("uuid")
