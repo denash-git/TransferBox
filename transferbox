@@ -2657,7 +2657,7 @@ system_monitor_menu() {
         ram_col=$(_mon_color $ram_pct)
         disk_col=$(_mon_color $disk_pct_int)
 
-        # ── Draw dashboard (no borders, two-column layout)
+        # ── Draw dashboard
         printf "\033[H"
         print_header "Мониторинг ресурсов" "false"
         echo ""
@@ -2666,39 +2666,32 @@ system_monitor_menu() {
         local ram_bar; ram_bar=$(_mon_bar $ram_pct "$ram_col")
         local disk_bar; disk_bar=$(_mon_bar $disk_pct_int "$disk_col")
 
-        # ── Row 1: CPU label | RAM label
-        printf "  ${BOLD}${BLUE}▸ CPU${RESET}                                  "
-        printf "  ${BOLD}${BLUE}▸ RAM${RESET}\n"
+        # ── Separator helper (fixed 68 chars)
+        local SEP="${DIM}────────────────────────────────────────────────────────────────────${RESET}"
 
-        # ── Row 2: bars + pct
-        printf "  %s ${cpu_col}${BOLD}%3d%%${RESET}                     " "$cpu_bar" "$cpu_pct"
-        printf "  %s ${ram_col}${BOLD}%3d%%${RESET}\n" "$ram_bar" "$ram_pct"
-
-        # ── Row 3: load avg | ram details
-        printf "  ${DIM}Load avg:${RESET} ${CYAN}%-30s${RESET}" "$load_str"
-        printf "  ${CYAN}${ram_used}${RESET}/${ram_total} MB  ${DIM}(св: ${GREEN}${ram_free}${RESET}${DIM}, кэш: ${ram_cache} MB)${RESET}\n"
+        # ── CPU | RAM
+        printf "  ${BOLD}${BLUE}▸ CPU${RESET}%-32s${BOLD}${BLUE}▸ RAM${RESET}\n" ""
+        printf "  %s ${cpu_col}${BOLD}%3d%%${RESET}%-21s%s ${ram_col}${BOLD}%3d%%${RESET}\n" \
+               "$cpu_bar" "$cpu_pct" "" "$ram_bar" "$ram_pct"
+        printf "  ${DIM}Load avg:${RESET} ${CYAN}%-27s${RESET}${CYAN}%s${RESET}${DIM}/%s MB  св:${RESET}${GREEN}%s${RESET}${DIM} кэш:%s MB${RESET}\n" \
+               "$load_str" "$ram_used" "$ram_total" "$ram_free" "$ram_cache"
 
         echo ""
-        draw_line "─" "$DIM"
+        printf "  %s\n" "$SEP"
         echo ""
 
-        # ── Row 4: DISK label | NETWORK label
-        printf "  ${BOLD}${BLUE}▸ DISK (/)${RESET}                             "
-        printf "  ${BOLD}${BLUE}▸ NETWORK${RESET}  ${DIM}(${iface})${RESET}\n"
-
-        # ── Row 5: disk bar | rx/tx
-        printf "  %s ${disk_col}${BOLD}%s${RESET}                      " "$disk_bar" "$disk_pct_str"
-        printf "  ${DIM}↓ RX:${RESET} ${GREEN}${BOLD}%-12s${RESET}  ${DIM}↑ TX:${RESET} ${YELLOW}${BOLD}%s${RESET}\n" "$rx_str" "$tx_str"
-
-        # ── Row 6: disk usage details
+        # ── DISK | NETWORK
+        printf "  ${BOLD}${BLUE}▸ DISK (/)${RESET}%-27s${BOLD}${BLUE}▸ NETWORK${RESET}  ${DIM}(%s)${RESET}\n" "" "$iface"
+        printf "  %s ${disk_col}${BOLD}%-6s${RESET}%-17s${DIM}↓ RX:${RESET} ${GREEN}${BOLD}%-12s${RESET}  ${DIM}↑ TX:${RESET} ${YELLOW}${BOLD}%s${RESET}\n" \
+               "$disk_bar" "$disk_pct_str" "" "$rx_str" "$tx_str"
         printf "  ${DIM}Использовано:${RESET} ${CYAN}%s${RESET} ${DIM}из${RESET} %s\n" "$disk_used" "$disk_total"
 
         echo ""
-        draw_line "─" "$BLUE"
-        center_print "${DIM}Аптайм: ${RESET}${CYAN}${uptime_str}${RESET}"
+        printf "  %s\n" "$SEP"
+        printf "  ${DIM}Аптайм:${RESET} ${CYAN}%s${RESET}\n" "$uptime_str"
         echo ""
-        draw_line "─" "$DIM"
-        center_print "${DIM}[Q / Enter — вернуться в меню]${RESET}"
+        printf "  %s\n" "$SEP"
+        printf "  ${DIM}[Q / Enter — вернуться в меню]${RESET}\n"
         printf "\033[J"
     done
 }
