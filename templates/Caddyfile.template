@@ -69,12 +69,7 @@
         header Content-Type "text/plain; charset=utf-8"
     }
 
-    @speedtest path_regexp speedtest ^/{{SPEEDTEST_PREFIX}}[A-Za-z0-9]{24}(/.*)?$
-    handle @speedtest {
-        reverse_proxy 127.0.0.1:9080 {
-            header_down -Server
-        }
-    }
+
 
     # Fake site serving (fallback for standard visits, scanners, probes)
     file_server {

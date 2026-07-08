@@ -1122,85 +1122,55 @@ run_speedtest_vps_internet() {
         fi
     done
 }
-
 run_speedtest_client_vps() {
     clear_screen
-    print_header "Замер скорости: Client ↔ VPS" "false"
-    echo -e "  Временная HTTPS-ссылка на 10 минут для тестирования скорости."
-    echo -e "  Откройте её в браузере для запуска замера (трафик идет по порту 443).\n"
+    print_header "Замер скорости: Client ↔ VPS (iperf3)" "false"
     
-    if ! systemctl is-active transferbox-speedtest --quiet 2>/dev/null; then
-        echo -e "  [*] Запуск службы speedtest..."
-        sudo systemctl start transferbox-speedtest >/dev/null 2>&1
+    if ! command -v iperf3 >/dev/null 2>&1; then
+        echo ""
+        center_print "${DIM}[*] Установка iperf3 на VPS...${RESET}"
+        sudo apt-get update >/dev/null 2>&1
+        sudo apt-get install -y iperf3 >/dev/null 2>&1
     fi
     
-    local token expires_at expires_human url domain prefix
-    token=$(openssl rand -hex 12)
-    expires_at=$(( $(date +%s) + 600 ))
-    expires_human=$(date -d "@${expires_at}" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || date -u -d "@${expires_at}" '+%Y-%m-%d %H:%M:%S UTC')
+    # Open UFW port temporarily
+    sudo ufw allow 5201/tcp comment "iperf3 TCP" >/dev/null 2>&1
+    sudo ufw allow 5201/udp comment "iperf3 UDP" >/dev/null 2>&1
     
-    # Записываем в базу ссылок
-    mkdir -p /opt/transferbox/backups
-    printf '%s\t%s\t%s\n' "$token" "$expires_at" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> /opt/transferbox/backups/speedtest-links.tsv
-    chmod 600 /opt/transferbox/backups/speedtest-links.tsv
+    local vps_ip
+    vps_ip=$(curl -s ifconfig.me || curl -s api.ipify.org || echo "IP вашего VPS")
     
-    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-    prefix=$(grep -E "^SPEEDTEST_PREFIX=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-    url="https://${domain}/${prefix}${token}/"
+    echo ""
+    center_print "Запуск iperf3 сервера на VPS..."
+    echo ""
+    center_print "Для тестирования запустите на клиенте (ПК):"
+    center_print "${CYAN}iperf3 -c $vps_ip${RESET}"
+    echo ""
+    center_print "Для теста в обратную сторону (отдача от VPS к клиенту):"
+    center_print "${CYAN}iperf3 -c $vps_ip -R${RESET}"
+    echo ""
+    center_print "На телефоне используйте приложения ${YELLOW}Magic iPerf${RESET} (Android)"
+    center_print "или ${YELLOW}HE.NET Network Tools${RESET} (iOS) с адресом сервера ${CYAN}$vps_ip${RESET}."
+    echo ""
+    center_print "${DIM}Для отмены и возврата в меню нажмите Ctrl+C.${RESET}"
+    echo ""
+    draw_line "─" "$BLUE"
+    echo ""
     
-    echo -e "  ${YELLOW}Ссылка действует до:${RESET} ${CYAN}${expires_human}${RESET}\n"
-    echo -e "  ${YELLOW}Ссылка:${RESET}"
-    echo -e "  \033[1;36m${url}\033[0m\n"
-    echo -e "  ${YELLOW}QR-код:${RESET}"
-    qrencode -t ANSIUTF8 "${url}" 2>/dev/null || echo -e "  [qrencode не установлен]"
-    echo
+    # Run iperf3 server for 1 client session, catch Ctrl+C to return to menu gracefully
+    (
+        trap 'exit 0' INT
+        iperf3 -s -1
+    )
+    
+    # Remove firewall rules on exit
+    sudo ufw delete allow 5201/tcp >/dev/null 2>&1
+    sudo ufw delete allow 5201/udp >/dev/null 2>&1
+    
+    echo ""
+    center_print "${GREEN}Тестирование завершено.${RESET}"
     pause
 }
-
-show_speedtest_prefix() {
-    clear_screen
-    print_header "Текущий префикс speedtest" "false"
-    local prefix
-    prefix=$(grep -E "^SPEEDTEST_PREFIX=" /opt/transferbox/instance.env | cut -d'=' -f2-)
-    echo -e "  Текущий секретный префикс: ${GREEN}${prefix}${RESET}"
-    echo -e "  Он используется для скрытия тестовой страницы от посторонних сканеров."
-    echo
-    pause
-}
-
-regenerate_speedtest_prefix_menu() {
-    clear_screen
-    print_header "Перегенерация префикса" "false"
-    echo -e "  ${RED}⚠ Внимание: все ранее выданные ссылки speedtest перестанут работать!${RESET}"
-    local confirm
-    read_prompt "Вы действительно хотите сгенерировать новый префикс? [y/N]: " confirm
-    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        local new_prefix
-        new_prefix=$(openssl rand -hex 4)
-        python3 -c "
-import os
-env_path = '/opt/transferbox/instance.env'
-lines = []
-with open(env_path, 'r', encoding='utf-8') as f:
-    for line in f:
-        if line.startswith('SPEEDTEST_PREFIX='):
-            lines.append('SPEEDTEST_PREFIX=$new_prefix\n')
-        else:
-            lines.append(line)
-with open(env_path, 'w', encoding='utf-8') as f:
-    f.writelines(lines)
-"
-        echo -e "\n  [*] Перегенерация конфигураций..."
-        python3 -c "
-from core.config_manager import render_configs, validate_and_restart
-render_configs()
-validate_and_restart()
-"
-        echo -e "  ${GREEN}✓ Новый префикс успешно сохранен и применен!${RESET}"
-        pause
-    fi
-}
-
 # ─── МЕНЮ ПОЛЬЗОВАТЕЛЕЙ ──────────────────────────────────────────────────────
 
 users_menu() {
