@@ -69,8 +69,6 @@
         header Content-Type "text/plain; charset=utf-8"
     }
 
-
-
     # Fake site serving (fallback for standard visits, scanners, probes)
     file_server {
         root {{FAKESITE_DIR}}

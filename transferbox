@@ -1014,24 +1014,22 @@ diagnostics_menu() {
     while true; do
         local options=(
             "Тест VPS → Интернет (speedtest-cli)"
-            "Замер скорости Client ↔ VPS (веб-страница)"
-            "Показать текущий префикс speedtest"
-            "Перегенерировать префикс speedtest"
+            "Замер скорости Client ↔ VPS (iperf3)"
             "Назад"
         )
         select_menu "Диагностика" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq 0 ]; then
-            run_speedtest_vps_internet
-        elif [ "$choice" -eq 1 ]; then
-            run_speedtest_client_vps
-        elif [ "$choice" -eq 2 ]; then
-            show_speedtest_prefix
-        elif [ "$choice" -eq 3 ]; then
-            regenerate_speedtest_prefix_menu
-        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
+        elif [ "$clean_sel" == "Тест VPS → Интернет (speedtest-cli)" ]; then
+            run_speedtest_vps_internet
+        elif [ "$clean_sel" == "Замер скорости Client ↔ VPS (iperf3)" ]; then
+            run_speedtest_client_vps
         fi
     done
 }
