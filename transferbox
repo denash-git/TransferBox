@@ -193,8 +193,9 @@ print_header() {
 # Функция навигации стрелками
 # Устанавливает переменную SELECTED_INDEX
 select_menu() {
-    local title="$1"
-    shift
+    local -n _result_ref=$1
+    local title="$2"
+    shift 2
     local options=("$@")
     local num_options=${#options[@]}
     local active_idx=0
@@ -322,11 +323,11 @@ select_menu() {
                 active_idx=$(( (active_idx + 1) % num_options ))
             fi
         elif [[ "$key" == "" ]]; then # Enter
-            SELECTED_INDEX=$active_idx
+            _result_ref=$active_idx
             tput cnorm # Показать курсор
             return 0
         elif [[ "$key" == "q" || "$key" == "Q" ]]; then
-            SELECTED_INDEX=-1
+            _result_ref=-1
             tput cnorm # Показать курсор
             return 0
         elif [[ "$key" == "0" ]]; then
@@ -352,7 +353,7 @@ main_menu() {
             "Мониторинг ресурсов"
             "Выход"
         )
-        select_menu "TransferBox — Панель Управления" "${options[@]}"
+        select_menu SELECTED_INDEX "TransferBox — Панель Управления" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -431,7 +432,7 @@ modules_menu() {
             "sing-box    [$sb_status]"
             "Назад"
         )
-        select_menu "Модули" "${options[@]}"
+        select_menu SELECTED_INDEX "Модули" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -478,7 +479,7 @@ singbox_module_menu() {
             "Назад"
         )
         
-        select_menu "Модуль: sing-box" "${options[@]}"
+        select_menu SELECTED_INDEX "Модуль: sing-box" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         local selected_option="${options[$choice]}"
@@ -601,7 +602,7 @@ mieru_module_menu() {
                 "Установить Mieru (Mita)"
                 "Назад"
             )
-            select_menu "Модуль: Mieru" "${options[@]}"
+            select_menu SELECTED_INDEX "Модуль: Mieru" "${options[@]}"
             local choice=$SELECTED_INDEX
             
             if [ "$choice" -eq 0 ]; then
@@ -645,7 +646,7 @@ mieru_module_menu() {
                 "Назад"
             )
             
-            select_menu "Модуль: Mieru" "${options[@]}"
+            select_menu SELECTED_INDEX "Модуль: Mieru" "${options[@]}"
             local choice=$SELECTED_INDEX
             
             local selected_option="${options[$choice]}"
@@ -772,7 +773,7 @@ netbird_module_menu() {
                 "Установить NetBird клиент"
                 "Назад"
             )
-            select_menu "Модуль: NetBird" "${options[@]}"
+            select_menu SELECTED_INDEX "Модуль: NetBird" "${options[@]}"
             local choice=$SELECTED_INDEX
             
             if [ "$choice" -eq 0 ]; then
@@ -860,7 +861,7 @@ netbird_module_menu() {
                 "Назад"
             )
             
-            select_menu "Модуль: NetBird" "${options[@]}"
+            select_menu SELECTED_INDEX "Модуль: NetBird" "${options[@]}"
             local choice=$SELECTED_INDEX
             
             local selected_option="${options[$choice]}"
@@ -1021,7 +1022,7 @@ diagnostics_menu() {
             "Замер скорости Client ↔ VPS (iperf3)"
             "Назад"
         )
-        select_menu "Диагностика" "${options[@]}"
+        select_menu SELECTED_INDEX "Диагностика" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         local selected_option="${options[$choice]}"
@@ -1062,7 +1063,7 @@ run_speedtest_vps_internet() {
             "Выбрать сервер из списка ближайших"
             "Назад"
         )
-        select_menu "VPS → Интернет" "${options[@]}"
+        select_menu SELECTED_INDEX "VPS → Интернет" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -1102,7 +1103,7 @@ run_speedtest_vps_internet() {
             done
             select_opts+=("Назад")
             
-            select_menu "Выберите сервер" "${select_opts[@]}"
+            select_menu SELECTED_INDEX "Выберите сервер" "${select_opts[@]}"
             local sel_choice=$SELECTED_INDEX
             
             if [ "$sel_choice" -eq -1 ] || [ "$sel_choice" -eq $(( ${#select_opts[@]} - 1 )) ]; then
@@ -1196,7 +1197,7 @@ users_menu() {
             "Добавить нового пользователя"
             "Назад"
         )
-        select_menu "Пользователи" "${options[@]}"
+        select_menu SELECTED_INDEX "Пользователи" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -1250,7 +1251,7 @@ list_users_menu() {
         done
         options+=("Назад")
         
-        select_menu "Список пользователей" "${options[@]}"
+        select_menu SELECTED_INDEX "Список пользователей" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
@@ -1306,7 +1307,7 @@ user_management_menu() {
         options+=("[x] Удалить пользователя полностью")
         options+=("Назад")
         
-        select_menu "Управление: $nick" "${options[@]}"
+        select_menu SELECTED_INDEX "Управление: $nick" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
@@ -1383,7 +1384,7 @@ protocol_management_menu() {
             "Удалить этот протокол"
             "Назад"
         )
-        select_menu "$nick ($label)" "${options[@]}"
+        select_menu SELECTED_INDEX "$nick ($label)" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         local selected_option="${options[$choice]}"
@@ -1529,7 +1530,7 @@ add_protocol_to_user() {
     
     options+=("Отмена")
     
-    select_menu "Добавить протокол для $nick" "${options[@]}"
+    select_menu SELECTED_INDEX "Добавить протокол для $nick" "${options[@]}"
     local choice=$SELECTED_INDEX
     
     if [ "$choice" -eq -1 ] || [ "$choice" -eq $(( ${#options[@]} - 1 )) ]; then
@@ -1684,7 +1685,7 @@ create_user_menu() {
     fi
     options+=("Отмена")
 
-    select_menu "Протокол для $nick" "${options[@]}"
+    select_menu SELECTED_INDEX "Протокол для $nick" "${options[@]}"
     local choice=$SELECTED_INDEX
     
     local selected_opt="${options[$choice]}"
@@ -1756,7 +1757,7 @@ if user:
                 "Показать QR и ссылку подписки (Все протоколы)"
                 "Завершить"
             )
-            select_menu "Пользователь создан: $nick" "${success_options[@]}"
+            select_menu SELECTED_INDEX "Пользователь создан: $nick" "${success_options[@]}"
             local sel=$SELECTED_INDEX
             if [ "$sel" -eq 0 ]; then
                 clear_screen
@@ -1859,7 +1860,7 @@ settings_menu() {
         fi
         options+=("Назад")
         
-        select_menu "Настройки" "${options[@]}"
+        select_menu SELECTED_INDEX "Настройки" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         local selected_option="${options[$choice]}"
@@ -1929,7 +1930,7 @@ change_ssh_port_menu() {
             "Изменить порт SSH"
             "Назад"
         )
-        select_menu "Настройки → Порт SSH" "${options[@]}"
+        select_menu SELECTED_INDEX "Настройки → Порт SSH" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -2103,7 +2104,7 @@ change_site_template_menu() {
         "Stratum Synergy (Стратум Синергия)"
         "Отмена"
     )
-    select_menu "Выбор шаблона" "${options[@]}"
+    select_menu SELECTED_INDEX "Выбор шаблона" "${options[@]}"
     local choice=$SELECTED_INDEX
     
     local name=""
@@ -2141,7 +2142,7 @@ change_vless_paths_menu() {
             "Путь VLESS XHTTP:   $vless_xhttp"
             "Назад"
         )
-        select_menu "Настройки путей" "${options[@]}"
+        select_menu SELECTED_INDEX "Настройки путей" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         local changed=false
@@ -2272,7 +2273,7 @@ backup_restore_menu() {
             "Восстановить из последнего бэкапа"
             "Назад"
         )
-        select_menu "Бэкап и Восстановление" "${options[@]}"
+        select_menu SELECTED_INDEX "Бэкап и Восстановление" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -2512,7 +2513,7 @@ logs_menu() {
             "Следить за логом sing-box (Ctrl+C — выход)"
             "Назад"
         )
-        select_menu "Просмотр логов" "${options[@]}"
+        select_menu SELECTED_INDEX "Просмотр логов" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
