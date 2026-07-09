@@ -541,10 +541,12 @@ install_mieru() {
     
     local deb_mita_url="https://github.com/enfein/mieru/releases/download/${latest_mita_ver}/mita_${clean_mita_ver}_${go_arch}.deb"
     echo -e "  [*] Скачивание пакета с официального GitHub: $deb_mita_url"
-    if wget -qO /tmp/mita.deb "$deb_mita_url"; then
+    local tmp_deb
+    tmp_deb=$(mktemp)
+    if wget -qO "$tmp_deb" "$deb_mita_url"; then
         echo -e "  [*] Установка пакета..."
-        dpkg -i /tmp/mita.deb >/dev/null
-        rm -f /tmp/mita.deb
+        dpkg -i "$tmp_deb" >/dev/null
+        rm -f "$tmp_deb"
         
         systemctl daemon-reload
         systemctl enable mita >/dev/null 2>&1 || true
@@ -2235,7 +2237,8 @@ update_singbox_menu() {
         esac
         
         local deb_url="https://github.com/SagerNet/sing-box/releases/download/v${latest}/sing-box_${latest}_linux_${go_arch}.deb"
-        local deb_file="/tmp/sing-box_${latest}.deb"
+        local deb_file
+        deb_file=$(mktemp)
         
         echo -e "  * Скачивание $deb_url..."
         wget -qO "$deb_file" "$deb_url"

@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import subprocess
 import re
@@ -65,7 +66,8 @@ def load_users():
             if changed:
                 save_users(users)
             return users
-        except Exception:
+        except Exception as e:
+            print(f"[WARNING] Не удалось загрузить users.json: {e}", file=sys.stderr)
             return []
     return []
 
@@ -87,8 +89,9 @@ def save_users(users):
             pass
 
 
-def build_client_link(user_obj):
-    env = load_env()
+def build_client_link(user_obj, env=None):
+    if env is None:
+        env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
     
     protocol = user_obj.get("protocol")
@@ -346,7 +349,7 @@ def render_configs():
         nick_links = []
         for other in users:
             if other.get("nickname") == nick and other.get("enabled", True):
-                link = build_client_link(other)
+                link = build_client_link(other, env=env)
                 if link:
                     nick_links.append(link)
 
@@ -428,8 +431,13 @@ def validate_and_restart():
         return False, f"sing-box config validation failed:\n{res.stderr}"
 
     # Restart services
-    subprocess.run(["systemctl", "restart", "caddy"])
-    subprocess.run(["systemctl", "restart", "sing-box"])
+    res = subprocess.run(["systemctl", "restart", "caddy"], capture_output=True, text=True)
+    if res.returncode != 0:
+        return False, f"Не удалось перезапустить caddy:\n{res.stderr}"
+
+    res = subprocess.run(["systemctl", "restart", "sing-box"], capture_output=True, text=True)
+    if res.returncode != 0:
+        return False, f"Не удалось перезапустить sing-box:\n{res.stderr}"
 
     # Manage mita service and UFW firewall rules
     env = load_env()
