@@ -348,9 +348,6 @@ main_menu() {
             "Модули"
             "Диагностика"
             "Бэкап и Восстановление"
-            "Перезапустить службы"
-            "Показать логи"
-            "Мониторинг ресурсов"
             "Выход"
         )
         select_menu SELECTED_INDEX "TransferBox — Панель Управления" "${options[@]}"
@@ -366,13 +363,7 @@ main_menu() {
             diagnostics_menu
         elif [ "$choice" -eq 4 ]; then
             backup_restore_menu
-        elif [ "$choice" -eq 5 ]; then
-            apply_settings_menu
-        elif [ "$choice" -eq 6 ]; then
-            logs_menu
-        elif [ "$choice" -eq 7 ]; then
-            system_monitor_menu
-        elif [ "$choice" -eq 8 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 5 ] || [ "$choice" -eq -1 ]; then
             clear_screen
             exit 0
         fi
@@ -1024,8 +1015,11 @@ netbird_module_menu() {
 diagnostics_menu() {
     while true; do
         local options=(
+            "Мониторинг ресурсов"
+            "Показать логи"
             "Тест VPS → Интернет (speedtest-cli)"
             "Замер скорости Client ↔ VPS (iperf3)"
+            "Пересоздать конфигурации"
             "Назад"
         )
         select_menu SELECTED_INDEX "Диагностика" "${options[@]}"
@@ -1037,10 +1031,16 @@ diagnostics_menu() {
         
         if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
+        elif [ "$clean_sel" == "Мониторинг ресурсов" ]; then
+            system_monitor_menu
+        elif [ "$clean_sel" == "Показать логи" ]; then
+            logs_menu
         elif [ "$clean_sel" == "Тест VPS → Интернет (speedtest-cli)" ]; then
             run_speedtest_vps_internet
         elif [ "$clean_sel" == "Замер скорости Client ↔ VPS (iperf3)" ]; then
             run_speedtest_client_vps
+        elif [ "$clean_sel" == "Пересоздать конфигурации" ]; then
+            apply_settings_menu
         fi
     done
 }
@@ -2493,7 +2493,7 @@ else:
 
 apply_settings_menu() {
     clear_screen
-    print_header "Перезапуск служб"
+    print_header "Пересоздать конфигурации"
     echo -e "  Генерация конфигураций и перезапуск..."
     local tmpfile_res
     tmpfile_res=$(mktemp)
