@@ -81,17 +81,6 @@ apt-get install -y -qq speedtest >/dev/null 2>&1
 
 log_ok "Базовые пакеты и Ookla Speedtest установлены."
 
-# Настройка UFW
-step "Настройка UFW брандмауэра"
-ufw --force reset >/dev/null
-ufw default deny incoming >/dev/null
-ufw default allow outgoing >/dev/null
-ufw allow 22/tcp comment 'SSH' >/dev/null
-ufw allow 80/tcp comment 'HTTP (ACME Challenge)' >/dev/null
-ufw allow 443/tcp comment 'HTTPS (Caddy)' >/dev/null
-ufw --force enable >/dev/null
-log_ok "UFW настроен (открыты порты 22, 80, 443)."
-
 # Применение BBR
 if [[ "$enable_bbr" == "true" ]]; then
     step "Включение BBR"
@@ -273,10 +262,8 @@ export PYTHONPATH="$PROJECT_ROOT"
 python3 -c "from core.config_manager import render_configs, validate_and_restart; render_configs(); validate_and_restart()"
 log_ok "Конфигурации применены, службы запущены."
 
-# Установка и настройка фаервола UFW
+# Настройка фаервола UFW
 step "Настройка фаервола UFW"
-apt-get update -y >/dev/null 2>&1
-apt-get install -y ufw >/dev/null 2>&1
 
 # Сброс правил UFW на дефолтные
 ufw --force reset >/dev/null 2>&1
