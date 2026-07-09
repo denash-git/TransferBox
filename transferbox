@@ -135,11 +135,11 @@ print_header() {
         local status_sb_raw
         status_sb_raw=$(get_service_status sing-box | sed 's/\x1b\[[0-9;]*m//g')
         
-        local len_dom=$(( 10 + ${#domain} ))
-        local len_fqdn=$(( 10 + ${#vps_fqdn} ))
-        local len_cad=$(( 10 + ${#status_cad_raw} ))
-        local len_sb=$(( 10 + ${#status_sb_raw} ))
-        local len_bbr=$(( 10 + ${#bbr_dot_raw} ))
+        local len_dom=$(( 14 + ${#domain} ))
+        local len_fqdn=$(( 14 + ${#vps_fqdn} ))
+        local len_cad=$(( 14 + ${#status_cad_raw} ))
+        local len_sb=$(( 14 + ${#status_sb_raw} ))
+        local len_bbr=$(( 14 + ${#bbr_dot_raw} ))
         
         local max_block_len=$len_dom
         [ $len_fqdn -gt $max_block_len ] && max_block_len=$len_fqdn
@@ -152,7 +152,7 @@ print_header() {
             show_mieru=true
             local status_mita_raw
             status_mita_raw=$(get_service_status mita | sed 's/\x1b\[[0-9;]*m//g')
-            local len_mita=$(( 10 + ${#status_mita_raw} ))
+            local len_mita=$(( 14 + ${#status_mita_raw} ))
             [ $len_mita -gt $max_block_len ] && max_block_len=$len_mita
         fi
         
@@ -161,7 +161,7 @@ print_header() {
             show_netbird=true
             local status_nb_raw
             status_nb_raw=$(get_netbird_status | sed 's/\x1b\[[0-9;]*m//g')
-            local len_nb=$(( 10 + ${#status_nb_raw} ))
+            local len_nb=$(( 14 + ${#status_nb_raw} ))
             [ $len_nb -gt $max_block_len ] && max_block_len=$len_nb
         fi
         
@@ -173,19 +173,19 @@ print_header() {
         pad_spaces=$(printf "%${indent}s" "")
         
         echo ""
-        echo -e "${pad_spaces}Домен:    ${BOLD}${domain}${RESET}"
-        echo -e "${pad_spaces}FQDN VPS: ${BOLD}${vps_fqdn}${RESET}"
+        echo -e "${pad_spaces}Домен:        ${BOLD}${domain}${RESET}"
+        echo -e "${pad_spaces}FQDN VPS:     ${BOLD}${vps_fqdn}${RESET}"
     fi
     center_print "${BLUE}${line_single}${RESET}"
     if [ "$show_status" == "true" ]; then
-        echo -e "${pad_spaces}TCP BBR:  $bbr_dot"
-        echo -e "${pad_spaces}Caddy:    $(get_service_status caddy)"
-        echo -e "${pad_spaces}sing-box: $(get_service_status sing-box)"
+        echo -e "${pad_spaces}TCP BBR:      $bbr_dot"
+        echo -e "${pad_spaces}Caddy:        $(get_service_status caddy)"
+        echo -e "${pad_spaces}sing-box:     $(get_service_status sing-box)"
         if [ "$show_mieru" == "true" ]; then
-            echo -e "${pad_spaces}Mieru:    $(get_service_status mita)"
+            echo -e "${pad_spaces}Mieru:        $(get_service_status mita)"
         fi
         if [ "$show_netbird" == "true" ]; then
-            echo -e "${pad_spaces}NetBird:  $(get_netbird_status)"
+            echo -e "${pad_spaces}NetBird:      $(get_netbird_status)"
         fi
         center_print "${BLUE}${line_double}${RESET}"
     fi
