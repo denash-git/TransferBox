@@ -8,6 +8,13 @@ import urllib.parse
 import shutil
 import base64
 
+try:
+    import pwd
+    import grp
+except ImportError:
+    pwd = None
+    grp = None
+
 PROJECT_ROOT = "/opt/transferbox"
 INSTANCE_ENV = os.path.join(PROJECT_ROOT, "instance.env")
 USERS_DB = os.path.join(PROJECT_ROOT, "users.json")
@@ -315,12 +322,13 @@ def render_configs():
     with open(SINGBOX_CONFIG, "w", encoding="utf-8") as f:
         f.write(sb_content)
     try:
-        import pwd
-        import grp
-        uid = pwd.getpwnam("root").pw_uid
-        gid = grp.getgrnam("sing-box").gr_gid
-        os.chown(SINGBOX_CONFIG, uid, gid)
-        os.chmod(SINGBOX_CONFIG, 0o640)
+        if pwd is not None and grp is not None:
+            uid = pwd.getpwnam("root").pw_uid
+            gid = grp.getgrnam("sing-box").gr_gid
+            os.chown(SINGBOX_CONFIG, uid, gid)
+            os.chmod(SINGBOX_CONFIG, 0o640)
+        else:
+            os.chmod(SINGBOX_CONFIG, 0o600)
     except Exception:
         try:
             os.chmod(SINGBOX_CONFIG, 0o600)
