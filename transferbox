@@ -389,13 +389,17 @@ is_mieru_enabled() {
 }
 
 get_netbird_status() {
+    local no_dot="${1:-false}"
+    local dot="● "
+    [ "$no_dot" == "true" ] && dot=""
+
     if ! command -v netbird &>/dev/null; then
-        echo -e "${RED}● не установлен${RESET}"
+        echo -e "${RED}${dot}не установлен${RESET}"
         return 0
     fi
     
     if ! systemctl is-active --quiet netbird; then
-        echo -e "${RED}● остановлен (служба)${RESET}"
+        echo -e "${RED}${dot}остановлен (служба)${RESET}"
         return 0
     fi
     
@@ -403,11 +407,11 @@ get_netbird_status() {
     status_out=$(netbird status 2>&1 || true)
     
     if echo "$status_out" | grep -qi "NeedsLogin"; then
-        echo -e "${YELLOW}● требует авторизации${RESET}"
+        echo -e "${YELLOW}${dot}требует авторизации${RESET}"
     elif echo "$status_out" | grep -qi "Connected" && ! echo "$status_out" | grep -qi "Management: Disconnected"; then
-        echo -e "${GREEN}● подключен${RESET}"
+        echo -e "${GREEN}${dot}подключен${RESET}"
     else
-        echo -e "${RED}● отключен${RESET}"
+        echo -e "${RED}${dot}отключен${RESET}"
     fi
 }
 
@@ -419,7 +423,7 @@ modules_menu() {
         fi
         
         local netbird_status
-        netbird_status=$(get_netbird_status)
+        netbird_status=$(get_netbird_status "true")
         
         local sb_status="${RED}отключен${RESET}"
         if systemctl is-active --quiet sing-box; then
