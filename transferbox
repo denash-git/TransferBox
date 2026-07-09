@@ -1681,8 +1681,6 @@ create_user_menu() {
     read_prompt "Введите никнейм пользователя (или 0 для отмены): " nick
     nick="${nick// /}"
     if [ -z "$nick" ] || [ "$nick" == "0" ]; then
-        echo -e "\n  Создание пользователя отменено."
-        pause
         return 0
     fi
     
@@ -1692,8 +1690,6 @@ create_user_menu() {
         local confirm
         read_prompt "Хотите добавить ему дополнительный протокол? [y/N]: " confirm
         if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-            echo -e "  Создание пользователя отменено."
-            pause
             return 0
         fi
     fi
