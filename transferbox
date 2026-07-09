@@ -257,8 +257,8 @@ select_menu() {
                 fi
             fi
             
-            # Сделаем все действия "Удалить" красными
-            if [[ "$clean_opt" == *"Удалить"* ]]; then
+            # Сделаем все действия "Удалить" и "Пересоздать конфигурации" красными
+            if [[ "$clean_opt" == *"Удалить"* || "$clean_opt" == "Пересоздать конфигурации" ]]; then
                 if [[ "$opt" != *$'\033'* ]]; then
                     opt="${RED}${opt}${RESET}"
                 fi
@@ -292,7 +292,7 @@ select_menu() {
                 
                 if [ "$i" -eq "$active_idx" ]; then
                     text_to_draw="$clean_opt$padding"
-                    if [[ "$clean_opt" == *"Удалить"* ]]; then
+                    if [[ "$clean_opt" == *"Удалить"* || "$clean_opt" == "Пересоздать конфигурации" ]]; then
                         # Красный фон, черный текст
                         printf "%${indent}s\033[41;30m  %b  \033[0m\033[K\n" "" "$text_to_draw"
                     else
@@ -2529,31 +2529,75 @@ logs_menu() {
         local options=(
             "Последние ${LOG_LINES_COUNT} строк — Caddy"
             "Последние ${LOG_LINES_COUNT} строк — sing-box"
+        )
+        
+        local show_mita=false
+        if [ -f "/usr/bin/mita" ]; then
+            show_mita=true
+            options+=("Последние ${LOG_LINES_COUNT} строк — Mieru")
+        fi
+        
+        local show_nb=false
+        if command -v netbird &>/dev/null; then
+            show_nb=true
+            options+=("Последние ${LOG_LINES_COUNT} строк — NetBird")
+        fi
+        
+        options+=(
             "Следить за логом Caddy (Ctrl+C — выход)"
             "Следить за логом sing-box (Ctrl+C — выход)"
-            "Назад"
         )
+        
+        if [ "$show_mita" == "true" ]; then
+            options+=("Следить за логом Mieru (Ctrl+C — выход)")
+        fi
+        if [ "$show_nb" == "true" ]; then
+            options+=("Следить за логом NetBird (Ctrl+C — выход)")
+        fi
+        
+        options+=("Назад")
+        
         select_menu SELECTED_INDEX "Просмотр логов" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq 0 ]; then
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — Caddy" ]; then
             clear_screen
             journalctl -u caddy -n ${LOG_LINES_COUNT} --no-pager
             pause
-        elif [ "$choice" -eq 1 ]; then
+        elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — sing-box" ]; then
             clear_screen
             journalctl -u sing-box -n ${LOG_LINES_COUNT} --no-pager
             pause
-        elif [ "$choice" -eq 2 ]; then
+        elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — Mieru" ]; then
+            clear_screen
+            journalctl -u mita -n ${LOG_LINES_COUNT} --no-pager
+            pause
+        elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — NetBird" ]; then
+            clear_screen
+            journalctl -u netbird -n ${LOG_LINES_COUNT} --no-pager
+            pause
+        elif [ "$clean_sel" == "Следить за логом Caddy (Ctrl+C — выход)" ]; then
             clear_screen
             echo -e "  Следим за логами Caddy... (Нажмите Ctrl+C для выхода)\n"
             journalctl -u caddy -f
-        elif [ "$choice" -eq 3 ]; then
+        elif [ "$clean_sel" == "Следить за логом sing-box (Ctrl+C — выход)" ]; then
             clear_screen
             echo -e "  Следим за логами sing-box... (Нажмите Ctrl+C для выхода)\n"
             journalctl -u sing-box -f
-        elif [ "$choice" -eq 4 ] || [ "$choice" -eq -1 ]; then
-            return 0
+        elif [ "$clean_sel" == "Следить за логом Mieru (Ctrl+C — выход)" ]; then
+            clear_screen
+            echo -e "  Следим за логами Mieru... (Нажмите Ctrl+C для выхода)\n"
+            journalctl -u mita -f
+        elif [ "$clean_sel" == "Следить за логом NetBird (Ctrl+C — выход)" ]; then
+            clear_screen
+            echo -e "  Следим за логами NetBird... (Нажмите Ctrl+C для выхода)\n"
+            journalctl -u netbird -f
         fi
     done
 }
