@@ -1332,16 +1332,24 @@ user_management_menu() {
             read_prompt "Вы действительно хотите полностью удалить пользователя $nick и все его протоколы? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
                 echo -e "\n  [*] Удаление пользователя..."
-                python3 -c "
+                local res
+                res=$(python3 -c "
 from core.user_manager import delete_user
 success, msg = delete_user('$nick')
-print(msg)
-"
-                python3 -c "
+print('SUCCESS' if success else 'ERROR:' + msg)
+")
+                if [[ "$res" == "SUCCESS" ]]; then
+                    python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+                    echo ""
+                    center_print "${GREEN}✓ Пользователь $nick успешно удален!${RESET}"
+                else
+                    echo ""
+                    center_print "${RED}✗ Ошибка при удалении: ${res#ERROR:}${RESET}"
+                fi
                 pause
                 return 0
             fi
@@ -1475,16 +1483,24 @@ if user:
             read_prompt "Вы действительно хотите удалить протокол $label для $nick? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
                 echo -e "\n  [*] Удаление протокола..."
-                python3 -c "
+                local res
+                res=$(python3 -c "
 from core.user_manager import delete_user
 success, msg = delete_user('$nick', '$proto', '$utype')
-print(msg)
-"
-                python3 -c "
+print('SUCCESS' if success else 'ERROR:' + msg)
+")
+                if [[ "$res" == "SUCCESS" ]]; then
+                    python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+                    echo ""
+                    center_print "${GREEN}✓ Протокол $label для $nick успешно удален!${RESET}"
+                else
+                    echo ""
+                    center_print "${RED}✗ Ошибка при удалении: ${res#ERROR:}${RESET}"
+                fi
                 pause
                 return 0
             fi
@@ -1927,46 +1943,36 @@ change_ssh_port_menu() {
     local cur_port
     cur_port=$(python3 -c "from core.config_manager import get_current_ssh_port; print(get_current_ssh_port())")
     
-    while true; do
-        clear_screen
-        print_header "Настройки → Порт SSH" "false"
-        echo -e "  Текущий порт SSH: ${CYAN}$cur_port${RESET}\n"
-        
-        local options=(
-            "Изменить порт SSH"
-            "Назад"
-        )
-        select_menu SELECTED_INDEX "Настройки → Порт SSH" "${options[@]}"
-        local choice=$SELECTED_INDEX
-        
-        if [ "$choice" -eq 0 ]; then
-            clear_screen
-            print_header "Настройки → Изменение порта SSH" "false"
-            echo -e "  ${RED}⚠️ ВНИМАНИЕ: Изменение порта SSH — чувствительное действие.${RESET}"
-            echo -e "  Мы автоматически настроим фаервол UFW, чтобы не заблокировать доступ,"
-            echo -e "  но после изменения настоятельно рекомендуется проверить подключение"
-            echo -e "  в новом окне терминала, не закрывая текущую сессию!\n"
-            
-            local new_port
-            read_prompt "Введите новый порт SSH (1-65535, по умолчанию $cur_port): " new_port
-            [ -z "$new_port" ] && new_port="$cur_port"
-            
-            # Валидация порта
-            if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-                echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
-                pause
-                continue
-            fi
-            
-            if [ "$new_port" -eq "$cur_port" ]; then
-                echo -e "\n  ${GREEN}✓ Порт совпадает с текущим.${RESET}"
-                pause
-                continue
-            fi
-            
-            echo -e "\n  [*] Применение изменений..."
-            local res
-            res=$(python3 -c "
+    clear_screen
+    print_header "Настройки → Изменение порта SSH" "false"
+    echo -e "  Текущий порт SSH: ${CYAN}$cur_port${RESET}"
+    echo -e "  ${RED}⚠️ ВНИМАНИЕ: Изменение порта SSH — чувствительное действие.${RESET}"
+    echo -e "  Мы автоматически настроим фаервол UFW, чтобы не заблокировать доступ,"
+    echo -e "  но после изменения настоятельно рекомендуется проверить подключение"
+    echo -e "  в новом окне терминала, не закрывая текущую сессию!\n"
+    
+    local new_port
+    read_prompt "Введите новый порт SSH (1-65535, или Enter для отмены): " new_port
+    if [ -z "$new_port" ]; then
+        return 0
+    fi
+    
+    # Валидация порта
+    if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+        echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+        pause
+        return 0
+    fi
+    
+    if [ "$new_port" -eq "$cur_port" ]; then
+        echo -e "\n  ${GREEN}✓ Введенный порт совпадает с текущим.${RESET}"
+        pause
+        return 0
+    fi
+    
+    echo -e "\n  [*] Применение изменений..."
+    local res
+    res=$(python3 -c "
 from core.config_manager import change_ssh_port
 success, msg = change_ssh_port($new_port)
 if success:
@@ -1974,34 +1980,29 @@ if success:
 else:
     print(msg)
 ")
-            
-            if [ "$res" == "SUCCESS" ]; then
-                echo -e "\n  ${GREEN}✓ SSH успешно переведен на порт $new_port!${RESET}"
-                echo -e "  ${RED}⚠️ ВАЖНО: Откройте НОВОЕ окно терминала и попробуйте подключиться:${RESET}"
-                echo -e "  ${BOLD}ssh root@<IP_сервера> -p $new_port${RESET}"
-                echo -e "  ${RED}НЕ ЗАКРЫВАЙТЕ текущее окно, пока не проверите подключение!${RESET}\n"
-                
-                local confirm
-                read_prompt "Вы успешно подключились по новому порту? (y/n, по умолчанию y): " confirm
-                [ -z "$confirm" ] && confirm="y"
-                
-                if [[ "$confirm" =~ ^[yYдД]$ ]]; then
-                    echo -e "\n  [*] Очистка старых правил UFW..."
-                    python3 -c "from core.config_manager import remove_old_ssh_port_ufw; remove_old_ssh_port_ufw($cur_port)"
-                    echo -e "  ${GREEN}✓ Правило UFW для старого порта $cur_port удалено.${RESET}"
-                else
-                    echo -e "\n  ${YELLOW}⚠️ Внимание: старый порт SSH $cur_port оставлен открытым в UFW на всякий случай.${RESET}"
-                fi
-                pause
-                cur_port="$new_port"
-            else
-                echo -e "\n  ${RED}✗ Ошибка: $res${RESET}"
-                pause
-            fi
+    
+    if [ "$res" == "SUCCESS" ]; then
+        echo -e "\n  ${GREEN}✓ SSH успешно переведен на порт $new_port!${RESET}"
+        echo -e "  ${RED}⚠️ ВАЖНО: Откройте НОВОЕ окно терминала и попробуйте подключиться:${RESET}"
+        echo -e "  ${BOLD}ssh root@<IP_сервера> -p $new_port${RESET}"
+        echo -e "  ${RED}НЕ ЗАКРЫВАЙТЕ текущее окно, пока не проверите подключение!${RESET}\n"
+        
+        local confirm
+        read_prompt "Вы успешно подключились по новому порту? (y/n, по умолчанию y): " confirm
+        [ -z "$confirm" ] && confirm="y"
+        
+        if [[ "$confirm" =~ ^[yYдД]$ ]]; then
+            echo -e "\n  [*] Очистка старых правил UFW..."
+            python3 -c "from core.config_manager import remove_old_ssh_port_ufw; remove_old_ssh_port_ufw($cur_port)"
+            echo -e "  ${GREEN}✓ Правило UFW для старого порта $cur_port удалено.${RESET}"
         else
-            return 0
+            echo -e "\n  ${YELLOW}⚠️ Внимание: старый порт SSH $cur_port оставлен открытым в UFW на всякий случай.${RESET}"
         fi
-    done
+        pause
+    else
+        echo -e "\n  ${RED}✗ Ошибка: $res${RESET}"
+        pause
+    fi
 }
 
 change_vps_fqdn_menu() {
