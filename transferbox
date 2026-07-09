@@ -2670,29 +2670,33 @@ system_monitor_menu() {
         local SEP="${DIM}────────────────────────────────────────────────────────────────────${RESET}"
 
         # ── CPU | RAM
-        printf "  ${BOLD}${BLUE}▸ CPU${RESET}%-32s${BOLD}${BLUE}▸ RAM${RESET}\n" ""
-        printf "  %s ${cpu_col}${BOLD}%3d%%${RESET}%-21s%s ${ram_col}${BOLD}%3d%%${RESET}\n" \
-               "$cpu_bar" "$cpu_pct" "" "$ram_bar" "$ram_pct"
-        printf "  ${DIM}Load avg:${RESET} ${CYAN}%-27s${RESET}${CYAN}%s${RESET}${DIM}/%s MB  св:${RESET}${GREEN}%s${RESET}${DIM} кэш:%s MB${RESET}\n" \
-               "$load_str" "$ram_used" "$ram_total" "$ram_free" "$ram_cache"
+        printf "  %b▸ CPU%b%-32s%b▸ RAM%b\n" "$BOLD$BLUE" "$RESET" "" "$BOLD$BLUE" "$RESET"
+        printf "  %b %b%3d%%%b%-21s%b %b%3d%%%b\n" \
+               "$cpu_bar" "$cpu_col$BOLD" "$cpu_pct" "$RESET" "" "$ram_bar" "$ram_col$BOLD" "$ram_pct" "$RESET"
+        printf "  %bLoad avg:%b %b%-27s%b" "$DIM" "$RESET" "$CYAN" "$load_str" "$RESET"
+        printf "%b%s%b/%s MB  св:%b%s%b кэш:%b%s MB%b\n" \
+               "$CYAN" "$ram_used" "$RESET" "$ram_total" "$GREEN" "$ram_free" "$DIM" "$ram_cache" "$RESET"
 
         echo ""
-        printf "  %s\n" "$SEP"
+        printf "  %b\n" "$SEP"
         echo ""
 
         # ── DISK | NETWORK
-        printf "  ${BOLD}${BLUE}▸ DISK (/)${RESET}%-27s${BOLD}${BLUE}▸ NETWORK${RESET}  ${DIM}(%s)${RESET}\n" "" "$iface"
-        printf "  %s ${disk_col}${BOLD}%-6s${RESET}%-17s${DIM}↓ RX:${RESET} ${GREEN}${BOLD}%-12s${RESET}  ${DIM}↑ TX:${RESET} ${YELLOW}${BOLD}%s${RESET}\n" \
-               "$disk_bar" "$disk_pct_str" "" "$rx_str" "$tx_str"
-        printf "  ${DIM}Использовано:${RESET} ${CYAN}%s${RESET} ${DIM}из${RESET} %s\n" "$disk_used" "$disk_total"
+        printf "  %b▸ DISK (/)%b%-27s" "$BOLD$BLUE" "$RESET" ""
+        printf "%b▸ NETWORK%b  %b(%s)%b\n" "$BOLD$BLUE" "$RESET" "$DIM" "$iface" "$RESET"
+        printf "  %b %b%-6s%b%-17s" "$disk_bar" "$disk_col$BOLD" "$disk_pct_str" "$RESET" ""
+        printf "%b↓ RX:%b %b%-12s%b  %b↑ TX:%b %b%s%b\n" \
+               "$DIM" "$RESET" "$GREEN$BOLD" "$rx_str" "$RESET" "$DIM" "$RESET" "$YELLOW$BOLD" "$tx_str" "$RESET"
+        printf "  %bИспользовано:%b %b%s%b %bиз%b %s\n" \
+               "$DIM" "$RESET" "$CYAN" "$disk_used" "$RESET" "$DIM" "$RESET" "$disk_total"
 
         echo ""
-        printf "  %s\n" "$SEP"
-        printf "  ${DIM}Аптайм:${RESET} ${CYAN}%s${RESET}\n" "$uptime_str"
+        printf "  %b\n" "$SEP"
+        printf "  %bАптайм:%b %b%s%b\n" "$DIM" "$RESET" "$CYAN" "$uptime_str" "$RESET"
         echo ""
-        printf "  %s\n" "$SEP"
-        printf "  ${DIM}[Q / Enter — вернуться в меню]${RESET}\n"
-        printf "\033[J"
+        printf "  %b\n" "$SEP"
+        printf "  %b[Q / Enter — вернуться в меню]%b\n" "$DIM" "$RESET"
+        printf "%b" "\033[J"
     done
 }
 
