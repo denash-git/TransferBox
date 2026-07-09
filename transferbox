@@ -2666,36 +2666,41 @@ system_monitor_menu() {
         local ram_bar; ram_bar=$(_mon_bar $ram_pct "$ram_col")
         local disk_bar; disk_bar=$(_mon_bar $disk_pct_int "$disk_col")
 
+        local term_width
+        term_width=$(tput cols 2>/dev/null || echo 80)
+        local indent=$(( (term_width - 68) / 2 ))
+        [ "$indent" -lt 2 ] && indent=2
+
         # ── Separator helper (fixed 68 chars)
         local SEP="${DIM}────────────────────────────────────────────────────────────────────${RESET}"
 
         # ── CPU | RAM
-        printf "  %b▸ CPU%b%-32s%b▸ RAM%b\n" "$BOLD$BLUE" "$RESET" "" "$BOLD$BLUE" "$RESET"
-        printf "  %b %b%3d%%%b%-21s%b %b%3d%%%b\n" \
+        printf "%${indent}s%b▸ CPU%b%-32s%b▸ RAM%b\n" "" "$BOLD$BLUE" "$RESET" "" "$BOLD$BLUE" "$RESET"
+        printf "%${indent}s%b %b%3d%%%b%-21s%b %b%3d%%%b\n" "" \
                "$cpu_bar" "$cpu_col$BOLD" "$cpu_pct" "$RESET" "" "$ram_bar" "$ram_col$BOLD" "$ram_pct" "$RESET"
-        printf "  %bLoad avg:%b %b%-27s%b" "$DIM" "$RESET" "$CYAN" "$load_str" "$RESET"
+        printf "%${indent}s%bLoad avg:%b %b%-27s%b" "" "$DIM" "$RESET" "$CYAN" "$load_str" "$RESET"
         printf "%b%s%b/%s MB  св:%b%s%b кэш:%b%s MB%b\n" \
                "$CYAN" "$ram_used" "$RESET" "$ram_total" "$GREEN" "$ram_free" "$DIM" "$ram_cache" "$RESET"
 
         echo ""
-        printf "  %b\n" "$SEP"
+        printf "%${indent}s%b\n" "" "$SEP"
         echo ""
 
         # ── DISK | NETWORK
-        printf "  %b▸ DISK (/)%b%-27s" "$BOLD$BLUE" "$RESET" ""
+        printf "%${indent}s%b▸ DISK (/)%b%-27s" "" "$BOLD$BLUE" "$RESET" ""
         printf "%b▸ NETWORK%b  %b(%s)%b\n" "$BOLD$BLUE" "$RESET" "$DIM" "$iface" "$RESET"
-        printf "  %b %b%-6s%b%-17s" "$disk_bar" "$disk_col$BOLD" "$disk_pct_str" "$RESET" ""
+        printf "%${indent}s%b %b%-6s%b%-17s" "" "$disk_bar" "$disk_col$BOLD" "$disk_pct_str" "$RESET" ""
         printf "%b↓ RX:%b %b%-12s%b  %b↑ TX:%b %b%s%b\n" \
                "$DIM" "$RESET" "$GREEN$BOLD" "$rx_str" "$RESET" "$DIM" "$RESET" "$YELLOW$BOLD" "$tx_str" "$RESET"
-        printf "  %bИспользовано:%b %b%s%b %bиз%b %s\n" \
+        printf "%${indent}s%bИспользовано:%b %b%s%b %bиз%b %s\n" "" \
                "$DIM" "$RESET" "$CYAN" "$disk_used" "$RESET" "$DIM" "$RESET" "$disk_total"
 
         echo ""
-        printf "  %b\n" "$SEP"
-        printf "  %bАптайм:%b %b%s%b\n" "$DIM" "$RESET" "$CYAN" "$uptime_str" "$RESET"
+        printf "%${indent}s%b\n" "" "$SEP"
+        printf "%${indent}s%bАптайм:%b %b%s%b\n" "" "$DIM" "$RESET" "$CYAN" "$uptime_str" "$RESET"
         echo ""
-        printf "  %b\n" "$SEP"
-        printf "  %b[Q / Enter — вернуться в меню]%b\n" "$DIM" "$RESET"
+        printf "%${indent}s%b\n" "" "$SEP"
+        printf "%${indent}s%b[Q / Enter — вернуться в меню]%b\n" "" "$DIM" "$RESET"
         printf "%b" "\033[J"
     done
 }
