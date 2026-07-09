@@ -2683,7 +2683,7 @@ system_monitor_menu() {
                "$CYAN" "$ram_used" "$RESET" "$ram_total" "$GREEN" "$ram_free" "$DIM" "$ram_cache" "$RESET"
 
         echo ""
-        printf "%${indent}s%b\n" "" "$SEP"
+        center_print "$SEP"
         echo ""
 
         # ── DISK | NETWORK
@@ -2696,11 +2696,11 @@ system_monitor_menu() {
                "$DIM" "$RESET" "$CYAN" "$disk_used" "$RESET" "$DIM" "$RESET" "$disk_total"
 
         echo ""
-        printf "%${indent}s%b\n" "" "$SEP"
-        printf "%${indent}s%bАптайм:%b %b%s%b\n" "" "$DIM" "$RESET" "$CYAN" "$uptime_str" "$RESET"
+        center_print "$SEP"
+        center_print "${DIM}Аптайм: ${RESET}${CYAN}${uptime_str}${RESET}"
         echo ""
-        printf "%${indent}s%b\n" "" "$SEP"
-        printf "%${indent}s%b[Q / Enter — вернуться в меню]%b\n" "" "$DIM" "$RESET"
+        center_print "$SEP"
+        center_print "${DIM}[Q / Enter — вернуться в меню]${RESET}"
         printf "%b" "\033[J"
     done
 }
