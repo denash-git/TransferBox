@@ -2085,7 +2085,9 @@ change_domain_email_menu() {
     fi
     
     if [ "$changed" == "true" ]; then
-        echo -e "\n  Применяем настройки..."
+        clear_screen
+        print_header "Настройки → Домен и Email" "false"
+        echo -e "  Применяем настройки..."
         python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
@@ -2121,7 +2123,9 @@ change_site_template_menu() {
     else return 0; fi
     
     python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FAKE_SITE_TEMPLATE'] = '$name'; save_env(env)"
-    echo -e "\n  Применяем настройки..."
+    clear_screen
+    print_header "Настройки → Шаблон сайта" "false"
+    echo -e "  Применяем настройки..."
     python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
@@ -2184,7 +2188,9 @@ change_vless_paths_menu() {
         fi
         
         if [ "$changed" == "true" ]; then
-            echo -e "\n  Применяем настройки..."
+            clear_screen
+            print_header "Настройки → Пути VLESS" "false"
+            echo -e "  Применяем настройки..."
             python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
