@@ -27,6 +27,8 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     exit 1
 fi
 
+LOG_LINES_COUNT=100
+
 # ─── ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ─────────────────────────────────────────────────
 
 clear_screen() {
@@ -2525,8 +2527,8 @@ else:
 logs_menu() {
     while true; do
         local options=(
-            "Последние 50 строк — Caddy"
-            "Последние 50 строк — sing-box"
+            "Последние ${LOG_LINES_COUNT} строк — Caddy"
+            "Последние ${LOG_LINES_COUNT} строк — sing-box"
             "Следить за логом Caddy (Ctrl+C — выход)"
             "Следить за логом sing-box (Ctrl+C — выход)"
             "Назад"
@@ -2536,11 +2538,11 @@ logs_menu() {
         
         if [ "$choice" -eq 0 ]; then
             clear_screen
-            journalctl -u caddy -n 50 --no-pager
+            journalctl -u caddy -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$choice" -eq 1 ]; then
             clear_screen
-            journalctl -u sing-box -n 50 --no-pager
+            journalctl -u sing-box -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$choice" -eq 2 ]; then
             clear_screen
