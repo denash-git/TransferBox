@@ -64,7 +64,7 @@
 
     # Subscription route
     handle_path /sub/* {
-        root * /opt/transferbox/sub
+        root * {{PROJECT_ROOT}}/sub
         file_server
         header Content-Type "text/plain; charset=utf-8"
     }

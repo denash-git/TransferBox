@@ -100,8 +100,8 @@ print_header() {
     local title="$1"
     local show_status="${2:-false}"
     local domain="не задан"
-    if [ -f "/opt/transferbox/instance.env" ]; then
-        domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+        domain=$(grep -E "^DOMAIN=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2-)
     fi
     [ -z "$domain" ] && domain="не задан"
     
@@ -378,7 +378,7 @@ main_menu() {
 
 is_mieru_enabled() {
     local val
-    val=$(grep -E "^MIERU_ENABLED=" /opt/transferbox/instance.env | cut -d'=' -f2- | tr -d '\r')
+    val=$(grep -E "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2- | tr -d '\r')
     [ "$val" == "true" ] && return 0
     return 1
 }
@@ -564,8 +564,8 @@ uninstall_mieru() {
     rm -f /etc/systemd/system/mita.service.d/override.conf
     systemctl daemon-reload
     
-    if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
-        sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" /opt/transferbox/instance.env
+    if grep -q "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env; then
+        sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" ${PROJECT_ROOT}/instance.env
     fi
     
     # Re-render configurations
@@ -609,8 +609,8 @@ mieru_module_menu() {
                 return 0
             fi
         else
-            if [ -f "/opt/transferbox/instance.env" ]; then
-                source /opt/transferbox/instance.env
+            if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+                source ${PROJECT_ROOT}/instance.env
             fi
             local is_enabled="${MIERU_ENABLED:-false}"
             local status_label="${RED}отключен${RESET}"
@@ -652,13 +652,13 @@ mieru_module_menu() {
                 return 0
             elif [ "$clean_sel" == "Запустить службу" ]; then
                 echo -e "\n  [*] Запуск службы Mieru..."
-                if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
-                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=true/" /opt/transferbox/instance.env
+                if grep -q "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env; then
+                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=true/" ${PROJECT_ROOT}/instance.env
                 else
-                    echo "MIERU_ENABLED=true" >> /opt/transferbox/instance.env
+                    echo "MIERU_ENABLED=true" >> ${PROJECT_ROOT}/instance.env
                 fi
-                if ! grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
-                    echo "MIERU_PORT=$port" >> /opt/transferbox/instance.env
+                if ! grep -q "^MIERU_PORT=" ${PROJECT_ROOT}/instance.env; then
+                    echo "MIERU_PORT=$port" >> ${PROJECT_ROOT}/instance.env
                 fi
                 python3 -c "
 from core.config_manager import render_configs, validate_and_restart
@@ -670,10 +670,10 @@ validate_and_restart()
                 pause
             elif [ "$clean_sel" == "Остановить службу" ]; then
                 echo -e "\n  [*] Остановка службы Mieru..."
-                if grep -q "^MIERU_ENABLED=" /opt/transferbox/instance.env; then
-                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" /opt/transferbox/instance.env
+                if grep -q "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env; then
+                    sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" ${PROJECT_ROOT}/instance.env
                 else
-                    echo "MIERU_ENABLED=false" >> /opt/transferbox/instance.env
+                    echo "MIERU_ENABLED=false" >> ${PROJECT_ROOT}/instance.env
                 fi
                 python3 -c "
 from core.config_manager import render_configs, validate_and_restart
@@ -704,10 +704,10 @@ validate_and_restart()
                 fi
                 
                 echo -e "\n  [*] Сохранение настроек порта Mieru..."
-                if grep -q "^MIERU_PORT=" /opt/transferbox/instance.env; then
-                    sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" /opt/transferbox/instance.env
+                if grep -q "^MIERU_PORT=" ${PROJECT_ROOT}/instance.env; then
+                    sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" ${PROJECT_ROOT}/instance.env
                 else
-                    echo "MIERU_PORT=$new_port" >> /opt/transferbox/instance.env
+                    echo "MIERU_PORT=$new_port" >> ${PROJECT_ROOT}/instance.env
                 fi
                 
                 python3 -c "
@@ -747,8 +747,8 @@ netbird_module_menu() {
         print_header "Модули → NetBird" "false"
         
         # Source env variables
-        if [ -f "/opt/transferbox/instance.env" ]; then
-            source /opt/transferbox/instance.env
+        if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+            source ${PROJECT_ROOT}/instance.env
         fi
         local nb_key="${NETBIRD_SETUP_KEY:-}"
         local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
@@ -871,10 +871,10 @@ netbird_module_menu() {
                 local new_key
                 read_prompt "Введите Setup Key (или Enter для отмены): " new_key
                 if [ ! -z "$new_key" ]; then
-                    if grep -q "^NETBIRD_SETUP_KEY=" /opt/transferbox/instance.env; then
-                        sed -i "s/^NETBIRD_SETUP_KEY=.*/NETBIRD_SETUP_KEY=$new_key/" /opt/transferbox/instance.env
+                    if grep -q "^NETBIRD_SETUP_KEY=" ${PROJECT_ROOT}/instance.env; then
+                        sed -i "s/^NETBIRD_SETUP_KEY=.*/NETBIRD_SETUP_KEY=$new_key/" ${PROJECT_ROOT}/instance.env
                     else
-                        echo "NETBIRD_SETUP_KEY=$new_key" >> /opt/transferbox/instance.env
+                        echo "NETBIRD_SETUP_KEY=$new_key" >> ${PROJECT_ROOT}/instance.env
                     fi
                     echo ""
                     center_print "${GREEN}✓ Setup Key успешно сохранен.${RESET}"
@@ -893,10 +893,10 @@ netbird_module_menu() {
                     if [[ ! "$clean_url" =~ ^https?:// ]]; then
                         clean_url="https://$clean_url"
                     fi
-                    if grep -q "^NETBIRD_MANAGEMENT_URL=" /opt/transferbox/instance.env; then
-                        sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$clean_url|" /opt/transferbox/instance.env
+                    if grep -q "^NETBIRD_MANAGEMENT_URL=" ${PROJECT_ROOT}/instance.env; then
+                        sed -i "s|^NETBIRD_MANAGEMENT_URL=.*|NETBIRD_MANAGEMENT_URL=$clean_url|" ${PROJECT_ROOT}/instance.env
                     else
-                        echo "NETBIRD_MANAGEMENT_URL=$clean_url" >> /opt/transferbox/instance.env
+                        echo "NETBIRD_MANAGEMENT_URL=$clean_url" >> ${PROJECT_ROOT}/instance.env
                     fi
                     echo ""
                     center_print "${GREEN}✓ Management URL успешно сохранен.${RESET}"
@@ -994,8 +994,8 @@ netbird_module_menu() {
                     apt-get update >/dev/null 2>&1 || true
                     
                     # Удаляем сохраненные ключи
-                    sed -i '/^NETBIRD_SETUP_KEY=/d' /opt/transferbox/instance.env
-                    sed -i '/^NETBIRD_MANAGEMENT_URL=/d' /opt/transferbox/instance.env
+                    sed -i '/^NETBIRD_SETUP_KEY=/d' ${PROJECT_ROOT}/instance.env
+                    sed -i '/^NETBIRD_MANAGEMENT_URL=/d' ${PROJECT_ROOT}/instance.env
                     echo ""
                     center_print "${GREEN}✓ NetBird клиент успешно удален.${RESET}"
                 else
@@ -1207,7 +1207,7 @@ users_menu() {
 
 list_users_menu() {
     while true; do
-        if [ ! -f "/opt/transferbox/users.json" ] || [ "$(jq '. | length' /opt/transferbox/users.json 2>/dev/null)" -eq 0 ]; then
+        if [ ! -f "${PROJECT_ROOT}/users.json" ] || [ "$(jq '. | length' ${PROJECT_ROOT}/users.json 2>/dev/null)" -eq 0 ]; then
             clear_screen
             print_header "Список пользователей"
             echo -e "  Пользователей пока нет."
@@ -1220,7 +1220,7 @@ list_users_menu() {
         while IFS= read -r line; do
             [ -z "$line" ] && continue
             users_raw+=("$line")
-        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else if .protocol == "mieru" then "Mieru" else "VLESS " + (if .credentials.type == "ws" then "WS" else if .credentials.type == "grpc" then "gRPC" else if .credentials.type == "xhttp" then "XHTTP" else .credentials.type end end end) end end) | join(", "))"' /opt/transferbox/users.json 2>/dev/null)
+        done < <(jq -r 'group_by(.nickname)[] | "\((.[0].nickname))|\(map(if .protocol == "naive" then "Naive" else if .protocol == "mieru" then "Mieru" else "VLESS " + (if .credentials.type == "ws" then "WS" else if .credentials.type == "grpc" then "gRPC" else if .credentials.type == "xhttp" then "XHTTP" else .credentials.type end end end) end end) | join(", "))"' ${PROJECT_ROOT}/users.json 2>/dev/null)
         
         local options=()
         local nicknames=()
@@ -1262,7 +1262,7 @@ user_management_menu() {
     local nick="$1"
     while true; do
         # Проверяем, существует ли еще пользователь
-        if ! jq -e ".[] | select(.nickname == \"$nick\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+        if ! jq -e ".[] | select(.nickname == \"$nick\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
             return 0
         fi
         
@@ -1271,7 +1271,7 @@ user_management_menu() {
         while IFS= read -r line; do
             [ -z "$line" ] && continue
             protocols_raw+=("$line")
-        done < <(jq -r ".[] | select(.nickname == \"$nick\") | \"\(.protocol)|\(.credentials.type // \"\")|\(.enabled)\"" /opt/transferbox/users.json 2>/dev/null)
+        done < <(jq -r ".[] | select(.nickname == \"$nick\") | \"\(.protocol)|\(.credentials.type // \"\")|\(.enabled)\"" ${PROJECT_ROOT}/users.json 2>/dev/null)
         
         local options=()
         local proto_types=()
@@ -1348,24 +1348,24 @@ protocol_management_menu() {
     while true; do
         # Проверяем существование этого конкретного протокола
         if [ "$proto" == "naive" ]; then
-            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
                 return 0
             fi
         elif [ "$proto" == "mieru" ]; then
-            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
                 return 0
             fi
         else
-            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+            if ! jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
                 return 0
             fi
         fi
         
         # Получаем актуальный статус из базы
         if [ "$proto" == "naive" ] || [ "$proto" == "mieru" ]; then
-            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\") | .enabled" /opt/transferbox/users.json)
+            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\") | .enabled" ${PROJECT_ROOT}/users.json)
         else
-            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\") | .enabled" /opt/transferbox/users.json)
+            enabled=$(jq -r ".[] | select(.nickname == \"$nick\" and .protocol == \"$proto\" and .credentials.type == \"$utype\") | .enabled" ${PROJECT_ROOT}/users.json)
         fi
         
         local toggle_lbl="Включить протокол ${RED}[отключен]${RESET}"
@@ -1490,19 +1490,19 @@ add_protocol_to_user() {
     local has_naive=false
     local has_mieru=false
     
-    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"ws\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"ws\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         has_ws=true
     fi
-    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"grpc\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"grpc\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         has_grpc=true
     fi
-    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"xhttp\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"vless\" and .credentials.type == \"xhttp\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         has_xhttp=true
     fi
-    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"naive\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         has_naive=true
     fi
-    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if jq -e ".[] | select(.nickname == \"$nick\" and .protocol == \"mieru\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         has_mieru=true
     fi
 
@@ -1622,7 +1622,7 @@ if user:
 show_subscription_qr() {
     local nick="$1"
     local sub_token
-    sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" /opt/transferbox/users.json 2>/dev/null | head -n 1)
+    sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" ${PROJECT_ROOT}/users.json 2>/dev/null | head -n 1)
     
     if [ -z "$sub_token" ] || [ "$sub_token" == "null" ]; then
         echo -e "\n  ${RED}✗ Ошибка: Не удалось найти токен подписки для этого пользователя.${RESET}"
@@ -1631,7 +1631,7 @@ show_subscription_qr() {
     fi
     
     local domain
-    domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+    domain=$(grep -E "^DOMAIN=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2-)
     [ -z "$domain" ] && domain="yourdomain.com"
     local sub_link="https://${domain}/sub/${sub_token}"
     
@@ -1658,7 +1658,7 @@ create_user_menu() {
     fi
     
     # Проверить, существует ли никнейм уже в базе
-    if [ -f "/opt/transferbox/users.json" ] && jq -e ".[] | select(.nickname == \"$nick\")" /opt/transferbox/users.json >/dev/null 2>&1; then
+    if [ -f "${PROJECT_ROOT}/users.json" ] && jq -e ".[] | select(.nickname == \"$nick\")" ${PROJECT_ROOT}/users.json >/dev/null 2>&1; then
         echo -e "\n  ${YELLOW}⚠ Пользователь с никнеймом '$nick' уже существует.${RESET}"
         local confirm
         read_prompt "Хотите добавить ему дополнительный протокол? [y/N]: " confirm
@@ -1730,10 +1730,10 @@ if user:
 ")
         
         local sub_token
-        sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" /opt/transferbox/users.json 2>/dev/null | head -n 1)
+        sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" ${PROJECT_ROOT}/users.json 2>/dev/null | head -n 1)
         
         local domain
-        domain=$(grep -E "^DOMAIN=" /opt/transferbox/instance.env | cut -d'=' -f2-)
+        domain=$(grep -E "^DOMAIN=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2-)
         [ -z "$domain" ] && domain="yourdomain.com"
         local sub_link="https://${domain}/sub/${sub_token}"
         
@@ -1804,8 +1804,8 @@ if user:
 
 settings_menu() {
     while true; do
-        if [ -f "/opt/transferbox/instance.env" ]; then
-            source /opt/transferbox/instance.env
+        if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+            source ${PROJECT_ROOT}/instance.env
         fi
         local domain="${DOMAIN:-не задан}"
         local email="${ADMIN_EMAIL:-не задан (анонимный SSL)}"
@@ -2042,7 +2042,7 @@ change_vps_fqdn_menu() {
 change_domain_email_menu() {
     clear_screen
     print_header "Настройки → Домен и Email"
-    source /opt/transferbox/instance.env
+    source ${PROJECT_ROOT}/instance.env
     
     echo -e "  Текущий домен: ${DOMAIN:-не задан}"
     echo -e "  Текущий Email: ${ADMIN_EMAIL:-не задан (анонимный SSL)}"
@@ -2088,7 +2088,7 @@ validate_and_restart()
 change_site_template_menu() {
     clear_screen
     print_header "Настройки → Шаблон сайта"
-    source /opt/transferbox/instance.env
+    source ${PROJECT_ROOT}/instance.env
     echo -e "  Текущий шаблон: ${FAKE_SITE_TEMPLATE:-aether}\n"
     
     local options=(
@@ -2122,7 +2122,7 @@ validate_and_restart()
 
 change_vless_paths_menu() {
     while true; do
-        source /opt/transferbox/instance.env
+        source ${PROJECT_ROOT}/instance.env
         clear_screen
         print_header "Настройки → Пути VLESS"
         
@@ -2273,7 +2273,7 @@ backup_restore_menu() {
         
         if [ "$choice" -eq 0 ]; then
             print_header "Создание резервной копии"
-            local backup_dir="/opt/transferbox/backups"
+            local backup_dir="${PROJECT_ROOT}/backups"
             
             # Run creation in python helper
             python3 -c "
@@ -2285,7 +2285,7 @@ backup_filename = f'transferbox_backup_{timestamp}.tar.gz'
 backup_path = os.path.join(backup_dir, backup_filename)
 
 files_to_backup = []
-paths = ['/opt/transferbox/users.json', '/opt/transferbox/instance.env']
+paths = ['${PROJECT_ROOT}/users.json', '${PROJECT_ROOT}/instance.env']
 for p in paths:
     if os.path.exists(p):
         files_to_backup.append(p)
@@ -2319,7 +2319,7 @@ else:
             
         elif [ "$choice" -eq 1 ]; then
             print_header "Восстановление из последнего бэкапа"
-            local backup_dir="/opt/transferbox/backups"
+            local backup_dir="${PROJECT_ROOT}/backups"
             
             # Find latest in python
             python3 -c "
@@ -2372,7 +2372,7 @@ else:
 import tarfile
 try:
     with tarfile.open('$latest_backup_info', 'r:gz') as tar:
-        tar.extractall(path='/opt/transferbox')
+        tar.extractall(path='${PROJECT_ROOT}')
     print('SUCCESS')
 except Exception as e:
     print('ERROR:', e)
@@ -2384,8 +2384,8 @@ except Exception as e:
             
             if [ "$ext_res" == "SUCCESS" ]; then
                 # Восстанавливаем состояния служб и устанавливаем их при отсутствии
-                if [ -f "/opt/transferbox/instance.env" ]; then
-                    source /opt/transferbox/instance.env
+                if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+                    source ${PROJECT_ROOT}/instance.env
                 fi
                 
                 # Восстановление Mieru

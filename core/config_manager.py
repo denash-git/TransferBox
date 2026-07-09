@@ -218,6 +218,7 @@ def render_configs():
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
     caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
     caddy_content = caddy_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
+    caddy_content = caddy_content.replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
 
     # 2. Render sing-box base config
     vless_ws_users = []
@@ -269,7 +270,7 @@ def render_configs():
     with open(SINGBOX_CONFIG, "w", encoding="utf-8") as f:
         f.write(sb_content)
 
-    # 3. Generate subscription files in /opt/transferbox/sub/
+    # 3. Generate subscription files in PROJECT_ROOT/sub/
     sub_dir = os.path.join(PROJECT_ROOT, "sub")
     import shutil
     import base64
