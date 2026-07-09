@@ -25,11 +25,24 @@ def load_env():
     return env
 
 def save_env(env):
-    with open(INSTANCE_ENV, "w", encoding="utf-8") as f:
-        f.write("# TransferBox Instance Config\n")
-        for k, v in env.items():
-            f.write(f"{k}={v}\n")
-
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    mode = 0o600
+    try:
+        fd = os.open(INSTANCE_ENV, flags, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("# TransferBox Instance Config\n")
+            for k, v in env.items():
+                f.write(f"{k}={v}\n")
+        os.chmod(INSTANCE_ENV, 0o600)
+    except Exception:
+        with open(INSTANCE_ENV, "w", encoding="utf-8") as f:
+            f.write("# TransferBox Instance Config\n")
+            for k, v in env.items():
+                f.write(f"{k}={v}\n")
+        try:
+            os.chmod(INSTANCE_ENV, 0o600)
+        except Exception:
+            pass
 def load_users():
     import secrets
     if os.path.exists(USERS_DB):
@@ -49,9 +62,20 @@ def load_users():
     return []
 
 def save_users(users):
-    with open(USERS_DB, "w", encoding="utf-8") as f:
-        json.dump(users, f, indent=2, ensure_ascii=False)
-
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    mode = 0o600
+    try:
+        fd = os.open(USERS_DB, flags, mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2, ensure_ascii=False)
+        os.chmod(USERS_DB, 0o600)
+    except Exception:
+        with open(USERS_DB, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2, ensure_ascii=False)
+        try:
+            os.chmod(USERS_DB, 0o600)
+        except Exception:
+            pass
 def build_client_link(user_obj):
     env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
