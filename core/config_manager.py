@@ -303,10 +303,26 @@ def render_configs():
     os.makedirs(os.path.dirname(CADDY_CONFIG), exist_ok=True)
     with open(CADDY_CONFIG, "w", encoding="utf-8") as f:
         f.write(caddy_content)
+    try:
+        os.chmod(CADDY_CONFIG, 0o600)
+    except Exception:
+        pass
 
     os.makedirs(os.path.dirname(SINGBOX_CONFIG), exist_ok=True)
     with open(SINGBOX_CONFIG, "w", encoding="utf-8") as f:
         f.write(sb_content)
+    try:
+        import pwd
+        import grp
+        uid = pwd.getpwnam("root").pw_uid
+        gid = grp.getgrnam("sing-box").gr_gid
+        os.chown(SINGBOX_CONFIG, uid, gid)
+        os.chmod(SINGBOX_CONFIG, 0o640)
+    except Exception:
+        try:
+            os.chmod(SINGBOX_CONFIG, 0o600)
+        except Exception:
+            pass
 
     # 3. Generate subscription files in PROJECT_ROOT/sub/
     sub_dir = os.path.join(PROJECT_ROOT, "sub")
@@ -375,21 +391,25 @@ def render_configs():
             "mtu": 1400
         }
         
-        tmp_config_path = "/tmp/mita_config.json"
-        with open(tmp_config_path, "w", encoding="utf-8") as f:
-            json.dump(mita_config, f, indent=2)
-            
         if os.path.exists("/usr/bin/mita"):
             override_dir = "/etc/systemd/system/mita.service.d"
             os.makedirs(override_dir, exist_ok=True)
             override_file = os.path.join(override_dir, "override.conf")
             with open(override_file, "w", encoding="utf-8") as f:
                 f.write("[Service]\nEnvironment=\"MITA_CONFIG_JSON_FILE=/etc/mita/server.conf.json\"\n")
+            try:
+                os.chmod(override_file, 0o600)
+            except Exception:
+                pass
             
             mita_json_path = "/etc/mita/server.conf.json"
             os.makedirs(os.path.dirname(mita_json_path), exist_ok=True)
             with open(mita_json_path, "w", encoding="utf-8") as f:
                 json.dump(mita_config, f, indent=2)
+            try:
+                os.chmod(mita_json_path, 0o600)
+            except Exception:
+                pass
                 
             subprocess.run(["rm", "-f", "/etc/mita/server.conf.pb"])
             subprocess.run(["chown", "-R", "mita:mita", "/etc/mita"])

@@ -6,11 +6,14 @@ from core.config_manager import load_users, save_users, load_env, build_client_l
 def generate_uuid():
     return str(uuid.uuid4())
 
+
 def generate_password():
     return secrets.token_hex(12)
 
+
 def generate_username():
     return "user_" + secrets.token_hex(4)
+
 
 def add_user(nickname, protocol, user_type="ws"):
     users = load_users()
@@ -78,6 +81,7 @@ def add_user(nickname, protocol, user_type="ws"):
     save_users(users)
     return True, new_user
 
+
 def delete_user(nickname, protocol=None, user_type=None):
     users = load_users()
     initial_len = len(users)
@@ -89,6 +93,7 @@ def delete_user(nickname, protocol=None, user_type=None):
         return False, "User not found."
     save_users(users)
     return True, "User deleted successfully."
+
 
 def toggle_user(nickname, enabled, protocol=None, user_type=None):
     users = load_users()
@@ -103,6 +108,7 @@ def toggle_user(nickname, enabled, protocol=None, user_type=None):
         save_users(users)
         return True, f"User status updated to {'enabled' if enabled else 'disabled'}."
     return False, "User not found."
+
 
 def print_qr_code(link):
     # Try using system qrencode if available
