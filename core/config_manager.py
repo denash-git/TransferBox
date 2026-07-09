@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import re
 
 PROJECT_ROOT = "/opt/transferbox"
 INSTANCE_ENV = os.path.join(PROJECT_ROOT, "instance.env")
@@ -398,7 +399,6 @@ def validate_and_restart():
 
     if mita_installed:
         # Dynamically clean up old UFW rules with Mieru comment
-        import re
         status_res = subprocess.run(["ufw", "status", "numbered"], capture_output=True, text=True)
         if status_res.returncode == 0:
             rule_nums = []
@@ -408,7 +408,7 @@ def validate_and_restart():
                     if m:
                         rule_nums.append(int(m.group(1)))
             for num in sorted(rule_nums, reverse=True):
-                subprocess.run(f"yes | ufw delete {num}", shell=True, capture_output=True)
+                subprocess.run(["ufw", "delete", str(num)], input="y\n", text=True, capture_output=True)
 
         if mieru_enabled:
             subprocess.run(["systemctl", "enable", "mita"], capture_output=True)
@@ -483,8 +483,9 @@ def change_ssh_port(new_port):
         res = subprocess.run(["systemctl", "restart", "sshd"], capture_output=True)
         
     # 4. Проверяем, слушает ли SSH новый порт
-    check = subprocess.run(f"ss -tlnp | grep -E ':{new_port}\\s'", shell=True, capture_output=True)
-    if check.returncode != 0:
+    check = subprocess.run(["ss", "-tlnp"], capture_output=True, text=True)
+    port_active = bool(re.search(rf":{new_port}\s", check.stdout)) if check.returncode == 0 else False
+    if not port_active:
         # Revert change
         for i, line in enumerate(lines):
             if line.strip() == f"Port {new_port}":
