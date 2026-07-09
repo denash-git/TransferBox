@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 import re
+import secrets
 
 PROJECT_ROOT = "/opt/transferbox"
 INSTANCE_ENV = os.path.join(PROJECT_ROOT, "instance.env")
@@ -45,7 +46,6 @@ def save_env(env):
         except Exception:
             pass
 def load_users():
-    import secrets
     if os.path.exists(USERS_DB):
         try:
             with open(USERS_DB, "r", encoding="utf-8") as f:
