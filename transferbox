@@ -2369,10 +2369,16 @@ else:
             
             echo -e "\n  [*] Восстановление файлов..."
             python3 -c "
-import tarfile
+import os, tarfile
 try:
     with tarfile.open('$latest_backup_info', 'r:gz') as tar:
-        tar.extractall(path='${PROJECT_ROOT}')
+        resolved_root = os.path.abspath('${PROJECT_ROOT}')
+        safe_members = []
+        for m in tar.getmembers():
+            target = os.path.abspath(os.path.join(resolved_root, m.name))
+            if os.path.commonpath([resolved_root, target]) == resolved_root:
+                safe_members.append(m)
+        tar.extractall(path=resolved_root, members=safe_members)
     print('SUCCESS')
 except Exception as e:
     print('ERROR:', e)
