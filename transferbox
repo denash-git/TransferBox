@@ -597,13 +597,13 @@ mieru_module_menu() {
             is_installed=true
         fi
         
-        echo -e "  Состояние Mieru (Mita):"
+        echo -e "  Состояние Mieru:"
         if [ "$is_installed" == "false" ]; then
             echo -e "  • Статус:          ${RED}не установлен${RESET}"
             draw_line "─" "$BLUE"
             
             local options=(
-                "Установить Mieru (Mita)"
+                "Установить Mieru"
                 "Назад"
             )
             select_menu SELECTED_INDEX "Модуль: Mieru" "${options[@]}"
@@ -645,8 +645,8 @@ mieru_module_menu() {
             
             options+=(
                 "Изменить порт (Текущий порт: $port)"
-                "Обновить Mieru (Mita)"
-                "Удалить Mieru (Mita)"
+                "Обновить Mieru"
+                "Удалить Mieru"
                 "Назад"
             )
             
@@ -727,12 +727,12 @@ validate_and_restart()
                 echo ""
                 center_print "${GREEN}✓ Порт Mieru изменен на $new_port. Сервисы перезапущены.${RESET}"
                 pause
-            elif [ "$clean_sel" == "Обновить Mieru (Mita)" ]; then
+            elif [ "$clean_sel" == "Обновить Mieru" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Обновление" "false"
                 install_mieru
                 pause
-            elif [ "$clean_sel" == "Удалить Mieru (Mita)" ]; then
+            elif [ "$clean_sel" == "Удалить Mieru" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Удаление" "false"
                 echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит Mieru с этого сервера !${RESET}"
@@ -820,7 +820,7 @@ netbird_module_menu() {
             fi
             
             local masked_key="[не задан]"
-            if [ ! -z "$nb_key" ]; then
+            if [ -n "$nb_key" ]; then
                 if [ ${#nb_key} -gt 8 ]; then
                     masked_key="${nb_key:0:4}...${nb_key: -4}"
                 else
@@ -835,10 +835,10 @@ netbird_module_menu() {
             active_status=$(systemctl is-active --quiet netbird && echo "active" || echo "inactive")
             
             local key_lbl="Setup Key ${RED}[не задан]${RESET}"
-            [ ! -z "$nb_key" ] && key_lbl="Setup Key ${GREEN}[задан]${RESET}"
+            [ -n "$nb_key" ] && key_lbl="Setup Key ${GREEN}[задан]${RESET}"
             
             local url_lbl="Management URL ${RED}[не задан]${RESET}"
-            [ ! -z "$nb_url" ] && url_lbl="Management URL ${GREEN}[задан]${RESET}"
+            [ -n "$nb_url" ] && url_lbl="Management URL ${GREEN}[задан]${RESET}"
             
             local options=(
                 "$key_lbl"
@@ -879,7 +879,7 @@ netbird_module_menu() {
                 print_header "Модули → NetBird → Ввод Setup Key" "false"
                 local new_key
                 read_prompt "Введите Setup Key (или Enter для отмены): " new_key
-                if [ ! -z "$new_key" ]; then
+                if [ -n "$new_key" ]; then
                     if grep -q "^NETBIRD_SETUP_KEY=" ${PROJECT_ROOT}/instance.env; then
                         sed -i "s/^NETBIRD_SETUP_KEY=.*/NETBIRD_SETUP_KEY=$new_key/" ${PROJECT_ROOT}/instance.env
                     else
@@ -897,7 +897,7 @@ netbird_module_menu() {
                 print_header "Модули → NetBird → Ввод Management URL" "false"
                 local new_url
                 read_prompt "Введите Management URL (или Enter для отмены): " new_url
-                if [ ! -z "$new_url" ]; then
+                if [ -n "$new_url" ]; then
                     local clean_url="$new_url"
                     if [[ ! "$clean_url" =~ ^https?:// ]]; then
                         clean_url="https://$clean_url"
@@ -926,7 +926,7 @@ netbird_module_menu() {
                 
                 echo -e "  [*] Запуск регистрации пира в сети NetBird..."
                 local cmd="netbird up --setup-key $nb_key"
-                if [ ! -z "$nb_url" ]; then
+                if [ -n "$nb_url" ]; then
                     cmd="$cmd --management-url $nb_url"
                 fi
                 
@@ -2062,7 +2062,7 @@ change_domain_email_menu() {
     new_domain="${new_domain// /}"
     
     local changed=false
-    if [ ! -z "$new_domain" ]; then
+    if [ -n "$new_domain" ]; then
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['DOMAIN'] = '$new_domain'; save_env(env)"
         changed=true
         echo -e "  ${GREEN}✓ Домен изменен на $new_domain${RESET}"
@@ -2077,7 +2077,7 @@ change_domain_email_menu() {
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = ''; save_env(env)"
         changed=true
         echo -e "  ${GREEN}✓ Email удален (анонимный SSL активирован)${RESET}"
-    elif [ ! -z "$new_email" ]; then
+    elif [ -n "$new_email" ]; then
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = '$new_email'; save_env(env)"
         changed=true
         echo -e "  ${GREEN}✓ Email изменен на $new_email${RESET}"
@@ -2284,6 +2284,8 @@ backup_restore_menu() {
             print_header "Создание резервной копии"
             local backup_dir="${PROJECT_ROOT}/backups"
             
+            local tmpfile
+            tmpfile=$(mktemp)
             # Run creation in python helper
             python3 -c "
 import os, tarfile, datetime
@@ -2309,10 +2311,10 @@ else:
         print(f'SUCCESS:{backup_path}')
     except Exception as e:
         print(f'ERROR:{e}')
-" > /tmp/backup_res.txt
+" > "$tmpfile"
             
             local res
-            res=$(cat /tmp/backup_res.txt)
+            res=$(cat "$tmpfile")
             if [[ "$res" == SUCCESS:* ]]; then
                 local path="${res#SUCCESS:}"
                 echo ""
@@ -2323,13 +2325,15 @@ else:
                 echo ""
                 center_print "${RED}✗ Ошибка создания бэкапа: ${res#ERROR:}${RESET}"
             fi
-            rm -f /tmp/backup_res.txt
+            rm -f "$tmpfile"
             pause
             
         elif [ "$choice" -eq 1 ]; then
             print_header "Восстановление из последнего бэкапа"
             local backup_dir="${PROJECT_ROOT}/backups"
             
+            local tmpfile_find
+            tmpfile_find=$(mktemp)
             # Find latest in python
             python3 -c "
 import os, glob, datetime, tarfile
@@ -2343,11 +2347,11 @@ else:
     mtime = os.path.getmtime(latest_backup)
     file_date = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
     print(f'FOUND:{latest_backup}|{file_date}')
-" > /tmp/restore_find.txt
+" > "$tmpfile_find"
             
             local res
-            res=$(cat /tmp/restore_find.txt)
-            rm -f /tmp/restore_find.txt
+            res=$(cat "$tmpfile_find")
+            rm -f "$tmpfile_find"
             
             if [[ "$res" == ERROR:* ]]; then
                 echo ""
@@ -2377,6 +2381,8 @@ else:
             fi
             
             echo -e "\n  [*] Восстановление файлов..."
+            local tmpfile_ext
+            tmpfile_ext=$(mktemp)
             python3 -c "
 import os, tarfile
 try:
@@ -2391,11 +2397,11 @@ try:
     print('SUCCESS')
 except Exception as e:
     print('ERROR:', e)
-" > /tmp/restore_extract.txt
+" > "$tmpfile_ext"
             
             local ext_res
-            ext_res=$(cat /tmp/restore_extract.txt)
-            rm -f /tmp/restore_extract.txt
+            ext_res=$(cat "$tmpfile_ext")
+            rm -f "$tmpfile_ext"
             
             if [ "$ext_res" == "SUCCESS" ]; then
                 # Восстанавливаем состояния служб и устанавливаем их при отсутствии
@@ -2422,7 +2428,7 @@ except Exception as e:
                 
                 # Восстановление NetBird
                 local nb_key="${NETBIRD_SETUP_KEY:-}"
-                if [ ! -z "$nb_key" ]; then
+                if [ -n "$nb_key" ]; then
                     if ! command -v netbird &>/dev/null; then
                         echo -e "  [*] Обнаружена конфигурация NetBird. Автоматическая установка..."
                         export SKIP_UI_APP=true
@@ -2434,7 +2440,7 @@ except Exception as e:
                         echo -e "  [*] Подключение NetBird..."
                         local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
                         local cmd="netbird up --setup-key $nb_key"
-                        if [ ! -z "$nb_url" ]; then
+                        if [ -n "$nb_url" ]; then
                             cmd="$cmd --management-url $nb_url"
                         fi
                         eval "$cmd" || true
@@ -2445,6 +2451,8 @@ except Exception as e:
                 systemctl enable --now sing-box >/dev/null 2>&1 || true
                 
                 echo -e "  [*] Пересборка конфигураций и перезапуск служб..."
+                local tmpfile_apply
+                tmpfile_apply=$(mktemp)
                 python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
@@ -2453,11 +2461,11 @@ if success:
     print('SUCCESS')
 else:
     print('ERROR:', msg)
-" > /tmp/restore_apply.txt
+" > "$tmpfile_apply"
                 
                 local apply_res
-                apply_res=$(cat /tmp/restore_apply.txt)
-                rm -f /tmp/restore_apply.txt
+                apply_res=$(cat "$tmpfile_apply")
+                rm -f "$tmpfile_apply"
                 
                 if [ "$apply_res" == "SUCCESS" ]; then
                     echo ""
@@ -2484,6 +2492,8 @@ apply_settings_menu() {
     clear_screen
     print_header "Перезапуск служб"
     echo -e "  Генерация конфигураций и перезапуск..."
+    local tmpfile_res
+    tmpfile_res=$(mktemp)
     python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
@@ -2492,11 +2502,11 @@ if success:
     print('SUCCESS')
 else:
     print('ERROR:', msg)
-" > /tmp/apply_res.txt
+" > "$tmpfile_res"
     
     local res
-    res=$(cat /tmp/apply_res.txt)
-    rm -f /tmp/apply_res.txt
+    res=$(cat "$tmpfile_res")
+    rm -f "$tmpfile_res"
     
     if [ "$res" == "SUCCESS" ]; then
         echo -e "\n  ${GREEN}✓ Службы успешно перезапущены!${RESET}"

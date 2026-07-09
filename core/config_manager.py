@@ -3,6 +3,9 @@ import json
 import subprocess
 import re
 import secrets
+import urllib.parse
+import shutil
+import base64
 
 PROJECT_ROOT = "/opt/transferbox"
 INSTANCE_ENV = os.path.join(PROJECT_ROOT, "instance.env")
@@ -15,6 +18,7 @@ TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "templates")
 CADDY_TEMPLATE = os.path.join(TEMPLATES_DIR, "Caddyfile.template")
 SINGBOX_TEMPLATE = os.path.join(TEMPLATES_DIR, "sing-box-base.json.template")
 
+
 def load_env():
     env = {}
     if os.path.exists(INSTANCE_ENV):
@@ -25,6 +29,7 @@ def load_env():
                     key, val = line.split("=", 1)
                     env[key.strip()] = val.strip()
     return env
+
 
 def save_env(env):
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -45,6 +50,8 @@ def save_env(env):
             os.chmod(INSTANCE_ENV, 0o600)
         except Exception:
             pass
+
+
 def load_users():
     if os.path.exists(USERS_DB):
         try:
@@ -62,6 +69,7 @@ def load_users():
             return []
     return []
 
+
 def save_users(users):
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     mode = 0o600
@@ -77,6 +85,8 @@ def save_users(users):
             os.chmod(USERS_DB, 0o600)
         except Exception:
             pass
+
+
 def build_client_link(user_obj):
     env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
@@ -108,13 +118,13 @@ def build_client_link(user_obj):
         username = creds.get("username")
         password = creds.get("password")
         port = int(env.get("MIERU_PORT", 21000))
-        import urllib.parse
         safe_user = urllib.parse.quote(username)
         safe_pass = urllib.parse.quote(password)
         safe_profile = urllib.parse.quote(f"Mieru-{nickname}")
         return f"mierus://{safe_user}:{safe_pass}@{domain}?profile={safe_profile}&port={port}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH"
             
     return ""
+
 
 def build_mieru_json_config(user_obj):
     env = load_env()
@@ -147,6 +157,7 @@ def build_mieru_json_config(user_obj):
     }
     return json.dumps(config, indent=2)
 
+
 def build_mieru_clash_yaml(user_obj):
     env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
@@ -163,6 +174,7 @@ def build_mieru_clash_yaml(user_obj):
     password: {password}
     transport: tcp"""
     return yaml_str
+
 
 def build_mieru_singbox_json(user_obj):
     env = load_env()
@@ -185,6 +197,7 @@ def build_mieru_singbox_json(user_obj):
         ]
     }
     return json.dumps(config, indent=2)
+
 
 def render_configs():
     env = load_env()
@@ -297,11 +310,13 @@ def render_configs():
 
     # 3. Generate subscription files in PROJECT_ROOT/sub/
     sub_dir = os.path.join(PROJECT_ROOT, "sub")
-    import shutil
-    import base64
     if os.path.exists(sub_dir):
         shutil.rmtree(sub_dir)
     os.makedirs(sub_dir, exist_ok=True)
+    try:
+        os.chmod(sub_dir, 0o700)
+    except Exception:
+        pass
 
     for u in users:
         if not u.get("enabled", True):
@@ -326,6 +341,10 @@ def render_configs():
             sub_file = os.path.join(sub_dir, token)
             with open(sub_file, "w", encoding="utf-8") as sf:
                 sf.write(encoded)
+            try:
+                os.chmod(sub_file, 0o600)
+            except Exception:
+                pass
 
     # 4. Generate Mieru server configuration
     mieru_enabled = env.get("MIERU_ENABLED", "false").lower() == "true"
@@ -376,6 +395,7 @@ def render_configs():
             subprocess.run(["chown", "-R", "mita:mita", "/etc/mita"])
             subprocess.run(["systemctl", "daemon-reload"])
 
+
 def validate_and_restart():
     # 1. Validate Caddyfile
     res = subprocess.run(["caddy", "validate", "--config", CADDY_CONFIG], capture_output=True, text=True)
@@ -422,6 +442,7 @@ def validate_and_restart():
 
     return True, "Services successfully reloaded and validated!"
 
+
 def get_current_ssh_port():
     port = 22
     config_path = "/etc/ssh/sshd_config"
@@ -435,6 +456,7 @@ def get_current_ssh_port():
                         port = int(parts[1])
                         break
     return port
+
 
 def change_ssh_port(new_port):
     if not (1 <= new_port <= 65535):
@@ -498,6 +520,7 @@ def change_ssh_port(new_port):
         return False, f"Ошибка: SSH-сервер не запустился на порту {new_port}. Изменения отменены."
         
     return True, f"Успешно! SSH переведен на порт {new_port}."
+
 
 def remove_old_ssh_port_ufw(old_port):
     if old_port and old_port != 22:
