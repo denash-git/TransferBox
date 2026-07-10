@@ -185,8 +185,11 @@ refresh_system_status() {
 print_header() {
     local title="$1"
     
-    if [[ "$title" == "TransferBox v. "* ]] && [ -n "${UPDATE_BADGE:-}" ]; then
-        title="${title} ${UPDATE_BADGE}"
+    if [[ "$title" == "TransferBox v. "* ]]; then
+        load_update_badge
+        if [ -n "${UPDATE_BADGE:-}" ]; then
+            title="${title} ${UPDATE_BADGE}"
+        fi
     fi
     
     local show_status="${2:-false}"
@@ -2669,6 +2672,25 @@ except Exception as e:
                     source "${PROJECT_ROOT}/instance.env"
                 fi
                 
+                # Если FQDN или BBR_ENABLED отсутствуют в восстановленном instance.env (старый бэкап),
+                # мы заполняем их разумными значениями по умолчанию
+                if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+                    if ! grep -q "^FQDN=" "${PROJECT_ROOT}/instance.env"; then
+                        local def_fqdn="${DOMAIN:-}"
+                        [ -z "$def_fqdn" ] && def_fqdn=$(hostname -f 2>/dev/null || hostname)
+                        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FQDN'] = '$def_fqdn'; save_env(env)"
+                        FQDN="$def_fqdn"
+                    fi
+                    if ! grep -q "^BBR_ENABLED=" "${PROJECT_ROOT}/instance.env"; then
+                        local def_bbr="false"
+                        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+                            def_bbr="true"
+                        fi
+                        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = '$def_bbr'; save_env(env)"
+                        BBR_ENABLED="$def_bbr"
+                    fi
+                fi
+                
                 # 1. Восстановление FQDN
                 local restored_fqdn="${FQDN:-}"
                 if [ -n "$restored_fqdn" ]; then
@@ -3046,8 +3068,8 @@ system_monitor_menu() {
         printf "%${indent}s%b %b%3d%%%b%-21s%b %b%3d%%%b\n" "" \
                "$cpu_bar" "$cpu_col$BOLD" "$cpu_pct" "$RESET" "" "$ram_bar" "$ram_col$BOLD" "$ram_pct" "$RESET"
         printf "%${indent}s%bLoad avg:%b %b%-27s%b" "" "$DIM" "$RESET" "$CYAN" "$load_str" "$RESET"
-        printf "%b%s%b/%s MB  св:%b%s%b кэш:%b%s MB%b\n" \
-               "$CYAN" "$ram_used" "$RESET" "$ram_total" "$GREEN" "$ram_free" "$DIM" "$ram_cache" "$RESET"
+        printf "%b%s%b/%s MB  св:%b%s%b кэш:%b%s%b MB\n" \
+               "$CYAN" "$ram_used" "$RESET" "$ram_total" "$GREEN" "$ram_free" "$RESET" "$DIM" "$ram_cache" "$RESET"
 
         echo ""
         center_print "$SEP"
