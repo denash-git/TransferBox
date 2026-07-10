@@ -60,5 +60,5 @@ menu
 *   **[Caddy](https://github.com/caddyserver/caddy)** — за быстрый, расширяемый веб-сервер с автоматическим выпуском SSL.
 *   **[sing-box](https://github.com/SagerNet/sing-box)** — за универсальное и мощное сетевое ядро нового поколения.
 *   **[NaiveProxy](https://github.com/klzgrad/naiveproxy)** — за непревзойденную маскировку трафика на базе движка Chromium.
-*   **[Mieru](https://github.com/enigmaleo/mieru)** — за устойчивый к DPI SOCKS5-прокси с маскировкой шума.
+*   **[Mieru](https://github.com/enfein/mieru)** — за устойчивый к DPI SOCKS5-прокси с маскировкой шума.
 *   **[NetBird](https://github.com/netbirdio/netbird)** — за простой и безопасный инструмент создания Mesh-VPN сетей.
