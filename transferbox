@@ -1833,22 +1833,32 @@ update_panel_menu() {
     print_header "Настройки → Обновление панели" "false"
     echo -e "  [*] Проверка обновлений на GitHub..."
     
+    # Временно отключаем строгий режим для сетевого запроса и grep
+    set +euo pipefail
+    
     local tmp_version
     tmp_version=$(mktemp)
     
     local http_code
-    http_code=$(curl -s -o "$tmp_version" -w "%{http_code}" --connect-timeout 5 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox || echo "000")
+    http_code=$(curl -s -o "$tmp_version" -w "%{http_code}" --connect-timeout 5 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox)
+    local curl_status=$?
     
-    if [ "$http_code" -ne 200 ]; then
-        echo -e "\n  ${RED}✗ Не удалось подключиться к GitHub для проверки обновлений (HTTP код: $http_code).${RESET}"
-        rm -f "$tmp_version"
+    local latest=""
+    if [ $curl_status -eq 0 ] && [ "$http_code" == "200" ]; then
+        if grep -q -E "^VERSION=" "$tmp_version"; then
+            latest=$(grep -E "^VERSION=" "$tmp_version" | head -n1 | cut -d'"' -f2)
+        fi
+    fi
+    rm -f "$tmp_version"
+    
+    # Восстанавливаем строгий режим
+    set -euo pipefail
+    
+    if [ $curl_status -ne 0 ] || [ "$http_code" != "200" ]; then
+        echo -e "\n  ${RED}✗ Не удалось подключиться к GitHub для проверки обновлений (HTTP код: ${http_code:-000}).${RESET}"
         pause
         return 0
     fi
-    
-    local latest
-    latest=$(grep -E "^VERSION=" "$tmp_version" | head -n1 | cut -d'"' -f2 || echo "")
-    rm -f "$tmp_version"
     
     if [ -z "$latest" ]; then
         echo -e "\n  ${RED}✗ Файл версии на GitHub не содержит корректного тега версии (возможно, кэш CDN).${RESET}"
