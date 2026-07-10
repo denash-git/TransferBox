@@ -2535,7 +2535,8 @@ backup_restore_menu() {
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
-            print_header "Создание резервной копии"
+            clear_screen
+            print_header "Создание резервной копии" "false"
             local backup_dir="${PROJECT_ROOT}/backups"
             
             local tmpfile
@@ -2583,7 +2584,8 @@ else:
             pause
             
         elif [ "$choice" -eq 1 ]; then
-            print_header "Восстановление из последнего бэкапа"
+            clear_screen
+            print_header "Восстановление из последнего бэкапа" "false"
             local backup_dir="${PROJECT_ROOT}/backups"
             
             local tmpfile_find
