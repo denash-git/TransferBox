@@ -5,3 +5,7 @@ __pycache__/
 .install.log
 users.json
 instance.env
+*.bak
+.tb_update_cache
+backups/
+sub/
