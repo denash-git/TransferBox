@@ -127,7 +127,7 @@ load_update_badge() {
         read -r latest < "$cache_file" 2>/dev/null || latest=""
         if [ -n "$latest" ] && [ "$latest" != "$VERSION" ]; then
             if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
-                UPDATE_BADGE="${GREEN}[↑ update v$latest]${RESET}"
+                UPDATE_BADGE="${GREEN}[↑ update]${RESET}"
                 return
             fi
         fi
@@ -1929,7 +1929,7 @@ if user:
 update_panel_menu() {
     clear_screen
     print_header "Настройки → Обновление панели" "false"
-    echo -e "  [*] Проверка обновлений на GitHub..."
+    center_print "${DIM}[*] Проверка обновлений на GitHub...${RESET}"
     
     # Временно отключаем строгий режим для сетевого запроса и grep
     set +euo pipefail
@@ -1953,41 +1953,45 @@ update_panel_menu() {
     set -euo pipefail
     
     if [ $curl_status -ne 0 ] || [ "$http_code" != "200" ]; then
-        echo -e "\n  ${RED}✗ Не удалось подключиться к GitHub для проверки обновлений (HTTP код: ${http_code:-000}).${RESET}"
+        echo ""
+        center_print "${RED}✗ Не удалось подключиться к GitHub для проверки обновлений (HTTP код: ${http_code:-000}).${RESET}"
         pause
         return 0
     fi
     
     if [ -z "$latest" ]; then
-        echo -e "\n  ${RED}✗ Файл версии на GitHub не содержит корректного тега версии (возможно, кэш CDN).${RESET}"
+        echo ""
+        center_print "${RED}✗ Файл версии на GitHub не содержит корректного тега версии (возможно, кэш CDN).${RESET}"
         pause
         return 0
     fi
     
-    echo -e "  • Текущая версия: ${CYAN}${VERSION}${RESET}"
-    echo -e "  • Свежая версия:  ${CYAN}${latest}${RESET}"
+    center_print "Текущая версия: ${CYAN}${VERSION}${RESET}"
+    center_print "Свежая версия:  ${CYAN}${latest}${RESET}"
     
     if [ "$latest" == "$VERSION" ]; then
-        echo -e "\n  ${GREEN}✓ У вас установлена актуальная версия панели.${RESET}"
+        echo ""
+        center_print "${GREEN}✓ У вас установлена актуальная версия панели.${RESET}"
         pause
         return 0
     fi
     
     if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
         echo ""
+        center_print "Доступно обновление до версии ${GREEN}$latest${RESET}."
         local confirm
-        read_prompt "Доступно обновление до версии $latest. Обновить панель? [y/N]: " confirm
+        read_prompt "  Обновить панель? [y/N]: " confirm
         if [[ "$confirm" =~ ^[yYдД]$ ]]; then
             clear_screen
             print_header "Настройки → Обновление панели" "false"
-            echo -e "  [*] Создание резервной копии данных..."
+            center_print "${DIM}[*] Создание резервной копии данных...${RESET}"
             
             # Делаем бэкап данных и кода самой панели
             cp "${PROJECT_ROOT}/users.json" "${PROJECT_ROOT}/users.json.bak" 2>/dev/null || true
             cp "${PROJECT_ROOT}/instance.env" "${PROJECT_ROOT}/instance.env.bak" 2>/dev/null || true
             cp "${PROJECT_ROOT}/transferbox" "${PROJECT_ROOT}/transferbox.bak" 2>/dev/null || true
             
-            echo -e "  [*] Загрузка архива версии v$latest..."
+            center_print "${DIM}[*] Загрузка архива версии v$latest...${RESET}"
             local tmp_dir
             tmp_dir=$(mktemp -d)
             
@@ -1996,7 +2000,8 @@ update_panel_menu() {
                 
                 # Проверка структуры распакованного архива
                 if [ ! -f "$tmp_dir/transferbox" ]; then
-                    echo -e "\n  ${RED}✗ Ошибка: Архив имеет неожиданную структуру (файл transferbox не найден).${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка: Архив имеет неожиданную структуру (файл transferbox не найден).${RESET}"
                     # Восстанавливаем бэкапы
                     rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                     rm -rf "$tmp_dir"
@@ -2004,9 +2009,9 @@ update_panel_menu() {
                     return 0
                 fi
                 
-                echo -e "  [*] Проверка целостности и синтаксиса файлов..."
+                center_print "${DIM}[*] Проверка целостности и синтаксиса файлов...${RESET}"
                 if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py"; then
-                    echo -e "  [*] Установка обновлений..."
+                    center_print "${DIM}[*] Установка обновлений...${RESET}"
                     
                     # Создаем бэкап папки core на всякий случай
                     cp -r "$PROJECT_ROOT/core" "$PROJECT_ROOT/core.bak" 2>/dev/null || true
@@ -2016,7 +2021,7 @@ update_panel_menu() {
                     cp "$tmp_dir/transferbox" /usr/local/bin/menu
                     chmod +x /usr/local/bin/menu
                     
-                    echo -e "  [*] Запуск миграций и валидация конфигураций..."
+                    center_print "${DIM}[*] Запуск миграций и валидация конфигураций...${RESET}"
                     local migration_res
                     migration_res=$(python3 -c "
 from core.config_manager import run_migrations, render_configs, validate_and_restart
@@ -2027,8 +2032,9 @@ print('SUCCESS' if success else 'ERROR:' + msg)
 " 2>&1)
                     
                     if [[ "$migration_res" == "SUCCESS" ]]; then
-                        echo -e "\n  ${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
-                        echo -e "  Панель управления будет перезапущена..."
+                        echo ""
+                        center_print "${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
+                        center_print "Панель управления будет перезапущена..."
                         # Очищаем бэкапы при успехе
                         rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                         rm -rf "$PROJECT_ROOT/core.bak"
@@ -2037,9 +2043,11 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         pause
                         exec /usr/local/bin/menu
                     else
-                        echo -e "\n  ${RED}✗ Ошибка применения конфигураций после обновления:${RESET}"
-                        echo -e "  ${migration_res#ERROR:}"
-                        echo -e "\n  [*] Восстановление данных из резервной копии..."
+                        echo ""
+                        center_print "${RED}✗ Ошибка применения конфигураций после обновления:${RESET}"
+                        center_print "  ${migration_res#ERROR:}"
+                        echo ""
+                        center_print "${DIM}[*] Восстановление данных из резервной копии...${RESET}"
                         # Восстанавливаем резервные копии
                         [ -f "${PROJECT_ROOT}/users.json.bak" ] && mv "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/users.json"
                         [ -f "${PROJECT_ROOT}/instance.env.bak" ] && mv "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/instance.env"
@@ -2055,14 +2063,16 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         pause
                     fi
                 else
-                    echo -e "\n  ${RED}✗ Ошибка проверки целостности загруженных файлов (синтаксический сбой).${RESET}"
+                    echo ""
+                    center_print "${RED}✗ Ошибка проверки целостности загруженных файлов (синтаксический сбой).${RESET}"
                     # Восстанавливаем бэкапы
                     rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                     rm -rf "$tmp_dir"
                     pause
                 fi
             else
-                echo -e "\n  ${RED}✗ Ошибка скачивания или распаковки архива версии v$latest.${RESET}"
+                echo ""
+                center_print "${RED}✗ Ошибка скачивания или распаковки архива версии v$latest.${RESET}"
                 # Восстанавливаем бэкапы
                 rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                 rm -rf "$tmp_dir"
