@@ -108,7 +108,7 @@ print_header() {
     
     # Если это заголовок главного меню (содержит версию), мы можем добавить плашку обновления
     if [[ "$title" == "TransferBox v. "* ]]; then
-        local tmp_file="/tmp/tb_latest_version.txt"
+        local tmp_file="${PROJECT_ROOT}/.tb_update_cache"
         if [ -f "$tmp_file" ]; then
             local latest
             latest=$(cat "$tmp_file" 2>/dev/null || echo "")
@@ -356,10 +356,33 @@ select_menu() {
     done
 }
 
+# Запуск асинхронной проверки обновлений в фоне
+check_updates_async() {
+    local tmp_file="${PROJECT_ROOT}/.tb_update_cache"
+    # Удаляем старый файл перед новой фоновой проверкой
+    rm -f "$tmp_file"
+    (
+        # Дадим меню спокойно отрисоваться на экране
+        sleep 0.5
+        set +euo pipefail
+        local latest
+        latest=$(curl -s --connect-timeout 2 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox | grep -E "^VERSION=" | head -n1 | cut -d'"' -f2)
+        if [ -n "$latest" ]; then
+            echo "$latest" > "$tmp_file"
+        fi
+    ) &>/dev/null &
+}
+
 # ─── ГЛАВНОЕ МЕНЮ ────────────────────────────────────────────────────────────
 
 main_menu() {
     while true; do
+        # Проверяем кэш обновлений при входе в главное меню (раз в 1 час)
+        if [ ! -f "${PROJECT_ROOT}/.tb_update_cache" ] || \
+           [ $(( $(date +%s) - $(stat -c %Y "${PROJECT_ROOT}/.tb_update_cache" 2>/dev/null || echo 0) )) -gt 3600 ]; then
+            check_updates_async
+        fi
+
         local options=(
             "Пользователи"
             "Настройки"
@@ -1899,9 +1922,10 @@ update_panel_menu() {
             print_header "Настройки → Обновление панели" "false"
             echo -e "  [*] Создание резервной копии данных..."
             
-            # Делаем бэкап данных
+            # Делаем бэкап данных и кода самой панели
             cp "${PROJECT_ROOT}/users.json" "${PROJECT_ROOT}/users.json.bak" 2>/dev/null || true
             cp "${PROJECT_ROOT}/instance.env" "${PROJECT_ROOT}/instance.env.bak" 2>/dev/null || true
+            cp "${PROJECT_ROOT}/transferbox" "${PROJECT_ROOT}/transferbox.bak" 2>/dev/null || true
             
             echo -e "  [*] Загрузка архива версии v$latest..."
             local tmp_dir
@@ -1909,6 +1933,16 @@ update_panel_menu() {
             
             if wget -qO "$tmp_dir/tb.tar.gz" "https://github.com/denash-git/TransferBox/archive/refs/tags/v${latest}.tar.gz" && \
                tar -xzf "$tmp_dir/tb.tar.gz" -C "$tmp_dir" --strip-components=1; then
+                
+                # Проверка структуры распакованного архива
+                if [ ! -f "$tmp_dir/transferbox" ]; then
+                    echo -e "\n  ${RED}✗ Ошибка: Архив имеет неожиданную структуру (файл transferbox не найден).${RESET}"
+                    # Восстанавливаем бэкапы
+                    rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
+                    rm -rf "$tmp_dir"
+                    pause
+                    return 0
+                fi
                 
                 echo -e "  [*] Проверка целостности и синтаксиса файлов..."
                 if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py"; then
@@ -1936,8 +1970,9 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         echo -e "\n  ${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
                         echo -e "  Панель управления будет перезапущена..."
                         # Очищаем бэкапы при успехе
-                        rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
+                        rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                         rm -rf "$PROJECT_ROOT/core.bak"
+                        rm -f "${PROJECT_ROOT}/.tb_update_cache"
                         rm -rf "$tmp_dir"
                         pause
                         exec /usr/local/bin/menu
@@ -1948,6 +1983,10 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         # Восстанавливаем резервные копии
                         [ -f "${PROJECT_ROOT}/users.json.bak" ] && mv "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/users.json"
                         [ -f "${PROJECT_ROOT}/instance.env.bak" ] && mv "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/instance.env"
+                        if [ -f "${PROJECT_ROOT}/transferbox.bak" ]; then
+                            mv "${PROJECT_ROOT}/transferbox.bak" "${PROJECT_ROOT}/transferbox"
+                            cp "${PROJECT_ROOT}/transferbox" /usr/local/bin/menu
+                        fi
                         if [ -d "$PROJECT_ROOT/core.bak" ]; then
                             rm -rf "$PROJECT_ROOT/core"
                             mv "$PROJECT_ROOT/core.bak" "$PROJECT_ROOT/core"
@@ -1958,14 +1997,14 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                 else
                     echo -e "\n  ${RED}✗ Ошибка проверки целостности загруженных файлов (синтаксический сбой).${RESET}"
                     # Восстанавливаем бэкапы
-                    rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
+                    rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                     rm -rf "$tmp_dir"
                     pause
                 fi
             else
                 echo -e "\n  ${RED}✗ Ошибка скачивания или распаковки архива версии v$latest.${RESET}"
                 # Восстанавливаем бэкапы
-                rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
+                rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
                 rm -rf "$tmp_dir"
                 pause
             fi
@@ -2936,25 +2975,6 @@ system_monitor_menu() {
     done
 }
 
-
-# Запуск асинхронной проверки обновлений в фоне
-check_updates_async() {
-    local tmp_file="/tmp/tb_latest_version.txt"
-    # Удаляем старый файл перед новой фоновой проверкой
-    rm -f "$tmp_file"
-    (
-        # Дадим меню спокойно отрисоваться на экране
-        sleep 0.5
-        set +euo pipefail
-        local latest
-        latest=$(curl -s --connect-timeout 2 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox | grep -E "^VERSION=" | head -n1 | cut -d'"' -f2)
-        if [ -n "$latest" ]; then
-            echo "$latest" > "$tmp_file"
-        fi
-    ) &>/dev/null &
-}
-
-check_updates_async
 
 # Запуск главного меню
 main_menu
