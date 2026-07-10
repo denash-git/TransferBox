@@ -96,6 +96,43 @@ def save_users(users):
             pass
 
 
+def run_migrations():
+    """
+    Checks the schema of users.json and migrates it to the current schema.
+    Current schema version: 2 (which is the current list format).
+    Future versions might wrap users in a dict or add new required fields to user objects.
+    """
+    users_file = USERS_DB
+    if not os.path.exists(users_file):
+        return
+
+    try:
+        with open(users_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"[WARNING] Не удалось прочитать users.json для миграции: {e}", file=sys.stderr)
+        return
+
+    migrated = False
+    
+    # Migration 1: Ensure all users have all required fields for version 2
+    if isinstance(data, list):
+        for u in data:
+            if "enabled" not in u:
+                u["enabled"] = True
+                migrated = True
+            if "sub_token" not in u:
+                u["sub_token"] = secrets.token_hex(8)
+                migrated = True
+            if "credentials" not in u:
+                u["credentials"] = {}
+                migrated = True
+                
+        if migrated:
+            save_users(data)
+            print("[INFO] База данных успешно мигрирована на актуальную схему.")
+
+
 def build_client_link(user_obj, env=None):
     if env is None:
         env = load_env()

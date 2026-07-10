@@ -1827,6 +1827,80 @@ if user:
 
 # ─── НАСТРОЙКИ ───────────────────────────────────────────────────────────────
 
+update_panel_menu() {
+    clear_screen
+    print_header "Настройки → Обновление панели" "false"
+    echo -e "  [*] Проверка обновлений на GitHub..."
+    
+    local latest
+    latest=$(curl -fsSL --connect-timeout 5 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox | grep -E "^VERSION=" | head -n1 | cut -d'"' -f2 || echo "")
+    
+    if [ -z "$latest" ]; then
+        echo -e "\n  ${RED}✗ Не удалось подключиться к GitHub для проверки обновлений.${RESET}"
+        pause
+        return 0
+    fi
+    
+    echo -e "  • Текущая версия: ${CYAN}${VERSION}${RESET}"
+    echo -e "  • Свежая версия:  ${CYAN}${latest}${RESET}"
+    
+    if [ "$latest" == "$VERSION" ]; then
+        echo -e "\n  ${GREEN}✓ У вас установлена актуальная версия панели.${RESET}"
+        pause
+        return 0
+    fi
+    
+    if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
+        echo ""
+        local confirm
+        read_prompt "Доступно обновление до версии $latest. Обновить панель? [y/N]: " confirm
+        if [[ "$confirm" =~ ^[yYдД]$ ]]; then
+            clear_screen
+            print_header "Настройки → Обновление панели" "false"
+            echo -e "  [*] Загрузка новой версии проекта..."
+            
+            local tmp_dir
+            tmp_dir=$(mktemp -d)
+            
+            if git clone -q https://github.com/denash-git/TransferBox.git "$tmp_dir"; then
+                echo -e "  [*] Проверка целостности и синтаксиса файлов..."
+                if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py"; then
+                    echo -e "  [*] Копирование файлов..."
+                    cp -r "$tmp_dir/core" "$tmp_dir/templates" "$tmp_dir/lib" "$PROJECT_ROOT/"
+                    cp "$tmp_dir/transferbox" "$PROJECT_ROOT/"
+                    cp "$tmp_dir/transferbox" /usr/local/bin/menu
+                    chmod +x /usr/local/bin/menu
+                    
+                    echo -e "  [*] Проверка и запуск миграций базы данных..."
+                    python3 -c "
+from core.config_manager import run_migrations, render_configs, validate_and_restart
+run_migrations()
+render_configs()
+validate_and_restart()
+"
+                    
+                    echo -e "\n  ${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
+                    echo -e "  Панель управления будет перезапущена..."
+                    rm -rf "$tmp_dir"
+                    pause
+                    exec /usr/local/bin/menu
+                else
+                    echo -e "\n  ${RED}✗ Ошибка проверки целостности загруженных файлов (синтаксический сбой).${RESET}"
+                    rm -rf "$tmp_dir"
+                    pause
+                fi
+            else
+                echo -e "\n  ${RED}✗ Ошибка скачивания файлов из репозитория.${RESET}"
+                rm -rf "$tmp_dir"
+                pause
+            fi
+        fi
+    else
+        echo -e "\n  ${YELLOW}⚠️ Ваша версия ($VERSION) новее, чем версия в репозитории ($latest).${RESET}"
+        pause
+    fi
+}
+
 settings_menu() {
     while true; do
         if [ -f "${PROJECT_ROOT}/instance.env" ]; then
@@ -1878,7 +1952,10 @@ settings_menu() {
         else
             options+=("Включить BBR оптимизацию")
         fi
-        options+=("Назад")
+        options+=(
+            "Проверить обновления панели"
+            "Назад"
+        )
         
         select_menu SELECTED_INDEX "Настройки" "${options[@]}"
         local choice=$SELECTED_INDEX
@@ -1899,6 +1976,8 @@ settings_menu() {
             change_vless_paths_menu
         elif [ "$clean_sel" == "Изменить порт SSH" ]; then
             change_ssh_port_menu
+        elif [ "$clean_sel" == "Проверить обновления панели" ]; then
+            update_panel_menu
         elif [ "$clean_sel" == "Включить BBR оптимизацию" ] || [ "$clean_sel" == "Отключить BBR оптимизацию" ]; then
             clear_screen
             print_header "Настройки → BBR Оптимизация"
