@@ -103,29 +103,93 @@ get_service_status() {
     fi
 }
 
-print_header() {
-    local title="$1"
-    
-    # Если это заголовок главного меню (содержит версию), мы можем добавить плашку обновления
-    if [[ "$title" == "TransferBox v. "* ]]; then
-        local tmp_file="${PROJECT_ROOT}/.tb_update_cache"
-        if [ -f "$tmp_file" ]; then
-            local latest
-            latest=$(cat "$tmp_file" 2>/dev/null || echo "")
-            if [ -n "$latest" ] && [ "$latest" != "$VERSION" ]; then
-                if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
-                    title="${title} ${GREEN}[↑ update v$latest]${RESET}"
-                fi
+
+UPDATE_BADGE=""
+HEADER_DOMAIN=""
+HEADER_FQDN=""
+HEADER_BBR_DOT=""
+HEADER_BBR_DOT_RAW=""
+HEADER_STATUS_CADDY=""
+HEADER_STATUS_CAD_RAW=""
+HEADER_STATUS_SINGBOX=""
+HEADER_STATUS_SB_RAW=""
+HEADER_SHOW_MIERU=false
+HEADER_STATUS_MITA=""
+HEADER_STATUS_MITA_RAW=""
+HEADER_SHOW_NETBIRD=false
+HEADER_STATUS_NETBIRD=""
+HEADER_STATUS_NB_RAW=""
+
+load_update_badge() {
+    local cache_file="${PROJECT_ROOT}/.tb_update_cache"
+    if [ -f "$cache_file" ]; then
+        local latest=""
+        read -r latest < "$cache_file" 2>/dev/null || latest=""
+        if [ -n "$latest" ] && [ "$latest" != "$VERSION" ]; then
+            if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
+                UPDATE_BADGE="${GREEN}[↑ update v$latest]${RESET}"
+                return
             fi
         fi
     fi
-    
-    local show_status="${2:-false}"
+    UPDATE_BADGE=""
+}
+
+refresh_system_status() {
     local domain="не задан"
     if [ -f "${PROJECT_ROOT}/instance.env" ]; then
-        domain=$(grep -E "^DOMAIN=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2-)
+        domain=$(grep -E "^DOMAIN=" ${PROJECT_ROOT}/instance.env | cut -d'=' -f2- | tr -d '\r')
     fi
     [ -z "$domain" ] && domain="не задан"
+    HEADER_DOMAIN="$domain"
+    
+    HEADER_FQDN=$(hostname -f 2>/dev/null || hostname)
+    
+    if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+        HEADER_BBR_DOT="${GREEN}● активен${RESET}"
+        HEADER_BBR_DOT_RAW="● активен"
+    else
+        HEADER_BBR_DOT="${RED}● отключен${RESET}"
+        HEADER_BBR_DOT_RAW="● отключен"
+    fi
+    
+    local caddy_val
+    caddy_val=$(get_service_status caddy)
+    HEADER_STATUS_CADDY="$caddy_val"
+    HEADER_STATUS_CAD_RAW=$(echo "$caddy_val" | sed 's/\x1b\[[0-9;]*m//g')
+    
+    local sb_val
+    sb_val=$(get_service_status sing-box)
+    HEADER_STATUS_SINGBOX="$sb_val"
+    HEADER_STATUS_SB_RAW=$(echo "$sb_val" | sed 's/\x1b\[[0-9;]*m//g')
+    
+    HEADER_SHOW_MIERU=false
+    if [ -f "/usr/bin/mita" ]; then
+        HEADER_SHOW_MIERU=true
+        local mita_val
+        mita_val=$(get_service_status mita)
+        HEADER_STATUS_MITA="$mita_val"
+        HEADER_STATUS_MITA_RAW=$(echo "$mita_val" | sed 's/\x1b\[[0-9;]*m//g')
+    fi
+    
+    HEADER_SHOW_NETBIRD=false
+    if command -v netbird &>/dev/null; then
+        HEADER_SHOW_NETBIRD=true
+        local nb_val
+        nb_val=$(get_netbird_status)
+        HEADER_STATUS_NETBIRD="$nb_val"
+        HEADER_STATUS_NB_RAW=$(echo "$nb_val" | sed 's/\x1b\[[0-9;]*m//g')
+    fi
+}
+
+print_header() {
+    local title="$1"
+    
+    if [[ "$title" == "TransferBox v. "* ]] && [ -n "${UPDATE_BADGE:-}" ]; then
+        title="${title} ${UPDATE_BADGE}"
+    fi
+    
+    local show_status="${2:-false}"
     
     local line_double
     line_double=$(printf "═%.0s" {1..60})
@@ -134,22 +198,14 @@ print_header() {
     
     center_print "${BLUE}${line_double}${RESET}"
     center_print "${YELLOW}${title}${RESET}"
+    
     if [ "$show_status" == "true" ]; then
-        # Вычисляем максимальную длину для красивого выравнивания в столбик
-        local vps_fqdn
-        vps_fqdn=$(hostname -f 2>/dev/null || hostname)
-        
-        local bbr_dot="${RED}● отключен${RESET}"
-        local bbr_dot_raw="● отключен"
-        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-            bbr_dot="${GREEN}● активен${RESET}"
-            bbr_dot_raw="● активен"
-        fi
-        
-        local status_cad_raw
-        status_cad_raw=$(get_service_status caddy | sed 's/\x1b\[[0-9;]*m//g')
-        local status_sb_raw
-        status_sb_raw=$(get_service_status sing-box | sed 's/\x1b\[[0-9;]*m//g')
+        local domain="${HEADER_DOMAIN:-не задан}"
+        local vps_fqdn="${HEADER_FQDN:-}"
+        local bbr_dot="${HEADER_BBR_DOT:-}"
+        local bbr_dot_raw="${HEADER_BBR_DOT_RAW:-}"
+        local status_cad_raw="${HEADER_STATUS_CAD_RAW:-}"
+        local status_sb_raw="${HEADER_STATUS_SB_RAW:-}"
         
         local len_dom=$(( 14 + ${#domain} ))
         local len_fqdn=$(( 14 + ${#vps_fqdn} ))
@@ -163,20 +219,16 @@ print_header() {
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
         [ $len_bbr -gt $max_block_len ] && max_block_len=$len_bbr
         
-        local show_mieru=false
-        if [ -f "/usr/bin/mita" ]; then
-            show_mieru=true
-            local status_mita_raw
-            status_mita_raw=$(get_service_status mita | sed 's/\x1b\[[0-9;]*m//g')
+        local show_mieru="${HEADER_SHOW_MIERU:-false}"
+        if [ "$show_mieru" == "true" ]; then
+            local status_mita_raw="${HEADER_STATUS_MITA_RAW:-}"
             local len_mita=$(( 14 + ${#status_mita_raw} ))
             [ $len_mita -gt $max_block_len ] && max_block_len=$len_mita
         fi
         
-        local show_netbird=false
-        if command -v netbird &>/dev/null; then
-            show_netbird=true
-            local status_nb_raw
-            status_nb_raw=$(get_netbird_status | sed 's/\x1b\[[0-9;]*m//g')
+        local show_netbird="${HEADER_SHOW_NETBIRD:-false}"
+        if [ "$show_netbird" == "true" ]; then
+            local status_nb_raw="${HEADER_STATUS_NB_RAW:-}"
             local len_nb=$(( 14 + ${#status_nb_raw} ))
             [ $len_nb -gt $max_block_len ] && max_block_len=$len_nb
         fi
@@ -192,16 +244,18 @@ print_header() {
         echo -e "${pad_spaces}Домен:        ${BOLD}${domain}${RESET}"
         echo -e "${pad_spaces}FQDN VPS:     ${BOLD}${vps_fqdn}${RESET}"
     fi
+    
     center_print "${BLUE}${line_single}${RESET}"
+    
     if [ "$show_status" == "true" ]; then
         echo -e "${pad_spaces}TCP BBR:      $bbr_dot"
-        echo -e "${pad_spaces}Caddy:        $(get_service_status caddy)"
-        echo -e "${pad_spaces}sing-box:     $(get_service_status sing-box)"
+        echo -e "${pad_spaces}Caddy:        ${HEADER_STATUS_CADDY:-}"
+        echo -e "${pad_spaces}sing-box:     ${HEADER_STATUS_SINGBOX:-}"
         if [ "$show_mieru" == "true" ]; then
-            echo -e "${pad_spaces}Mieru:        $(get_service_status mita)"
+            echo -e "${pad_spaces}Mieru:        ${HEADER_STATUS_MITA:-}"
         fi
         if [ "$show_netbird" == "true" ]; then
-            echo -e "${pad_spaces}NetBird:      $(get_netbird_status)"
+            echo -e "${pad_spaces}NetBird:      ${HEADER_STATUS_NETBIRD:-}"
         fi
         center_print "${BLUE}${line_double}${RESET}"
     fi
@@ -377,11 +431,14 @@ check_updates_async() {
 
 main_menu() {
     while true; do
+        # Обновляем статусы служб при каждом возврате в главное меню
+        refresh_system_status
         # Проверяем кэш обновлений при входе в главное меню (раз в 1 час)
         if [ ! -f "${PROJECT_ROOT}/.tb_update_cache" ] || \
            [ $(( $(date +%s) - $(stat -c %Y "${PROJECT_ROOT}/.tb_update_cache" 2>/dev/null || echo 0) )) -gt 3600 ]; then
             check_updates_async
         fi
+        load_update_badge
 
         local options=(
             "Пользователи"
