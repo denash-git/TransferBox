@@ -1882,40 +1882,75 @@ update_panel_menu() {
         if [[ "$confirm" =~ ^[yYдД]$ ]]; then
             clear_screen
             print_header "Настройки → Обновление панели" "false"
-            echo -e "  [*] Загрузка новой версии проекта..."
+            echo -e "  [*] Создание резервной копии данных..."
             
+            # Делаем бэкап данных
+            cp "${PROJECT_ROOT}/users.json" "${PROJECT_ROOT}/users.json.bak" 2>/dev/null || true
+            cp "${PROJECT_ROOT}/instance.env" "${PROJECT_ROOT}/instance.env.bak" 2>/dev/null || true
+            
+            echo -e "  [*] Загрузка архива версии v$latest..."
             local tmp_dir
             tmp_dir=$(mktemp -d)
             
-            if git clone -q https://github.com/denash-git/TransferBox.git "$tmp_dir"; then
+            if wget -qO "$tmp_dir/tb.tar.gz" "https://github.com/denash-git/TransferBox/archive/refs/tags/v${latest}.tar.gz" && \
+               tar -xzf "$tmp_dir/tb.tar.gz" -C "$tmp_dir" --strip-components=1; then
+                
                 echo -e "  [*] Проверка целостности и синтаксиса файлов..."
                 if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py"; then
-                    echo -e "  [*] Копирование файлов..."
+                    echo -e "  [*] Установка обновлений..."
+                    
+                    # Создаем бэкап папки core на всякий случай
+                    cp -r "$PROJECT_ROOT/core" "$PROJECT_ROOT/core.bak" 2>/dev/null || true
+                    
                     cp -r "$tmp_dir/core" "$tmp_dir/templates" "$tmp_dir/lib" "$PROJECT_ROOT/"
                     cp "$tmp_dir/transferbox" "$PROJECT_ROOT/"
                     cp "$tmp_dir/transferbox" /usr/local/bin/menu
                     chmod +x /usr/local/bin/menu
                     
-                    echo -e "  [*] Проверка и запуск миграций базы данных..."
-                    python3 -c "
+                    echo -e "  [*] Запуск миграций и валидация конфигураций..."
+                    local migration_res
+                    migration_res=$(python3 -c "
 from core.config_manager import run_migrations, render_configs, validate_and_restart
 run_migrations()
 render_configs()
-validate_and_restart()
-"
+success, msg = validate_and_restart()
+print('SUCCESS' if success else 'ERROR:' + msg)
+" 2>&1)
                     
-                    echo -e "\n  ${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
-                    echo -e "  Панель управления будет перезапущена..."
-                    rm -rf "$tmp_dir"
-                    pause
-                    exec /usr/local/bin/menu
+                    if [[ "$migration_res" == "SUCCESS" ]]; then
+                        echo -e "\n  ${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
+                        echo -e "  Панель управления будет перезапущена..."
+                        # Очищаем бэкапы при успехе
+                        rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
+                        rm -rf "$PROJECT_ROOT/core.bak"
+                        rm -rf "$tmp_dir"
+                        pause
+                        exec /usr/local/bin/menu
+                    else
+                        echo -e "\n  ${RED}✗ Ошибка применения конфигураций после обновления:${RESET}"
+                        echo -e "  ${migration_res#ERROR:}"
+                        echo -e "\n  [*] Восстановление данных из резервной копии..."
+                        # Восстанавливаем резервные копии
+                        [ -f "${PROJECT_ROOT}/users.json.bak" ] && mv "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/users.json"
+                        [ -f "${PROJECT_ROOT}/instance.env.bak" ] && mv "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/instance.env"
+                        if [ -d "$PROJECT_ROOT/core.bak" ]; then
+                            rm -rf "$PROJECT_ROOT/core"
+                            mv "$PROJECT_ROOT/core.bak" "$PROJECT_ROOT/core"
+                        fi
+                        rm -rf "$tmp_dir"
+                        pause
+                    fi
                 else
                     echo -e "\n  ${RED}✗ Ошибка проверки целостности загруженных файлов (синтаксический сбой).${RESET}"
+                    # Восстанавливаем бэкапы
+                    rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
                     rm -rf "$tmp_dir"
                     pause
                 fi
             else
-                echo -e "\n  ${RED}✗ Ошибка скачивания файлов из репозитория.${RESET}"
+                echo -e "\n  ${RED}✗ Ошибка скачивания или распаковки архива версии v$latest.${RESET}"
+                # Восстанавливаем бэкапы
+                rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak"
                 rm -rf "$tmp_dir"
                 pause
             fi

@@ -98,39 +98,55 @@ def save_users(users):
 
 def run_migrations():
     """
-    Checks the schema of users.json and migrates it to the current schema.
-    Current schema version: 2 (which is the current list format).
-    Future versions might wrap users in a dict or add new required fields to user objects.
+    Checks the schema version and migrates configuration files/databases.
+    SCHEMA_VERSION=2 is the baseline version 2.0.0.
     """
-    users_file = USERS_DB
-    if not os.path.exists(users_file):
-        return
-
+    env = load_env()
     try:
-        with open(users_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        print(f"[WARNING] Не удалось прочитать users.json для миграции: {e}", file=sys.stderr)
-        return
+        current_version = int(env.get("SCHEMA_VERSION", 1))
+    except ValueError:
+        current_version = 1
 
     migrated = False
-    
-    # Migration 1: Ensure all users have all required fields for version 2
-    if isinstance(data, list):
-        for u in data:
+
+    # Migration 1: v1 -> v2
+    if current_version < 2:
+        users = []
+        if os.path.exists(USERS_DB):
+            try:
+                with open(USERS_DB, "r", encoding="utf-8") as f:
+                    users = json.load(f)
+            except Exception:
+                pass
+        
+        changed = False
+        for u in users:
             if "enabled" not in u:
                 u["enabled"] = True
-                migrated = True
+                changed = True
             if "sub_token" not in u:
                 u["sub_token"] = secrets.token_hex(8)
-                migrated = True
+                changed = True
             if "credentials" not in u:
                 u["credentials"] = {}
-                migrated = True
-                
-        if migrated:
-            save_users(data)
-            print("[INFO] База данных успешно мигрирована на актуальную схему.")
+                changed = True
+        
+        if changed:
+            save_users(users)
+            
+        env["SCHEMA_VERSION"] = "2"
+        save_env(env)
+        migrated = True
+
+    # Future migrations can go here:
+    # if current_version < 3:
+    #     ...
+    #     env["SCHEMA_VERSION"] = "3"
+    #     save_env(env)
+    #     migrated = True
+
+    if migrated:
+        print(f"[INFO] Успешно завершена миграция до версии схемы {env.get('SCHEMA_VERSION')}.")
 
 
 def build_client_link(user_obj, env=None):
