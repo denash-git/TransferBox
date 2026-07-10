@@ -105,6 +105,21 @@ get_service_status() {
 
 print_header() {
     local title="$1"
+    
+    # Если это заголовок главного меню (содержит версию), мы можем добавить плашку обновления
+    if [[ "$title" == "TransferBox v. "* ]]; then
+        local tmp_file="/tmp/tb_latest_version.txt"
+        if [ -f "$tmp_file" ]; then
+            local latest
+            latest=$(cat "$tmp_file" 2>/dev/null || echo "")
+            if [ -n "$latest" ] && [ "$latest" != "$VERSION" ]; then
+                if [ "$(printf '%s\n' "$VERSION" "$latest" | sort -V | head -n 1)" == "$VERSION" ]; then
+                    title="${title} ${GREEN}[↑ update v$latest]${RESET}"
+                fi
+            fi
+        fi
+    fi
+    
     local show_status="${2:-false}"
     local domain="не задан"
     if [ -f "${PROJECT_ROOT}/instance.env" ]; then
@@ -215,7 +230,7 @@ select_menu() {
         
         # Определим, показывать ли статус на основе заголовка
         local show_status="false"
-        if [ "$title" == "TransferBox — Панель Управления" ]; then
+        if [ "$title" == "TransferBox v. ${VERSION}" ]; then
             show_status="true"
         fi
         
@@ -353,7 +368,7 @@ main_menu() {
             "Бэкап и Восстановление"
             "Выход"
         )
-        select_menu SELECTED_INDEX "TransferBox — Панель Управления" "${options[@]}"
+        select_menu SELECTED_INDEX "TransferBox v. ${VERSION}" "${options[@]}"
         local choice=$SELECTED_INDEX
         
         if [ "$choice" -eq 0 ]; then
@@ -2921,6 +2936,25 @@ system_monitor_menu() {
     done
 }
 
+
+# Запуск асинхронной проверки обновлений в фоне
+check_updates_async() {
+    local tmp_file="/tmp/tb_latest_version.txt"
+    # Удаляем старый файл перед новой фоновой проверкой
+    rm -f "$tmp_file"
+    (
+        # Дадим меню спокойно отрисоваться на экране
+        sleep 0.5
+        set +euo pipefail
+        local latest
+        latest=$(curl -s --connect-timeout 2 https://raw.githubusercontent.com/denash-git/TransferBox/main/transferbox | grep -E "^VERSION=" | head -n1 | cut -d'"' -f2)
+        if [ -n "$latest" ]; then
+            echo "$latest" > "$tmp_file"
+        fi
+    ) &>/dev/null &
+}
+
+check_updates_async
 
 # Запуск главного меню
 main_menu
