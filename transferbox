@@ -2671,26 +2671,6 @@ except Exception as e:
                     sed -i 's/\r$//' "${PROJECT_ROOT}/instance.env"
                     source "${PROJECT_ROOT}/instance.env"
                 fi
-                
-                # Если FQDN или BBR_ENABLED отсутствуют в восстановленном instance.env (старый бэкап),
-                # мы заполняем их разумными значениями по умолчанию
-                if [ -f "${PROJECT_ROOT}/instance.env" ]; then
-                    if ! grep -q "^FQDN=" "${PROJECT_ROOT}/instance.env"; then
-                        local def_fqdn="${DOMAIN:-}"
-                        [ -z "$def_fqdn" ] && def_fqdn=$(hostname -f 2>/dev/null || hostname)
-                        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FQDN'] = '$def_fqdn'; save_env(env)"
-                        FQDN="$def_fqdn"
-                    fi
-                    if ! grep -q "^BBR_ENABLED=" "${PROJECT_ROOT}/instance.env"; then
-                        local def_bbr="false"
-                        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-                            def_bbr="true"
-                        fi
-                        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = '$def_bbr'; save_env(env)"
-                        BBR_ENABLED="$def_bbr"
-                    fi
-                fi
-                
                 # 1. Восстановление FQDN
                 local restored_fqdn="${FQDN:-}"
                 if [ -n "$restored_fqdn" ]; then
