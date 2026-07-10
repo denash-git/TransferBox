@@ -2525,11 +2525,7 @@ update_singbox_menu() {
 # ─── БЭКАП И ВОССТАНОВЛЕНИЕ ──────────────────────────────────────────────────
 
 backup_restore_menu() {
-    import_modules() { :; } # Dummy
-    import tarfile 2>/dev/null || :
-    import datetime 2>/dev/null || :
-    
-    while True; do
+    while true; do
         local options=(
             "Создать бэкап настроек"
             "Восстановить из последнего бэкапа"
