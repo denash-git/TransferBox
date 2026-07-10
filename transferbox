@@ -6,7 +6,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
-VERSION="2.0.1"
+VERSION="2.0.2"
 
 # ANSI Colors
 if [ -f "${PROJECT_ROOT}/lib/colors.sh" ]; then
@@ -2158,6 +2158,7 @@ settings_menu() {
                 if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
                     rm -f /etc/sysctl.d/99-transferbox-bbr.conf
                     sysctl --system >/dev/null 2>&1
+                    python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'false'; save_env(env)"
                     echo ""
                     center_print "${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
                 else
@@ -2175,6 +2176,7 @@ net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
                     sysctl --system >/dev/null 2>&1
+                    python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'true'; save_env(env)"
                     echo ""
                     center_print "${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
                 else
@@ -2290,6 +2292,7 @@ change_vps_fqdn_menu() {
         if [ -f /etc/hosts ]; then
             sed -i "s/\b$old_fqdn\b/$new_fqdn/g" /etc/hosts
         fi
+        python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FQDN'] = '$new_fqdn'; save_env(env)"
         echo ""
         center_print "${GREEN}✓ FQDN имя VPS успешно изменено на $new_fqdn!${RESET}"
     else
@@ -2662,10 +2665,45 @@ except Exception as e:
             if [ "$ext_res" == "SUCCESS" ]; then
                 # Восстанавливаем состояния служб и устанавливаем их при отсутствии
                 if [ -f "${PROJECT_ROOT}/instance.env" ]; then
-                    source ${PROJECT_ROOT}/instance.env
+                    sed -i 's/\r$//' "${PROJECT_ROOT}/instance.env"
+                    source "${PROJECT_ROOT}/instance.env"
                 fi
                 
-                # Восстановление Mieru
+                # 1. Восстановление FQDN
+                local restored_fqdn="${FQDN:-}"
+                if [ -n "$restored_fqdn" ]; then
+                    local old_fqdn
+                    old_fqdn=$(hostname)
+                    if [ "$old_fqdn" != "$restored_fqdn" ]; then
+                        echo -e "  [*] Восстановление FQDN имени хоста VPS ($restored_fqdn)..."
+                        if hostnamectl set-hostname "$restored_fqdn" 2>/dev/null; then
+                            if [ -f /etc/hosts ]; then
+                                sed -i "s/\b$old_fqdn\b/$restored_fqdn/g" /etc/hosts
+                            fi
+                            echo -e "  ${GREEN}✓ FQDN успешно восстановлено.${RESET}"
+                        fi
+                    fi
+                fi
+                
+                # 2. Восстановление BBR
+                local bbr_enabled="${BBR_ENABLED:-false}"
+                if [ "$bbr_enabled" == "true" ]; then
+                    if ! sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+                        echo -e "  [*] Включение BBR оптимизации из бэкапа..."
+                        if modprobe tcp_bbr 2>/dev/null; then
+                            sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+                            sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+                            cat > /etc/sysctl.d/99-transferbox-bbr.conf <<EOF
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+EOF
+                            sysctl --system >/dev/null 2>&1
+                            echo -e "  ${GREEN}✓ BBR оптимизация успешно включена.${RESET}"
+                        fi
+                    fi
+                fi
+                
+                # 3. Восстановление Mieru
                 local m_enabled="${MIERU_ENABLED:-false}"
                 if [ "$m_enabled" == "true" ]; then
                     if [ ! -f "/usr/bin/mita" ]; then
@@ -2682,7 +2720,7 @@ except Exception as e:
                     fi
                 fi
                 
-                # Восстановление NetBird
+                # 4. Восстановление NetBird
                 local nb_key="${NETBIRD_SETUP_KEY:-}"
                 if [ -n "$nb_key" ]; then
                     if ! command -v netbird &>/dev/null; then
@@ -2692,15 +2730,19 @@ except Exception as e:
                             systemctl enable --now netbird >/dev/null 2>&1 || true
                         fi
                     fi
-                    if command -v netbird &>/dev/null; then
-                        echo -e "  [*] Подключение NetBird..."
-                        local nb_url="${NETBIRD_MANAGEMENT_URL:-}"
-                        local cmd="netbird up --setup-key $nb_key"
-                        if [ -n "$nb_url" ]; then
-                            cmd="$cmd --management-url $nb_url"
-                        fi
-                        eval "$cmd" || true
-                    fi
+                    
+                    # Очищаем Setup Key из instance.env, так как он больше невалиден
+                    python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+if 'NETBIRD_SETUP_KEY' in env:
+    del env['NETBIRD_SETUP_KEY']
+    save_env(env)
+"
+                    echo ""
+                    echo -e "  ${YELLOW}⚠️  Внимание: Пакет NetBird установлен, но старый Setup Key из бэкапа недействителен.${RESET}"
+                    echo -e "     Вам потребуется ввести новый Setup Key через меню: Модули → NetBird."
+                    echo ""
                 fi
                 
                 # Восстановление sing-box
