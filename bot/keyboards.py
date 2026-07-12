@@ -36,10 +36,8 @@ def service_confirm_keyboard(service: str):
 
 def users_list_keyboard(users: list):
     keyboard = []
-    # Сгруппируем пользователей по именам (поскольку один никнейм может иметь несколько протоколов)
     unique_nicks = sorted(list(set(u.get("nickname") for u in users if u.get("nickname"))))
     
-    # Добавляем кнопки для каждого пользователя (по 2 в ряд)
     row = []
     for nick in unique_nicks:
         row.append(InlineKeyboardButton(text=f"👤 {nick}", callback_data=f"user:info:{nick}"))
@@ -54,24 +52,60 @@ def users_list_keyboard(users: list):
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-def user_info_keyboard(nick: str, is_enabled: bool):
-    toggle_text = "🔴 Выключить" if is_enabled else "🟢 Включить"
+def user_info_keyboard(nick: str, protocols: list):
+    keyboard = []
+    
+    # Кнопки для каждого протокола пользователя
+    for u in protocols:
+        proto = u.get("protocol")
+        utype = u.get("credentials", {}).get("type", "")
+        enabled = u.get("enabled", True)
+        
+        status_lbl = "🟢" if enabled else "🔴"
+        proto_lbl = f"{proto.upper()} {utype.upper()}".strip()
+        btn_text = f"• {proto_lbl} {status_lbl}"
+        
+        # Передаем пустую строку вместо None в callback_data, если тип пустой
+        callback_data = f"user:proto:manage:{nick}:{proto}:{utype if utype else 'none'}"
+        keyboard.append([InlineKeyboardButton(text=btn_text, callback_data=callback_data)])
+        
+    # Функциональные кнопки управления пользователем
+    keyboard.append([
+        InlineKeyboardButton(text="➕ Добавить протокол", callback_data=f"user:proto:add:{nick}"),
+        InlineKeyboardButton(text="🌀 Подписка", callback_data=f"user:links:{nick}")
+    ])
+    keyboard.append([InlineKeyboardButton(text="🗑️ Удалить пользователя полностью", callback_data=f"user:delete:confirm:{nick}")])
+    keyboard.append([InlineKeyboardButton(text="« К списку пользователей", callback_data="user:list")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def proto_manage_keyboard(nick: str, proto: str, utype: str, is_enabled: bool):
+    toggle_text = "🔴 Выключить протокол" if is_enabled else "🟢 Включить протокол"
     toggle_val = "0" if is_enabled else "1"
     
+    # Заменяем 'none' на пустоту для корректной передачи в callback_data
+    utype_val = utype if utype and utype != "none" else "none"
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=toggle_text, callback_data=f"user:proto:toggle:{nick}:{proto}:{utype_val}:{toggle_val}")],
+        [InlineKeyboardButton(text="🔑 Получить ссылку & QR", callback_data=f"user:proto:links:{nick}:{proto}:{utype_val}")],
+        [InlineKeyboardButton(text="🗑️ Удалить этот протокол", callback_data=f"user:proto:delete:confirm:{nick}:{proto}:{utype_val}")],
+        [InlineKeyboardButton(text="« Назад к пользователю", callback_data=f"user:info:{nick}")]
+    ])
+
+def proto_delete_confirm_keyboard(nick: str, proto: str, utype: str):
+    utype_val = utype if utype and utype != "none" else "none"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🔑 Ссылки", callback_data=f"user:links:{nick}"),
-            InlineKeyboardButton(text="📡 QR-коды", callback_data=f"user:qr:{nick}")
-        ],
-        [InlineKeyboardButton(text=toggle_text, callback_data=f"user:toggle:{nick}:{toggle_val}")],
-        [InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"user:delete:confirm:{nick}")],
-        [InlineKeyboardButton(text="« К списку пользователей", callback_data="user:list")]
+            InlineKeyboardButton(text="🗑️ Да, удалить протокол", callback_data=f"user:proto:delete:run:{nick}:{proto}:{utype_val}"),
+            InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:proto:manage:{nick}:{proto}:{utype_val}")
+        ]
     ])
 
 def user_delete_confirm_keyboard(nick: str):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🗑️ Да, удалить", callback_data=f"user:delete:run:{nick}"),
+            InlineKeyboardButton(text="🗑️ Да, удалить пользователя", callback_data=f"user:delete:run:{nick}"),
             InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:info:{nick}")
         ]
     ])
