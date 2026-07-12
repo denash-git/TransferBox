@@ -31,6 +31,8 @@ def send_alert(text: str):
         )
         with urllib.request.urlopen(req, timeout=5) as response:
             pass
+    except urllib.error.HTTPError as e:
+        print(f"[TG BOT] HTTP Error sending alert: {e.code} {e.reason} - {e.read().decode('utf-8', errors='replace')}")
     except Exception as e:
         print(f"[TG BOT] Error sending alert: {e}")
 
@@ -76,6 +78,8 @@ def send_photo(token: str, chat_id: int, photo_path: str, caption: str = ""):
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
             pass
+    except urllib.error.HTTPError as e:
+        print(f"[TG BOT] HTTP Error sending photo: {e.code} {e.reason} - {e.read().decode('utf-8', errors='replace')}")
     except Exception as e:
         print(f"[TG BOT] Error sending photo: {e}")
 
@@ -121,6 +125,8 @@ def send_user_links(chat_id: int, user_nickname: str):
         )
         with urllib.request.urlopen(req, timeout=5) as response:
             pass
+    except urllib.error.HTTPError as e:
+        print(f"[TG BOT] HTTP Error sending text links: {e.code} {e.reason} - {e.read().decode('utf-8', errors='replace')}")
     except Exception as e:
         print(f"[TG BOT] Error sending text links: {e}")
         

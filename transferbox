@@ -2179,6 +2179,8 @@ telegram_bot_menu() {
             echo -e "  Инструкция:"
             echo -e "  1. Напишите @BotFather в Telegram, отправьте /newbot и получите Токен."
             echo -e "  2. Напишите @userinfobot в Telegram и получите свой CHAT ID."
+            echo -e "  3. ${YELLOW}ОБЯЗАТЕЛЬНО найдите вашего нового бота в Telegram по имени${RESET}"
+            echo -e "     ${YELLOW}и нажмите кнопку Запустить (/start), иначе сообщения не придут!${RESET}"
             echo ""
             
             local input_token
