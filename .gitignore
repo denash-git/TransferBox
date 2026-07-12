@@ -9,3 +9,7 @@ instance.env
 .tb_update_cache
 backups/
 sub/
+.service_states
+.update_notified
+bot/__pycache__/
+bot/handlers/__pycache__/

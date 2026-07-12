@@ -1740,6 +1740,17 @@ if user:
             echo -e "\n  QR-код:"
             qrencode -t ANSIUTF8 "$link" 2>/dev/null || echo -e "  [qrencode не установлен на сервере]"
         fi
+        if [ "${TG_BOT_ENABLED:-false}" == "true" ] && [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "${TG_CHAT_ID:-}" ]; then
+            echo ""
+            local send_tg
+            read_prompt "Отправить ссылки и QR-коды в Telegram? [y/N]: " send_tg
+            if [[ "$send_tg" =~ ^[yYдД]$ ]]; then
+                echo -e "  [*] Отправка сообщения в Telegram..."
+                python3 -c "from bot.alerts import send_user_links; send_user_links($TG_CHAT_ID, '$nick')" >/dev/null 2>&1
+                echo -e "  ${GREEN}✓ Отправлено!${RESET}"
+                sleep 1
+            fi
+        fi
         pause
     else
         echo -e "\n  ${RED}✗ Ошибка добавления протокола: $create_res${RESET}"
@@ -1918,6 +1929,17 @@ if user:
                 break
             fi
         done
+        if [ "${TG_BOT_ENABLED:-false}" == "true" ] && [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "${TG_CHAT_ID:-}" ]; then
+            echo ""
+            local send_tg
+            read_prompt "Отправить ссылки и QR-коды в Telegram? [y/N]: " send_tg
+            if [[ "$send_tg" =~ ^[yYдД]$ ]]; then
+                echo -e "  [*] Отправка сообщения в Telegram..."
+                python3 -c "from bot.alerts import send_user_links; send_user_links($TG_CHAT_ID, '$nick')" >/dev/null 2>&1
+                echo -e "  ${GREEN}✓ Отправлено!${RESET}"
+                sleep 1
+            fi
+        fi
     else
         echo -e "\n  ${RED}✗ Ошибка создания пользователя: $create_res${RESET}"
         pause
@@ -2085,6 +2107,228 @@ print('SUCCESS' if success else 'ERROR:' + msg)
     fi
 }
 
+telegram_bot_menu() {
+    while true; do
+        if [ -f "${PROJECT_ROOT}/instance.env" ]; then
+            source ${PROJECT_ROOT}/instance.env
+        fi
+        
+        local bot_enabled="${TG_BOT_ENABLED:-false}"
+        local alerts_enabled="${TG_ALERTS_ENABLED:-false}"
+        
+        local token_str="не настроен"
+        if [ -n "${TG_BOT_TOKEN:-}" ]; then
+            token_str="настроен (******)"
+        fi
+        
+        local chat_str="не настроен"
+        if [ -n "${TG_CHAT_ID:-}" ]; then
+            chat_str="${TG_CHAT_ID}"
+        fi
+        
+        local running_status="выключен"
+        if [ "$bot_enabled" == "true" ]; then
+            if systemctl is-active --quiet transferbox-bot 2>/dev/null; then
+                running_status="${GREEN}активен${RESET}"
+            else
+                running_status="${RED}остановлен (ошибка службы)${RESET}"
+            fi
+        fi
+        
+        clear_screen
+        print_header "Настройки → Telegram-бот"
+        echo -e "  Текущий статус:"
+        echo -e "  • Токен бота:  $token_str"
+        echo -e "  • Chat ID:     $chat_str"
+        echo -e "  • Статус бота: $running_status"
+        echo -e "  • Оповещения:  $([ "$alerts_enabled" == "true" ] && echo -e "${GREEN}включены${RESET}" || echo -e "${RED}выключены${RESET}")"
+        draw_line "─" "$BLUE"
+        
+        local options=(
+            "Настроить Токен и Chat ID"
+        )
+        if [ "$bot_enabled" == "true" ]; then
+            options+=("Отключить Telegram-бот")
+        else
+            options+=("Включить Telegram-бот")
+        fi
+        
+        if [ "$alerts_enabled" == "true" ]; then
+            options+=("Отключить оповещения")
+        else
+            options+=("Включить оповещения")
+        fi
+        
+        options+=(
+            "Проверить отправку сообщений"
+            "Назад"
+        )
+        
+        select_menu SELECTED_INDEX "Настройки → Telegram-бот" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Настроить Токен и Chat ID" ]; then
+            clear_screen
+            print_header "Настройки → Telegram-бот → Настройка"
+            echo -e "  Инструкция:"
+            echo -e "  1. Напишите @BotFather в Telegram, отправьте /newbot и получите Токен."
+            echo -e "  2. Напишите @userinfobot в Telegram и получите свой CHAT ID."
+            echo ""
+            
+            local input_token
+            read_prompt "Введите Токен бота: " input_token
+            [ -z "$input_token" ] && continue
+            
+            local input_chat
+            read_prompt "Введите Chat ID: " input_chat
+            [ -z "$input_chat" ] && continue
+            
+            # Сохраняем настройки
+            python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+env['TG_BOT_TOKEN'] = '$input_token'
+env['TG_CHAT_ID'] = '$input_chat'
+save_env(env)
+"
+            echo ""
+            center_print "${GREEN}✓ Настройки успешно сохранены!${RESET}"
+            pause
+            
+            # Перезапуск бота если он был активен
+            if [ "$bot_enabled" == "true" ]; then
+                systemctl restart transferbox-bot 2>/dev/null || true
+            fi
+            
+        elif [ "$clean_sel" == "Включить Telegram-бот" ]; then
+            clear_screen
+            print_header "Настройки → Telegram-бот → Включение"
+            if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
+                echo ""
+                center_print "${RED}✗ Ошибка: Сначала настройте Токен и Chat ID!${RESET}"
+                pause
+                continue
+            fi
+            
+            echo ""
+            center_print "${DIM}[*] Установка необходимых библиотек Python...${RESET}"
+            pip3 install aiogram psutil --break-system-packages >/dev/null 2>&1
+            
+            echo ""
+            center_print "${DIM}[*] Создание службы systemd...${RESET}"
+            cat > /etc/systemd/system/transferbox-bot.service <<EOF
+[Unit]
+Description=TransferBox Telegram Bot
+After=network-online.target
+
+[Service]
+User=root
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/usr/bin/python3 ${PROJECT_ROOT}/bot/main.py
+Environment=PYTHONPATH=${PROJECT_ROOT}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+            
+            echo ""
+            center_print "${DIM}[*] Запуск и активация службы...${RESET}"
+            systemctl daemon-reload >/dev/null 2>&1
+            systemctl enable transferbox-bot >/dev/null 2>&1
+            systemctl restart transferbox-bot >/dev/null 2>&1
+            
+            echo ""
+            center_print "${DIM}[*] Установка расписания Cron для алертов...${RESET}"
+            cat > /etc/cron.d/transferbox-bot <<EOF
+*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
+0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
+EOF
+            
+            python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+env['TG_BOT_ENABLED'] = 'true'
+env['TG_ALERTS_ENABLED'] = 'true'
+save_env(env)
+"
+            # Даем боту запуститься
+            sleep 2
+            
+            echo ""
+            center_print "${DIM}[*] Отправка тестового оповещения...${RESET}"
+            if python3 -c "from bot.alerts import send_alert; send_alert('🤖 <b>Бот TransferBox успешно запущен!</b>\nПанель управления теперь доступна в Telegram.')" >/dev/null 2>&1; then
+                echo ""
+                center_print "${GREEN}✓ Бот успешно запущен! Тестовое сообщение отправлено.${RESET}"
+            else
+                echo ""
+                center_print "${YELLOW}⚠️ Бот включен, но не удалось отправить тестовое сообщение. Проверьте правильность токена/ID.${RESET}"
+            fi
+            pause
+            
+        elif [ "$clean_sel" == "Отключить Telegram-бот" ]; then
+            clear_screen
+            print_header "Настройки → Telegram-бот → Отключение"
+            echo ""
+            center_print "${DIM}[*] Остановка и отключение службы...${RESET}"
+            systemctl stop transferbox-bot >/dev/null 2>&1 || true
+            systemctl disable transferbox-bot >/dev/null 2>&1 || true
+            rm -f /etc/systemd/system/transferbox-bot.service
+            systemctl daemon-reload >/dev/null 2>&1 || true
+            
+            echo ""
+            center_print "${DIM}[*] Удаление cron-задач...${RESET}"
+            rm -f /etc/cron.d/transferbox-bot
+            
+            python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+env['TG_BOT_ENABLED'] = 'false'
+save_env(env)
+"
+            echo ""
+            center_print "${GREEN}✓ Telegram-бот успешно отключен.${RESET}"
+            pause
+            
+        elif [ "$clean_sel" == "Включить оповещения" ] || [ "$clean_sel" == "Отключить оповещения" ]; then
+            local new_val="true"
+            if [ "$alerts_enabled" == "true" ]; then
+                new_val="false"
+            fi
+            python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+env['TG_ALERTS_ENABLED'] = '$new_val'
+save_env(env)
+"
+            echo ""
+            center_print "${GREEN}✓ Оповещения успешно $([ "$new_val" == "true" ] && echo -e "включены" || echo -e "отключены").${RESET}"
+            pause
+            
+        elif [ "$clean_sel" == "Проверить отправку сообщений" ]; then
+            clear_screen
+            print_header "Настройки → Telegram-бот → Тест"
+            echo ""
+            center_print "${DIM}[*] Отправка тестового сообщения...${RESET}"
+            if python3 -c "from bot.alerts import send_alert; send_alert('🔔 <b>Тестовое оповещение:</b> Проверка связи выполнена успешно!')" >/dev/null 2>&1; then
+                echo ""
+                center_print "${GREEN}✓ Сообщение успешно доставлено!${RESET}"
+            else
+                echo ""
+                center_print "${RED}✗ Не удалось отправить сообщение. Проверьте настройки бота и лог ошибок.${RESET}"
+            fi
+            pause
+        fi
+    done
+}
+
 settings_menu() {
     while true; do
         if [ -f "${PROJECT_ROOT}/instance.env" ]; then
@@ -2107,6 +2351,19 @@ settings_menu() {
             bbr_status="${GREEN}активен${RESET}"
         fi
         
+        local bot_status="${RED}отключен${RESET}"
+        if [ "${TG_BOT_ENABLED:-false}" == "true" ]; then
+            if systemctl is-active --quiet transferbox-bot 2>/dev/null; then
+                bot_status="${GREEN}активен${RESET}"
+            else
+                bot_status="${YELLOW}остановлен${RESET}"
+            fi
+        elif [ -n "${TG_BOT_TOKEN:-}" ]; then
+            bot_status="${YELLOW}отключен (настроен)${RESET}"
+        else
+            bot_status="${DIM}не настроен${RESET}"
+        fi
+        
         local vps_fqdn
         vps_fqdn=$(hostname -f 2>/dev/null || hostname)
         
@@ -2122,6 +2379,7 @@ settings_menu() {
         echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
         echo -e "  • Порт SSH:          $ssh_port"
         echo -e "  • TCP BBR:           $bbr_status"
+        echo -e "  • Telegram-бот:      $bot_status"
         draw_line "─" "$BLUE"
         
         local options=(
@@ -2137,6 +2395,7 @@ settings_menu() {
             options+=("Включить BBR оптимизацию")
         fi
         options+=(
+            "Telegram-бот"
             "Проверить обновления панели"
             "Назад"
         )
@@ -2160,6 +2419,8 @@ settings_menu() {
             change_vless_paths_menu
         elif [ "$clean_sel" == "Изменить порт SSH" ]; then
             change_ssh_port_menu
+        elif [ "$clean_sel" == "Telegram-бот" ]; then
+            telegram_bot_menu
         elif [ "$clean_sel" == "Проверить обновления панели" ]; then
             update_panel_menu
         elif [ "$clean_sel" == "Включить BBR оптимизацию" ] || [ "$clean_sel" == "Отключить BBR оптимизацию" ]; then
