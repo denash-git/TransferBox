@@ -2137,11 +2137,11 @@ telegram_bot_menu() {
         
         clear_screen
         print_header "Настройки → Telegram-бот"
-        echo -e "  Текущий статус:"
-        echo -e "  • Токен бота:  $token_str"
-        echo -e "  • Chat ID:     $chat_str"
-        echo -e "  • Статус бота: $running_status"
-        echo -e "  • Оповещения:  $([ "$alerts_enabled" == "true" ] && echo -e "${GREEN}включены${RESET}" || echo -e "${RED}выключены${RESET}")"
+        center_print "Текущий статус:"
+        center_print "Токен бота:  $token_str"
+        center_print "Chat ID:     $chat_str"
+        center_print "Статус бота: $running_status"
+        center_print "Оповещения:  $([ "$alerts_enabled" == "true" ] && echo -e "${GREEN}включены${RESET}" || echo -e "${RED}выключены${RESET}")"
         draw_line "─" "$BLUE"
         
         local options=(
@@ -2176,19 +2176,19 @@ telegram_bot_menu() {
         elif [ "$clean_sel" == "Настроить Токен и Chat ID" ]; then
             clear_screen
             print_header "Настройки → Telegram-бот → Настройка"
-            echo -e "  Инструкция:"
-            echo -e "  1. Напишите @BotFather в Telegram, отправьте /newbot и получите Токен."
-            echo -e "  2. Напишите @userinfobot в Telegram и получите свой CHAT ID."
-            echo -e "  3. ${YELLOW}ОБЯЗАТЕЛЬНО найдите вашего нового бота в Telegram по имени${RESET}"
-            echo -e "     ${YELLOW}и нажмите кнопку Запустить (/start), иначе сообщения не придут!${RESET}"
+            center_print "Инструкция:"
+            center_print "1. Напишите @BotFather в Telegram, отправьте /newbot и получите Токен."
+            center_print "2. Напишите @userinfobot в Telegram и получите свой CHAT ID."
+            center_print "3. ${YELLOW}ОБЯЗАТЕЛЬНО найдите вашего нового бота в Telegram по имени${RESET}"
+            center_print "   ${YELLOW}и нажмите кнопку Запустить (/start), иначе сообщения не придут!${RESET}"
             echo ""
             
             local input_token
-            read_prompt "Введите Токен бота: " input_token
+            read_prompt "  Введите Токен бота: " input_token
             [ -z "$input_token" ] && continue
             
             local input_chat
-            read_prompt "Введите Chat ID: " input_chat
+            read_prompt "  Введите Chat ID: " input_chat
             [ -z "$input_chat" ] && continue
             
             # Сохраняем настройки
@@ -2233,7 +2233,7 @@ After=network-online.target
 User=root
 WorkingDirectory=${PROJECT_ROOT}
 ExecStart=/usr/bin/python3 ${PROJECT_ROOT}/bot/main.py
-Environment=PYTHONPATH=${PROJECT_ROOT}
+Environment=PYTHONPATH=${PROJECT_ROOT} PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=10
 
