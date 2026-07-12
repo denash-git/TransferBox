@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from aiogram import Bot, Dispatcher
+from aiogram.types import BotCommand
 from core.config_manager import load_env
 from bot.auth import AuthMiddleware
 from bot.handlers import start, users, status, services
@@ -20,6 +21,15 @@ async def main():
         
     bot = Bot(token=token)
     dp = Dispatcher()
+    
+    # Регистрация команд в меню Telegram
+    commands = [
+        BotCommand(command="start", description="Главное меню управления"),
+        BotCommand(command="users", description="Список пользователей"),
+        BotCommand(command="status", description="Статус ресурсов и служб"),
+        BotCommand(command="services", description="Перезапуск служб")
+    ]
+    await bot.set_my_commands(commands)
     
     # Регистрация middleware для авторизации по CHAT_ID
     dp.update.outer_middleware(AuthMiddleware())

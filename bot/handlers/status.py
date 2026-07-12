@@ -3,7 +3,8 @@ import os
 import psutil
 import subprocess
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, Message
+from aiogram.filters import Command
 from bot.keyboards import back_to_main_keyboard
 
 router = Router()
@@ -21,8 +22,7 @@ def check_service_active(service_name: str) -> str:
     except Exception:
         return "⚪ неизвестно"
 
-@router.callback_query(F.data == "status:services")
-async def status_services_callback(callback: CallbackQuery):
+def get_status_text() -> str:
     # 1. Опрос служб
     caddy_status = check_service_active("caddy")
     singbox_status = check_service_active("sing-box")
@@ -66,6 +66,15 @@ async def status_services_callback(callback: CallbackQuery):
     text += f"  • RAM: <code>{ram.percent}%</code> ({ram.used // 1024 // 1024} / {ram.total // 1024 // 1024} MB)\n"
     text += f"  • Диск (/): <code>{disk.percent}%</code> ({disk.used // 1024 // 1024 // 1024} / {disk.total // 1024 // 1024 // 1024} GB)\n"
     text += f"  • Аптайм: <code>{uptime_str}</code>\n"
-    
+    return text
+
+@router.message(Command("status"))
+async def status_command(message: Message):
+    text = get_status_text()
+    await message.answer(text, reply_markup=back_to_main_keyboard(), parse_mode="HTML")
+
+@router.callback_query(F.data == "status:services")
+async def status_services_callback(callback: CallbackQuery):
+    text = get_status_text()
     await callback.message.edit_text(text, reply_markup=back_to_main_keyboard(), parse_mode="HTML")
     await callback.answer()

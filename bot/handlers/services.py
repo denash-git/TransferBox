@@ -1,17 +1,22 @@
 import subprocess
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from aiogram.filters import Command
 from bot.keyboards import (
     services_menu_keyboard, service_confirm_keyboard, back_to_main_keyboard
 )
 
 router = Router()
 
+@router.message(Command("services"))
 @router.callback_query(F.data == "services:menu")
-async def services_menu_callback(callback: CallbackQuery):
+async def services_menu_callback(event):
     text = "🔄 <b>Управление службами</b>\n\nВыберите службу для перезапуска:"
-    await callback.message.edit_text(text, reply_markup=services_menu_keyboard(), parse_mode="HTML")
-    await callback.answer()
+    if isinstance(event, CallbackQuery):
+        await event.message.edit_text(text, reply_markup=services_menu_keyboard(), parse_mode="HTML")
+        await event.answer()
+    else:
+        await event.answer(text, reply_markup=services_menu_keyboard(), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("services:confirm:"))
 async def services_confirm_callback(callback: CallbackQuery):

@@ -8,6 +8,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import Command
 
 from core.config_manager import load_users, load_env, render_configs, validate_and_restart, build_client_link, build_mieru_singbox_json
 from core.user_manager import add_user, delete_user, toggle_user
@@ -42,17 +43,21 @@ async def notify_and_restart(callback: CallbackQuery, action_name: str, action_f
 
 # ─── СПИСОК ПОЛЬЗОВАТЕЛЕЙ ────────────────────────────────────────────────────
 
+@router.message(Command("users"))
 @router.callback_query(F.data == "user:list")
-async def list_users_callback(callback: CallbackQuery, state: FSMContext):
+async def list_users_callback(event, state: FSMContext):
     await state.clear()
     users = load_users()
     text = "👥 <b>Список пользователей:</b>\nВыберите пользователя для управления или добавьте нового."
-    try:
-        await callback.message.edit_text(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
-    except Exception:
-        await callback.message.answer(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
-        await callback.message.delete()
-    await callback.answer()
+    if isinstance(event, CallbackQuery):
+        try:
+            await event.message.edit_text(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
+        except Exception:
+            await event.message.answer(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
+            await event.message.delete()
+        await event.answer()
+    else:
+        await event.answer(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
 
 # ─── ДЕТАЛИЗАЦИЯ ПОЛЬЗОВАТЕЛЯ (ПРОТОКОЛЫ) ────────────────────────────────────
 
