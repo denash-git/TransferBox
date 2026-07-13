@@ -38,16 +38,17 @@ async def services_run_callback(callback: CallbackQuery):
         services_to_restart = ["caddy", "sing-box"]
         # Добавляем опциональные службы, если они установлены
         import os
+        import shutil
         if os.path.exists("/usr/bin/mita"):
             services_to_restart.append("mita")
-        if subprocess.run(["command", "-v", "netbird"], shell=True, capture_output=True).returncode == 0:
+        if shutil.which("netbird") is not None:
             services_to_restart.append("netbird")
     else:
         services_to_restart = [service]
         
     failed = []
     for s in services_to_restart:
-        res = subprocess.run(["systemctl", "restart", s])
+        res = subprocess.run(["systemctl", "restart", s], capture_output=True, text=True)
         if res.returncode != 0:
             failed.append(s)
             

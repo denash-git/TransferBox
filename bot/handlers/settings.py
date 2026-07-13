@@ -46,9 +46,10 @@ def toggle_bbr() -> tuple[bool, str]:
     active = is_bbr_active()
     if active:
         # Отключаем BBR
-        res = subprocess.run("sysctl -w net.ipv4.tcp_congestion_control=cubic", shell=True, capture_output=True)
+        res = subprocess.run(["sysctl", "-w", "net.ipv4.tcp_congestion_control=cubic"], capture_output=True)
         if res.returncode == 0:
-            subprocess.run("rm -f /etc/sysctl.d/99-transferbox-bbr.conf && sysctl --system", shell=True, capture_output=True)
+            subprocess.run(["rm", "-f", "/etc/sysctl.d/99-transferbox-bbr.conf"], capture_output=True)
+            subprocess.run(["sysctl", "--system"], capture_output=True)
             env = load_env()
             env['BBR_ENABLED'] = 'false'
             save_env(env)
@@ -59,10 +60,11 @@ def toggle_bbr() -> tuple[bool, str]:
         # Включаем BBR
         res_mod = subprocess.run(["modprobe", "tcp_bbr"], capture_output=True)
         if res_mod.returncode == 0:
-            subprocess.run("sysctl -w net.core.default_qdisc=fq && sysctl -w net.ipv4.tcp_congestion_control=bbr", shell=True, capture_output=True)
+            subprocess.run(["sysctl", "-w", "net.core.default_qdisc=fq"], capture_output=True)
+            subprocess.run(["sysctl", "-w", "net.ipv4.tcp_congestion_control=bbr"], capture_output=True)
             with open("/etc/sysctl.d/99-transferbox-bbr.conf", "w") as f:
                 f.write("net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr\n")
-            subprocess.run("sysctl --system", shell=True, capture_output=True)
+            subprocess.run(["sysctl", "--system"], capture_output=True)
             env = load_env()
             env['BBR_ENABLED'] = 'true'
             save_env(env)

@@ -33,16 +33,23 @@ def main():
     try:
         urllib.request.urlretrieve(tar_url, tar_path)
     except Exception as e:
-        print(f"Error downloading tarball: {e}")
-        sys.exit(1)
+        print(f"Warning: Tarball for v{latest} download failed ({e}). Trying to fallback to main branch...")
+        fallback_url = "https://github.com/denash-git/TransferBox/archive/refs/heads/main.tar.gz"
+        try:
+            urllib.request.urlretrieve(fallback_url, tar_path)
+        except Exception as fe:
+            print(f"Error downloading fallback archive: {fe}")
+            sys.exit(1)
 
     # 3. Распаковываем
     try:
         with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=tmp_dir)
+            safe = [m for m in tar.getmembers()
+                    if not m.name.startswith('/') and '..' not in m.name]
+            tar.extractall(path=tmp_dir, members=safe)
         extracted_folder = None
         for name in os.listdir(tmp_dir):
-            if name.startswith("TransferBox-") and os.path.isdir(os.path.join(tmp_dir, name)):
+            if (name.startswith("TransferBox-") or name == "TransferBox") and os.path.isdir(os.path.join(tmp_dir, name)):
                 extracted_folder = os.path.join(tmp_dir, name)
                 break
         if not extracted_folder:

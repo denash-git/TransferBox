@@ -2,7 +2,9 @@ import os
 import random
 import datetime
 import subprocess
-import requests
+import urllib.request
+import urllib.parse
+import json
 from core.config_manager import PROJECT_ROOT, load_env
 
 def run_backup() -> tuple[bool, str]:
@@ -44,24 +46,57 @@ def run_backup() -> tuple[bool, str]:
     # Отправляем файл в Telegram
     url = f"https://api.telegram.org/bot{token}/sendDocument"
     date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
     
     try:
         with open(zip_path, "rb") as f:
-            resp = requests.post(
-                url,
-                data={
-                    "chat_id": chat_id,
-                    "caption": f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>\n🔑 Архив защищен вашим паролем бэкапов.",
-                    "parse_mode": "HTML"
-                },
-                files={"document": (zip_filename, f)},
-                timeout=30
-            )
+            file_content = f.read()
             
-        if resp.status_code == 200:
-            return True, "Резервная копия успешно отправлена."
-        else:
-            return False, f"Ошибка Telegram API: {resp.text}"
+        parts = []
+        parts.append(f"--{boundary}".encode("utf-8"))
+        parts.append(b'Content-Disposition: form-data; name="chat_id"')
+        parts.append(b"")
+        parts.append(str(chat_id).encode("utf-8"))
+        
+        parts.append(f"--{boundary}".encode("utf-8"))
+        parts.append(b'Content-Disposition: form-data; name="caption"')
+        parts.append(b"")
+        caption = f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>\n🔑 Архив защищен вашим паролем бэкапов."
+        parts.append(caption.encode("utf-8"))
+        
+        parts.append(f"--{boundary}".encode("utf-8"))
+        parts.append(b'Content-Disposition: form-data; name="parse_mode"')
+        parts.append(b"")
+        parts.append(b"HTML")
+        
+        parts.append(f"--{boundary}".encode("utf-8"))
+        parts.append(f'Content-Disposition: form-data; name="document"; filename="{zip_filename}"'.encode("utf-8"))
+        parts.append(b"Content-Type: application/zip")
+        parts.append(b"")
+        parts.append(file_content)
+        parts.append(f"--{boundary}--".encode("utf-8"))
+        parts.append(b"")
+        
+        body = b"\r\n".join(parts)
+        
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body))
+            }
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            resp_body = response.read().decode("utf-8")
+            resp_data = json.loads(resp_body)
+            if resp_data.get("ok"):
+                return True, "Резервная копия успешно отправлена."
+            else:
+                return False, f"Ошибка Telegram API: {resp_body}"
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        return False, f"Ошибка Telegram API (HTTP {e.code}): {err_body}"
     except Exception as e:
         return False, f"Ошибка отправки: {e}"
     finally:

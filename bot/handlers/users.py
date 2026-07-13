@@ -5,7 +5,7 @@ import subprocess
 import json
 import urllib.request
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command
@@ -175,7 +175,6 @@ async def user_proto_links_callback(callback: CallbackQuery):
     await callback.answer("⏳ Генерация QR-кодов...", show_alert=False)
     
     env = load_env()
-    token = env.get("TG_BOT_TOKEN")
     chat_id = callback.from_user.id
     
     users = load_users()
@@ -191,20 +190,8 @@ async def user_proto_links_callback(callback: CallbackQuery):
     # Отправляем ссылку текстом
     msg_text = f"🔑 <b>Подключение {nick} ({proto_lbl}):</b>\n\n<code>{link}</code>"
     
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": msg_text,
-        "parse_mode": "HTML"
-    }
     try:
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
-        )
-        with urllib.request.urlopen(req, timeout=5) as response:
-            pass
+        await callback.bot.send_message(chat_id=chat_id, text=msg_text, parse_mode="HTML")
     except Exception as e:
         print(f"[TG BOT] Error sending link: {e}")
         
@@ -213,7 +200,11 @@ async def user_proto_links_callback(callback: CallbackQuery):
         tmp_path = tmp.name
     try:
         subprocess.run(["qrencode", "-o", tmp_path, link], check=True)
-        send_photo(token, chat_id, tmp_path, caption=f"QR-код подключения для {nick} ({proto_lbl})")
+        await callback.bot.send_photo(
+            chat_id=chat_id,
+            photo=FSInputFile(tmp_path),
+            caption=f"QR-код подключения для {nick} ({proto_lbl})"
+        )
     except Exception as e:
         print(f"[TG BOT] Error generating QR: {e}")
     finally:
@@ -225,15 +216,8 @@ async def user_proto_links_callback(callback: CallbackQuery):
         singbox_json = build_mieru_singbox_json(user_obj)
         msg_json = f"📄 <b>Sing-box JSON для {nick} (копировать в Karing):</b>\n\n<code>{singbox_json}</code>"
         
-        payload["text"] = msg_json
         try:
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=5) as response:
-                pass
+            await callback.bot.send_message(chat_id=chat_id, text=msg_json, parse_mode="HTML")
         except Exception as e:
             print(f"[TG BOT] Error sending Mieru JSON: {e}")
             
@@ -241,7 +225,11 @@ async def user_proto_links_callback(callback: CallbackQuery):
             tmp_path_json = tmp.name
         try:
             subprocess.run(["qrencode", "-o", tmp_path_json, singbox_json], check=True)
-            send_photo(token, chat_id, tmp_path_json, caption=f"QR-код для Sing-box JSON ({nick})")
+            await callback.bot.send_photo(
+                chat_id=chat_id,
+                photo=FSInputFile(tmp_path_json),
+                caption=f"QR-код для Sing-box JSON ({nick})"
+            )
         except Exception as e:
             print(f"[TG BOT] Error generating Mieru JSON QR: {e}")
         finally:
@@ -282,7 +270,6 @@ async def user_send_links_callback(callback: CallbackQuery):
     await callback.answer("⏳ Отправка ссылки подписки...", show_alert=False)
     
     env = load_env()
-    token = env.get("TG_BOT_TOKEN")
     chat_id = callback.from_user.id
     domain = env.get("DOMAIN", "yourdomain.com")
     
@@ -301,20 +288,8 @@ async def user_send_links_callback(callback: CallbackQuery):
     
     msg_text = f"🌀 <b>Ссылка подписки для {nick}:</b>\n\n<code>{sub_link}</code>"
     
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": msg_text,
-        "parse_mode": "HTML"
-    }
     try:
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
-        )
-        with urllib.request.urlopen(req, timeout=5) as response:
-            pass
+        await callback.bot.send_message(chat_id=chat_id, text=msg_text, parse_mode="HTML")
     except Exception as e:
         print(f"[TG BOT] Error sending sub link: {e}")
         
@@ -322,7 +297,11 @@ async def user_send_links_callback(callback: CallbackQuery):
         tmp_path = tmp.name
     try:
         subprocess.run(["qrencode", "-o", tmp_path, sub_link], check=True)
-        send_photo(token, chat_id, tmp_path, caption=f"QR-код подписки для {nick}")
+        await callback.bot.send_photo(
+            chat_id=chat_id,
+            photo=FSInputFile(tmp_path),
+            caption=f"QR-код подписки для {nick}"
+        )
     except Exception as e:
         print(f"[TG BOT] Error sending sub QR: {e}")
     finally:

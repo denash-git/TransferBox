@@ -58,6 +58,11 @@ def send_photo(token: str, chat_id: int, photo_path: str, caption: str = ""):
         parts.append(caption.encode("utf-8"))
         
     parts.append(f"--{boundary}".encode("utf-8"))
+    parts.append(b'Content-Disposition: form-data; name="parse_mode"')
+    parts.append(b"")
+    parts.append(b"HTML")
+        
+    parts.append(f"--{boundary}".encode("utf-8"))
     parts.append(f'Content-Disposition: form-data; name="photo"; filename="{filename}"'.encode("utf-8"))
     parts.append(b"Content-Type: image/png")
     parts.append(b"")

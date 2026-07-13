@@ -12,8 +12,8 @@ router = Router()
 
 def check_service_active(service_name: str) -> str:
     if service_name == "netbird":
-        res_installed = subprocess.run(["command", "-v", "netbird"], shell=True, capture_output=True)
-        if res_installed.returncode != 0:
+        import shutil
+        if shutil.which("netbird") is None:
             return "⚪"
         
         res_active = subprocess.run(["systemctl", "is-active", "netbird"], capture_output=True, text=True)
@@ -47,7 +47,8 @@ def get_status_text() -> str:
     mita_installed = os.path.exists("/usr/bin/mita")
     mita_status = check_service_active("mita") if mita_installed else "⚪"
     
-    netbird_installed = subprocess.run(["command", "-v", "netbird"], shell=True, capture_output=True).returncode == 0
+    import shutil
+    netbird_installed = shutil.which("netbird") is not None
     netbird_status = check_service_active("netbird") if netbird_installed else "⚪"
     
     # 2. Опрос ресурсов
