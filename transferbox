@@ -2817,6 +2817,7 @@ backup_restore_menu() {
         local options=(
             "Создать бэкап настроек"
             "Восстановить из последнего бэкапа"
+            "Получить пароль зашифрованного бэкапа"
             "Назад"
         )
         select_menu SELECTED_INDEX "Бэкап и Восстановление" "${options[@]}"
@@ -3062,7 +3063,37 @@ else:
                 center_print "${RED}✗ Ошибка при распаковке архива: ${ext_res#ERROR:}${RESET}"
             fi
             pause
-        elif [ "$choice" -eq 2 ] || [ "$choice" -eq -1 ]; then
+        elif [ "$choice" -eq 2 ]; then
+            clear_screen
+            print_header "Восстановление пароля бэкапа" "false"
+            echo ""
+            local hash_val
+            read_prompt "Введите хэш-код из имени файла бэкапа: " hash_val
+            
+            # Удаляем пробелы по краям
+            hash_val=$(echo "$hash_val" | xargs)
+            
+            if [ -z "$hash_val" ]; then
+                echo ""
+                center_print "${YELLOW}Операция отменена (пустой ввод).${RESET}"
+                pause
+                continue
+            fi
+            
+            local password
+            password=$(python3 -c "
+import hashlib
+file_hash = '${hash_val}'
+salt = 'TransferBox_AES_Backup_Salt_2026!'
+h = hashlib.sha256(f'{file_hash}{salt}'.encode('utf-8')).hexdigest()
+print(h[:16])
+")
+            echo ""
+            center_print "${GREEN}✓ Пароль для расшифровки архива:${RESET}"
+            center_print "  ${BOLD}${password}${RESET}"
+            echo ""
+            pause
+        elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
             return 0
         fi
     done

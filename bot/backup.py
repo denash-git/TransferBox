@@ -1,15 +1,12 @@
 import os
 import random
-import string
 import datetime
 import subprocess
+import hashlib
 import requests
-from core.config_manager import PROJECT_ROOT, load_env, save_env
-from bot.alerts import send_alert
+from core.config_manager import PROJECT_ROOT, load_env
 
-def generate_random_password(length=16) -> str:
-    chars = string.ascii_letters + string.digits
-    return "".join(random.choice(chars) for _ in range(length))
+BACKUP_SALT = "TransferBox_AES_Backup_Salt_2026!"
 
 def run_backup() -> tuple[bool, str]:
     env = load_env()
@@ -18,19 +15,6 @@ def run_backup() -> tuple[bool, str]:
     
     if not token or not chat_id:
         return False, "TG_BOT_TOKEN или TG_CHAT_ID не настроены в instance.env"
-        
-    # Проверяем и генерируем пароль шифрования если отсутствует
-    password = env.get("BACKUP_PASSWORD")
-    if not password:
-        password = generate_random_password()
-        env["BACKUP_PASSWORD"] = password
-        save_env(env)
-        # Отправляем сообщение с новым паролем
-        send_alert(
-            f"🔑 <b>Создан пароль шифрования бэкапов:</b> <code>{password}</code>\n\n"
-            "Пожалуйста, запишите и сохраните этот пароль! Все резервные копии, "
-            "отправляемые ботом в Telegram, будут зашифрованы им. Без него распаковать бэкап не получится."
-        )
         
     # Проверяем установлен ли zip
     res_installed = subprocess.run(["which", "zip"], capture_output=True)
@@ -41,13 +25,20 @@ def run_backup() -> tuple[bool, str]:
     # Пути
     users_path = os.path.join(PROJECT_ROOT, "users.json")
     env_path = os.path.join(PROJECT_ROOT, "instance.env")
-    zip_path = "/tmp/transferbox_backup.zip"
+    
+    # Генерация случайного хэша и имени файла
+    file_hash = "".join(random.choices("0123456789abcdef", k=8))
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    zip_filename = f"transferbox_{timestamp}_{file_hash}.zip"
+    zip_path = f"/tmp/{zip_filename}"
+    
+    # Детерминированный расчет пароля по жесткому алгоритму
+    password = hashlib.sha256(f"{file_hash}{BACKUP_SALT}".encode('utf-8')).hexdigest()[:16]
     
     if os.path.exists(zip_path):
         os.remove(zip_path)
         
     # Создаем зашифрованный ZIP
-    # -j отбрасывает структуру папок (файлы будут лежать в корне zip)
     cmd = ["zip", "-P", password, "-j", zip_path, users_path, env_path]
     res_zip = subprocess.run(cmd, capture_output=True, text=True)
     
@@ -64,22 +55,22 @@ def run_backup() -> tuple[bool, str]:
                 url,
                 data={
                     "chat_id": chat_id,
-                    "caption": f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>",
+                    "caption": f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>\n🔑 Хэш бэкапа: <code>{file_hash}</code>",
                     "parse_mode": "HTML"
                 },
-                files={"document": f},
+                files={"document": (zip_filename, f)},
                 timeout=30
             )
             
         if resp.status_code == 200:
-            return True, "Резервная копия успешно отправлена в Telegram."
+            return True, "Резервная копия успешно отправлена."
         else:
             return False, f"Ошибка Telegram API: {resp.text}"
     except Exception as e:
         return False, f"Ошибка отправки: {e}"
     finally:
         if os.path.exists(zip_path):
-            os.remove(zip_path)
+            os.unlink(zip_path)
 
 if __name__ == "__main__":
     success, msg = run_backup()
