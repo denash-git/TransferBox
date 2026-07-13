@@ -2133,6 +2133,33 @@ telegram_bot_menu() {
         
         local running_status="выключен"
         if [ "$bot_enabled" == "true" ]; then
+            if ! [ -f "/etc/systemd/system/transferbox-bot.service" ] && [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "${TG_CHAT_ID:-}" ]; then
+                cat > /etc/systemd/system/transferbox-bot.service <<EOF
+[Unit]
+Description=TransferBox Telegram Bot
+After=network-online.target
+
+[Service]
+User=root
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/usr/bin/python3 ${PROJECT_ROOT}/bot/main.py
+Environment=PYTHONPATH=${PROJECT_ROOT} PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                systemctl daemon-reload >/dev/null 2>&1
+                systemctl enable transferbox-bot >/dev/null 2>&1
+                systemctl restart transferbox-bot >/dev/null 2>&1
+                
+                cat > /etc/cron.d/transferbox-bot <<EOF
+*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
+0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
+0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
+EOF
+            fi
             if systemctl is-active --quiet transferbox-bot 2>/dev/null; then
                 running_status="${GREEN}активен${RESET}"
             else
@@ -3080,6 +3107,38 @@ if 'NETBIRD_SETUP_KEY' in env:
                 
                 # Восстановление sing-box
                 systemctl enable --now sing-box >/dev/null 2>&1 || true
+                
+                # Восстановление Telegram-бота
+                local bot_enabled="${TG_BOT_ENABLED:-false}"
+                if [ "$bot_enabled" == "true" ] && [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "${TG_CHAT_ID:-}" ]; then
+                    echo -e "  [*] Восстановление службы Telegram-бота..."
+                    cat > /etc/systemd/system/transferbox-bot.service <<EOF
+[Unit]
+Description=TransferBox Telegram Bot
+After=network-online.target
+
+[Service]
+User=root
+WorkingDirectory=${PROJECT_ROOT}
+ExecStart=/usr/bin/python3 ${PROJECT_ROOT}/bot/main.py
+Environment=PYTHONPATH=${PROJECT_ROOT} PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                    systemctl daemon-reload >/dev/null 2>&1
+                    systemctl enable transferbox-bot >/dev/null 2>&1
+                    systemctl restart transferbox-bot >/dev/null 2>&1
+                    
+                    cat > /etc/cron.d/transferbox-bot <<EOF
+*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
+0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
+0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
+EOF
+                    echo -e "  ${GREEN}✓ Служба Telegram-бота успешно восстановлена и запущена.${RESET}"
+                fi
                 
                 echo -e "  [*] Пересборка конфигураций и перезапуск служб..."
                 local tmpfile_apply
