@@ -54,7 +54,7 @@ fi
 
 # Вывод приветственной шапки
 echo -e "${BLUE}════════════════════════════════════════════════════════════${RESET}"
-echo -e "${YELLOW}                     TransferBox v3.0.0                     ${RESET}"
+echo -e "${YELLOW}                     TransferBox v3.0.1                     ${RESET}"
 echo -e "${YELLOW}               Установка Панели Управления                  ${RESET}"
 echo -e "${BLUE}────────────────────────────────────────────────────────────${RESET}"
 echo -e "  Добро пожаловать в установщик TransferBox!"

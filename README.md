@@ -1,7 +1,7 @@
-# 📦 TransferBox v3.0.0
+# 📦 TransferBox v3.0.1
 
 [![OS Support](https://img.shields.io/badge/OS-Debian%2012%20%7C%2013%20%7C%20Ubuntu%2022.04%20%7C%2024.04-blue.svg)](https://debian.org)
-[![Version](https://img.shields.io/badge/version-3.0.0-green.svg)](#)
+[![Version](https://img.shields.io/badge/version-3.0.1-green.svg)](#)
 
 **TransferBox** — это универсальная и удобная панель управления прокси и VPN-соединениями с маскировкой трафика под обычный веб-сайт. Она объединяет передовые протоколы и инструменты безопасной связи на едином HTTPS-порту.
 

@@ -6,7 +6,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
-VERSION="3.0.0"
+VERSION="3.0.1"
 
 # ANSI Colors
 if [ -f "${PROJECT_ROOT}/lib/colors.sh" ]; then
