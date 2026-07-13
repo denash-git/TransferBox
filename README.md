@@ -1,7 +1,7 @@
-# 📦 TransferBox v2.0.1
+# 📦 TransferBox v3.0.0
 
 [![OS Support](https://img.shields.io/badge/OS-Debian%2012%20%7C%2013%20%7C%20Ubuntu%2022.04%20%7C%2024.04-blue.svg)](https://debian.org)
-[![Version](https://img.shields.io/badge/version-2.0.1-green.svg)](#)
+[![Version](https://img.shields.io/badge/version-3.0.0-green.svg)](#)
 
 **TransferBox** — это современная и удобная панель управления прокси-сервером на базе связки **Caddy** и **sing-box** с маскировкой под веб-сайт. Все протоколы работают на едином веб-порту **443** (HTTPS), а посторонние запросы перенаправляются на маскировочный сайт с защитой от сканирования.
 
