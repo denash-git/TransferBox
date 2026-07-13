@@ -57,10 +57,12 @@ def settings_menu_keyboard(bbr_active: bool):
 def settings_backup_keyboard():
     btn1 = align_button_text("📥 Создать бэкап сейчас", 18.0)
     btn2 = align_button_text("🔑 Новый пароль архива", 18.0)
+    btn3 = align_button_text("⏰ Время автобэкапа", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn1, callback_data="settings:backup_now")],
         [InlineKeyboardButton(text=btn2, callback_data="settings:backup_change_pass")],
+        [InlineKeyboardButton(text=btn3, callback_data="settings:backup_change_time")],
         [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])

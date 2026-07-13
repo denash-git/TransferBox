@@ -1,5 +1,6 @@
 import subprocess
 import urllib.request
+import os
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
@@ -15,6 +16,22 @@ router = Router()
 class SettingsStates(StatesGroup):
     waiting_ssh_port = State()
     waiting_backup_password = State()
+    waiting_backup_time = State()
+
+def update_cron_schedule(hour: int, minute: int) -> tuple[bool, str]:
+    cron_content = (
+        f"*/5 * * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_services.py >/dev/null 2>&1\n"
+        f"0 0 * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_updates.py >/dev/null 2>&1\n"
+        f"{minute} {hour} * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/backup.py >/dev/null 2>&1\n"
+    )
+    try:
+        cron_path = "/etc/cron.d/transferbox-bot"
+        with open(cron_path, "w", encoding="utf-8") as f:
+            f.write(cron_content)
+        os.chmod(cron_path, 0o644)
+        return True, "Успешно"
+    except Exception as e:
+        return False, str(e)
 
 def is_bbr_active() -> bool:
     try:
@@ -210,9 +227,25 @@ async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMConte
         env["BACKUP_PASSWORD"] = password
         save_env(env)
         
+    # Считываем время автобэкапа (по умолчанию 12:00)
+    hour_str = env.get("BACKUP_HOUR")
+    minute_str = env.get("BACKUP_MINUTE")
+    
+    if hour_str is None or minute_str is None:
+        hour = 12
+        minute = 0
+        env["BACKUP_HOUR"] = str(hour)
+        env["BACKUP_MINUTE"] = str(minute)
+        save_env(env)
+        update_cron_schedule(hour, minute)
+    else:
+        hour = int(hour_str)
+        minute = int(minute_str)
+        
     text = (
         "💾 <b>Резервное копирование</b>\n\n"
         "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
+        f"⏰ <b>Время автобэкапа:</b> <code>{hour:02d}:{minute:02d}</code> каждый день.\n"
         f"🔑 <b>Пароль шифрования бэкапов:</b>\n<code>{password}</code>\n\n"
         "⚠️ <b>Внимание:</b> Сохраните этот пароль! Без него распаковать файлы бэкапа не получится."
     )
@@ -255,7 +288,6 @@ async def settings_backup_change_pass_callback(callback: CallbackQuery, state: F
 @router.message(SettingsStates.waiting_backup_password)
 async def settings_backup_password_msg(message: Message, state: FSMContext):
     new_pass = message.text.strip()
-    # Проверка пароля на валидность
     if not (6 <= len(new_pass) <= 32) or not new_pass.isalnum():
         await message.answer("❌ Неверный пароль! Пароль должен содержать от 6 до 32 символов (только латинские буквы и цифры). Введите еще раз:")
         return
@@ -270,4 +302,58 @@ async def settings_backup_password_msg(message: Message, state: FSMContext):
         f"Новый пароль: <code>{new_pass}</code>\n\n"
         f"Все последующие бэкапы будут зашифрованы этим паролем."
     )
+    await message.answer(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+
+# ─── НАСТРОЙКИ: ИЗМЕНИТЬ ВРЕМЯ БЭКАПА ──────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:backup_change_time")
+async def settings_backup_change_time_callback(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(SettingsStates.waiting_backup_time)
+    env = load_env()
+    hour = int(env.get("BACKUP_HOUR", "12"))
+    minute = int(env.get("BACKUP_MINUTE", "0"))
+    
+    text = (
+        "⏰ <b>Изменение времени автобэкапа</b>\n\n"
+        f"Текущее время: <code>{hour:02d}:{minute:02d}</code>\n\n"
+        "Введите новое время автоматического бэкапа в формате <code>ЧЧ:ММ</code> (например, <code>14:30</code> или <code>09:00</code>):"
+    )
+    await callback.message.edit_text(text, reply_markup=settings_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+@router.message(SettingsStates.waiting_backup_time)
+async def settings_backup_time_msg(message: Message, state: FSMContext):
+    time_str = message.text.strip()
+    
+    parts = time_str.split(":")
+    if len(parts) != 2:
+        await message.answer("❌ Неверный формат! Введите время в формате ЧЧ:ММ (например, 12:00 или 08:30):")
+        return
+        
+    h_str, m_str = parts[0].strip(), parts[1].strip()
+    if not h_str.isdigit() or not m_str.isdigit():
+        await message.answer("❌ Неверный формат! Часы и минуты должны быть числами. Введите еще раз в формате ЧЧ:ММ:")
+        return
+        
+    hour, minute = int(h_str), int(m_str)
+    if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+        await message.answer("❌ Недопустимые значения времени! Часы должны быть от 0 до 23, минуты от 0 до 59. Введите еще раз:")
+        return
+        
+    await state.clear()
+    env = load_env()
+    env["BACKUP_HOUR"] = str(hour)
+    env["BACKUP_MINUTE"] = str(minute)
+    save_env(env)
+    
+    success, err_msg = update_cron_schedule(hour, minute)
+    
+    if success:
+        text = (
+            "✅ <b>Время автобэкапа успешно изменено!</b>\n\n"
+            f"Новое время: <code>{hour:02d}:{minute:02d}</code> каждый день."
+        )
+    else:
+        text = f"❌ <b>Ошибка при изменении расписания cron:</b>\n\n<code>{err_msg}</code>"
+        
     await message.answer(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
