@@ -83,7 +83,10 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     build-essential curl wget git ca-certificates \
-    python3 python3-pip ufw openssl qrencode jq libcap2-bin >/dev/null
+    python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin >/dev/null
+
+log_info "Установка Python-зависимостей (aiogram)..."
+pip3 install --break-system-packages aiogram >/dev/null 2>&1 || pip3 install aiogram >/dev/null 2>&1 || true
 
 # Настройка официального репозитория Ookla Speedtest
 log_info "Настройка репозитория Ookla Speedtest..."
@@ -211,7 +214,7 @@ log_ok "Службы caddy и sing-box зарегистрированы и до�
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
 if [[ "$IS_PIPED" == "true" ]]; then
-    if [[ -d "./core" && -d "./templates" && -d "./lib" && -f "./transferbox" ]]; then
+    if [[ -d "./core" && -d "./templates" && -d "./lib" && -d "./bot" && -f "./transferbox" ]]; then
         SCRIPT_DIR="$(pwd)"
     else
         log_info "Запуск в режиме стрима, клонируем файлы проекта из GitHub..."
@@ -222,7 +225,7 @@ if [[ "$IS_PIPED" == "true" ]]; then
 fi
 mkdir -p "$PROJECT_ROOT"
 mkdir -p "${PROJECT_ROOT}/backups"
-cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/lib" "$PROJECT_ROOT/"
+cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/lib" "$SCRIPT_DIR/bot" "$PROJECT_ROOT/"
 chmod -R 700 "$PROJECT_ROOT"
 
 # Определение FQDN
