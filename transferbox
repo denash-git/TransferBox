@@ -2032,13 +2032,14 @@ update_panel_menu() {
                 fi
                 
                 center_print "${DIM}[*] Проверка целостности и синтаксиса файлов...${RESET}"
-                if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py"; then
+                if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py" "$tmp_dir/bot/main.py" "$tmp_dir/bot/keyboards.py" "$tmp_dir/bot/handlers/start.py"; then
                     center_print "${DIM}[*] Установка обновлений...${RESET}"
                     
-                    # Создаем бэкап папки core на всякий случай
+                    # Создаем бэкап папок core и bot на всякий случай
                     cp -r "$PROJECT_ROOT/core" "$PROJECT_ROOT/core.bak" 2>/dev/null || true
+                    cp -r "$PROJECT_ROOT/bot" "$PROJECT_ROOT/bot.bak" 2>/dev/null || true
                     
-                    cp -r "$tmp_dir/core" "$tmp_dir/templates" "$tmp_dir/lib" "$PROJECT_ROOT/"
+                    cp -r "$tmp_dir/core" "$tmp_dir/templates" "$tmp_dir/lib" "$tmp_dir/bot" "$PROJECT_ROOT/"
                     cp "$tmp_dir/transferbox" "$PROJECT_ROOT/"
                     cp "$tmp_dir/transferbox" /usr/local/bin/menu
                     chmod +x /usr/local/bin/menu
@@ -2054,12 +2055,15 @@ print('SUCCESS' if success else 'ERROR:' + msg)
 " 2>&1)
                     
                     if [[ "$migration_res" == "SUCCESS" ]]; then
+                        # Перезапускаем службу бота, чтобы применился новый код бота
+                        systemctl restart transferbox-bot 2>/dev/null || true
+                        
                         echo ""
                         center_print "${GREEN}✓ Обновление до версии $latest успешно завершено!${RESET}"
                         center_print "Панель управления будет перезапущена..."
                         # Очищаем бэкапы при успехе
                         rm -f "${PROJECT_ROOT}/users.json.bak" "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/transferbox.bak"
-                        rm -rf "$PROJECT_ROOT/core.bak"
+                        rm -rf "$PROJECT_ROOT/core.bak" "$PROJECT_ROOT/bot.bak"
                         rm -f "${PROJECT_ROOT}/.tb_update_cache"
                         rm -rf "$tmp_dir"
                         pause
@@ -2080,6 +2084,10 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         if [ -d "$PROJECT_ROOT/core.bak" ]; then
                             rm -rf "$PROJECT_ROOT/core"
                             mv "$PROJECT_ROOT/core.bak" "$PROJECT_ROOT/core"
+                        fi
+                        if [ -d "$PROJECT_ROOT/bot.bak" ]; then
+                            rm -rf "$PROJECT_ROOT/bot"
+                            mv "$PROJECT_ROOT/bot.bak" "$PROJECT_ROOT/bot"
                         fi
                         rm -rf "$tmp_dir"
                         pause
