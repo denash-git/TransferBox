@@ -2,6 +2,8 @@ import time
 import os
 import psutil
 import subprocess
+import asyncio
+import shutil
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
@@ -131,12 +133,26 @@ async def diagnostics_speedtest_callback(callback: CallbackQuery):
     await callback.message.edit_text("⏳ <b>Запуск теста скорости на VPS...</b>\nЭто может занять до 30 секунд. Пожалуйста, подождите.", parse_mode="HTML")
     await callback.answer()
     
-    res_installed = subprocess.run(["which", "speedtest"], capture_output=True)
-    if res_installed.returncode != 0:
-        subprocess.run("curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash", shell=True, capture_output=True)
-        subprocess.run(["apt-get", "install", "-y", "speedtest"], capture_output=True)
+    def run_speedtest():
+        if not shutil.which("speedtest"):
+            import urllib.request
+            try:
+                url = "https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req) as response:
+                    script_content = response.read()
+                subprocess.run(
+                    ["bash"],
+                    input=script_content,
+                    capture_output=True
+                )
+            except Exception:
+                pass
+            subprocess.run(["apt-get", "install", "-y", "speedtest"], capture_output=True)
+            
+        return subprocess.run(["speedtest", "--accept-license", "--accept-gdpr"], capture_output=True, text=True)
         
-    res = subprocess.run(["speedtest", "--accept-license", "--accept-gdpr"], capture_output=True, text=True)
+    res = await asyncio.to_thread(run_speedtest)
     
     if res.returncode == 0:
         output_lines = []
