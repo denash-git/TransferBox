@@ -2260,6 +2260,7 @@ EOF
             cat > /etc/cron.d/transferbox-bot <<EOF
 */5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
 0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
+0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
 EOF
             
             python3 -c "

@@ -7,12 +7,14 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw
-from bot.keyboards import settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard
+from bot.keyboards import settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard
+from bot.backup import run_backup, generate_random_password
 
 router = Router()
 
 class SettingsStates(StatesGroup):
     waiting_ssh_port = State()
+    waiting_backup_password = State()
 
 def is_bbr_active() -> bool:
     try:
@@ -195,3 +197,77 @@ async def settings_run_update_callback(callback: CallbackQuery):
         stderr=subprocess.DEVNULL,
         preexec_fn=os.setpgrp if hasattr(os, "setpgrp") else None
     )
+
+# ─── НАСТРОЙКИ: МЕНЮ БЭКАПОВ ──────────────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:backup_menu")
+async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+    env = load_env()
+    password = env.get("BACKUP_PASSWORD")
+    if not password:
+        password = generate_random_password()
+        env["BACKUP_PASSWORD"] = password
+        save_env(env)
+        
+    text = (
+        "💾 <b>Резервное копирование</b>\n\n"
+        "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
+        f"🔑 <b>Пароль шифрования бэкапов:</b>\n<code>{password}</code>\n\n"
+        "⚠️ <b>Внимание:</b> Сохраните этот пароль! Без него распаковать файлы бэкапа не получится."
+    )
+    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+# ─── НАСТРОЙКИ: БЭКАП СЕЙЧАС ──────────────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:backup_now")
+async def settings_backup_now_callback(callback: CallbackQuery):
+    await callback.message.edit_text("⏳ <b>Создание и отправка резервной копии...</b>", parse_mode="HTML")
+    await callback.answer()
+    
+    success, msg = run_backup()
+    env = load_env()
+    password = env.get("BACKUP_PASSWORD", "")
+    
+    if success:
+        text = (
+            "✅ <b>Резервная копия успешно отправлена в этот чат!</b>\n\n"
+            f"🔑 Пароль для распаковки: <code>{password}</code>"
+        )
+    else:
+        text = f"❌ <b>Ошибка резервного копирования:</b>\n\n<code>{msg}</code>"
+        
+    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+
+# ─── НАСТРОЙКИ: ИЗМЕНИТЬ ПАРОЛЬ БЭКАПА ─────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:backup_change_pass")
+async def settings_backup_change_pass_callback(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(SettingsStates.waiting_backup_password)
+    text = (
+        "🔑 <b>Смена пароля бэкапов</b>\n\n"
+        "Введите новый пароль для шифрования бэкапов (от 6 до 32 символов, только английские буквы и цифры):"
+    )
+    await callback.message.edit_text(text, reply_markup=settings_back_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
+@router.message(SettingsStates.waiting_backup_password)
+async def settings_backup_password_msg(message: Message, state: FSMContext):
+    new_pass = message.text.strip()
+    # Проверка пароля на валидность
+    if not (6 <= len(new_pass) <= 32) or not new_pass.isalnum():
+        await message.answer("❌ Неверный пароль! Пароль должен содержать от 6 до 32 символов (только латинские буквы и цифры). Введите еще раз:")
+        return
+        
+    await state.clear()
+    env = load_env()
+    env["BACKUP_PASSWORD"] = new_pass
+    save_env(env)
+    
+    text = (
+        f"✅ <b>Пароль бэкапов изменен!</b>\n\n"
+        f"Новый пароль: <code>{new_pass}</code>\n\n"
+        f"Все последующие бэкапы будут зашифрованы этим паролем."
+    )
+    await message.answer(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")

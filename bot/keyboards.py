@@ -42,13 +42,26 @@ def settings_menu_keyboard(bbr_active: bool):
     btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
     btn2 = align_button_text("🔄 Перезапуск служб", 18.0)
     btn3 = align_button_text(toggle_bbr_lbl, 18.0)
-    btn4 = align_button_text("🔄 Проверить обновления", 18.0)
+    btn4 = align_button_text("💾 Резервные копии", 18.0)
+    btn5 = align_button_text("🔄 Проверить обновления", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
         [InlineKeyboardButton(text=btn2, callback_data="services:menu")],
         [InlineKeyboardButton(text=btn3, callback_data="settings:bbr_toggle")],
-        [InlineKeyboardButton(text=btn4, callback_data="settings:check_updates")],
+        [InlineKeyboardButton(text=btn4, callback_data="settings:backup_menu")],
+        [InlineKeyboardButton(text=btn5, callback_data="settings:check_updates")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def settings_backup_keyboard():
+    btn1 = align_button_text("📥 Создать бэкап сейчас", 18.0)
+    btn2 = align_button_text("🔑 Новый пароль архива", 18.0)
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn1, callback_data="settings:backup_now")],
+        [InlineKeyboardButton(text=btn2, callback_data="settings:backup_change_pass")],
+        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
