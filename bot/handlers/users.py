@@ -317,12 +317,12 @@ async def user_send_links_callback(callback: CallbackQuery):
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
-# ─── УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ ПОЛНОСТЬЮ ─────────────────────────────────────────
+# ─── УДАЛЕНИЕ ПОЛЬЗОВАТЕЛЯ ───────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("user:delete:confirm:"))
 async def user_delete_confirm_callback(callback: CallbackQuery):
     nick = callback.data.split(":")[3]
-    text = f"⚠️ Вы уверены, что хотите полностью удалить пользователя <code>{nick}</code> и ВСЕ его протоколы?"
+    text = f"⚠️ Вы уверены, что хотите удалить пользователя <code>{nick}</code> и все его протоколы?"
     await callback.message.edit_text(text, reply_markup=user_delete_confirm_keyboard(nick), parse_mode="HTML")
     await callback.answer()
 
@@ -330,11 +330,11 @@ async def user_delete_confirm_callback(callback: CallbackQuery):
 async def user_delete_run_callback(callback: CallbackQuery):
     nick = callback.data.split(":")[3]
     
-    await notify_and_restart(callback, "Полное удаление пользователя", delete_user, nick)
+    await notify_and_restart(callback, "Удаление пользователя", delete_user, nick)
     
     # Возвращаемся к списку пользователей
     users = load_users()
-    text = "👥 <b>Список пользователей:</b>\nВыберите пользователя для управления или добавьте нового."
+    text = "👥 <b>Управление пользователями</b>"
     await callback.message.edit_text(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
 
 # ─── ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ (FSM) ───────────────────────────────────────────

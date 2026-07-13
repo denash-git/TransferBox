@@ -26,12 +26,31 @@ def align_button_text(text: str, target_width: float = 18.0) -> str:
 def main_menu_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 Пользователи", callback_data="user:list")],
-        [InlineKeyboardButton(text="📊 Ресурсы и службы", callback_data="status:services")],
+        [InlineKeyboardButton(text="📊 Диагностика", callback_data="diag:menu")],
         [InlineKeyboardButton(text="🔄 Перезапуск служб", callback_data="services:menu")]
     ])
 
 def back_to_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def diagnostics_menu_keyboard():
+    # Выравниваем кнопки диагностики по левому краю с целевой шириной 18.0
+    btn1 = align_button_text("📈 Мониторинг ресурсов", 18.0)
+    btn2 = align_button_text("🚀 Тест скорости", 18.0)
+    btn3 = align_button_text("⚙️ Пересоздать конфиги", 18.0)
+    
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn1, callback_data="diag:resources")],
+        [InlineKeyboardButton(text=btn2, callback_data="diag:speedtest")],
+        [InlineKeyboardButton(text=btn3, callback_data="diag:recreate")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def diagnostics_back_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="« Назад в Диагностику", callback_data="diag:menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
@@ -106,11 +125,11 @@ def user_info_keyboard(nick: str, protocols: list):
     # Функциональные кнопки управления пользователем
     row_buttons = []
     if can_add_proto:
-        row_buttons.append(InlineKeyboardButton(text="➕ Добавить протокол", callback_data=f"user:proto:add:{nick}"))
+        row_buttons.append(InlineKeyboardButton(text="➕ Протокол", callback_data=f"user:proto:add:{nick}"))
     row_buttons.append(InlineKeyboardButton(text="🌀 Подписка", callback_data=f"user:links:{nick}"))
     keyboard.append(row_buttons)
     
-    keyboard.append([InlineKeyboardButton(text="🗑️ Удалить пользователя полностью", callback_data=f"user:delete:confirm:{nick}")])
+    keyboard.append([InlineKeyboardButton(text="🗑️ Удалить пользователя", callback_data=f"user:delete:confirm:{nick}")])
     keyboard.append([InlineKeyboardButton(text="« К списку пользователей", callback_data="user:list")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

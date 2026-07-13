@@ -5,7 +5,8 @@ import subprocess
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.filters import Command
-from bot.keyboards import back_to_main_keyboard
+from core.config_manager import render_configs, validate_and_restart
+from bot.keyboards import diagnostics_menu_keyboard, diagnostics_back_keyboard
 
 router = Router()
 
@@ -51,8 +52,8 @@ def get_status_text() -> str:
         uptime_str += f"{hours} ч. "
     uptime_str += f"{minutes} мин."
     
-    # Формируем отчет
-    text = "📊 <b>Статус ресурсов и служб</b>\n\n"
+    # Формируем отчет с красивым выравниванием
+    text = "📈 <b>Мониторинг ресурсов и служб</b>\n\n"
     text += "⚙️ <b>Состояние служб:</b>\n"
     text += f"  • Caddy: {caddy_status}\n"
     text += f"  • sing-box: {singbox_status}\n"
@@ -68,13 +69,80 @@ def get_status_text() -> str:
     text += f"  • Аптайм: <code>{uptime_str}</code>\n"
     return text
 
-@router.message(Command("status"))
-async def status_command(message: Message):
-    text = get_status_text()
-    await message.answer(text, reply_markup=back_to_main_keyboard(), parse_mode="HTML")
+# ─── ДИАГНОСТИКА: МЕНЮ ────────────────────────────────────────────────────────
 
-@router.callback_query(F.data == "status:services")
-async def status_services_callback(callback: CallbackQuery):
+@router.message(Command("diag"))
+@router.callback_query(F.data == "diag:menu")
+async def diagnostics_menu_callback(event):
+    text = "📊 <b>Диагностика системы</b>\n\nВыберите нужный инструмент диагностики:"
+    if isinstance(event, CallbackQuery):
+        try:
+            await event.message.edit_text(text, reply_markup=diagnostics_menu_keyboard(), parse_mode="HTML")
+        except Exception:
+            await event.message.answer(text, reply_markup=diagnostics_menu_keyboard(), parse_mode="HTML")
+            await event.message.delete()
+        await event.answer()
+    else:
+        await event.answer(text, reply_markup=diagnostics_menu_keyboard(), parse_mode="HTML")
+
+# ─── ДИАГНОСТИКА: МОНИТОРИНГ РЕСУРСОВ ─────────────────────────────────────────
+
+@router.message(Command("status"))
+@router.callback_query(F.data == "diag:resources")
+async def diagnostics_resources_callback(event):
     text = get_status_text()
-    await callback.message.edit_text(text, reply_markup=back_to_main_keyboard(), parse_mode="HTML")
+    if isinstance(event, CallbackQuery):
+        await event.message.edit_text(text, reply_markup=diagnostics_back_keyboard(), parse_mode="HTML")
+        await event.answer()
+    else:
+        await event.answer(text, reply_markup=diagnostics_back_keyboard(), parse_mode="HTML")
+
+# ─── ДИАГНОСТИКА: ТЕСТ СКОРОСТИ ────────────────────────────────────────────────
+
+@router.callback_query(F.data == "diag:speedtest")
+async def diagnostics_speedtest_callback(callback: CallbackQuery):
+    await callback.message.edit_text("⏳ <b>Запуск теста скорости на VPS...</b>\nЭто может занять до 30 секунд. Пожалуйста, подождите.", parse_mode="HTML")
     await callback.answer()
+    
+    # 1. Проверяем установку Ookla speedtest
+    res_installed = subprocess.run(["which", "speedtest"], capture_output=True)
+    if res_installed.returncode != 0:
+        # Устанавливаем официальный speedtest
+        subprocess.run("curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash", shell=True, capture_output=True)
+        subprocess.run(["apt-get", "install", "-y", "speedtest"], capture_output=True)
+        
+    # 2. Выполняем тест
+    res = subprocess.run(["speedtest", "--accept-license", "--accept-gdpr"], capture_output=True, text=True)
+    
+    if res.returncode == 0:
+        output_lines = []
+        for line in res.stdout.split("\n"):
+            # Пропускаем пустые и рекламные строки Ookla
+            if not line.strip() or "Speedtest by Ookla" in line or "https://" in line:
+                continue
+            output_lines.append(line.strip())
+        output_txt = "\n".join(output_lines)
+        text = f"🚀 <b>Результаты теста скорости на VPS:</b>\n\n<code>{output_txt}</code>"
+    else:
+        text = f"❌ <b>Ошибка запуска Speedtest:</b>\n\n<code>{res.stderr or res.stdout}</code>"
+        
+    await callback.message.edit_text(text, reply_markup=diagnostics_back_keyboard(), parse_mode="HTML")
+
+# ─── ДИАГНОСТИКА: ПЕРЕСОЗДАТЬ КОНФИГИ ─────────────────────────────────────────
+
+@router.callback_query(F.data == "diag:recreate")
+async def diagnostics_recreate_callback(callback: CallbackQuery):
+    await callback.message.edit_text("⏳ <b>Перегенерация конфигурационных файлов...</b>", parse_mode="HTML")
+    await callback.answer()
+    
+    try:
+        render_configs()
+        success, msg = validate_and_restart()
+        if success:
+            text = "✅ <b>Успешно!</b>\nВсе конфигурационные файлы пересозданы, службы успешно перезапущены."
+        else:
+            text = f"❌ <b>Конфиги пересозданы, но служба не запустилась:</b>\n\n<code>{msg}</code>"
+    except Exception as e:
+        text = f"❌ <b>Критическая ошибка перегенерации конфигов:</b>\n\n<code>{e}</code>"
+        
+    await callback.message.edit_text(text, reply_markup=diagnostics_back_keyboard(), parse_mode="HTML")

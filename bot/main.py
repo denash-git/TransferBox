@@ -26,7 +26,8 @@ async def main():
     commands = [
         BotCommand(command="start", description="Главное меню управления"),
         BotCommand(command="users", description="Список пользователей"),
-        BotCommand(command="status", description="Статус ресурсов и служб"),
+        BotCommand(command="diag", description="Диагностика системы"),
+        BotCommand(command="status", description="Мониторинг ресурсов"),
         BotCommand(command="services", description="Перезапуск служб")
     ]
     await bot.set_my_commands(commands)
