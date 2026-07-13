@@ -213,7 +213,7 @@ async def user_proto_links_callback(callback: CallbackQuery):
             
     # Если это Mieru, дополнительно прикрепляем конфиг Sing-box JSON и его QR
     if proto == "mieru":
-        singbox_json = build_mieru_singbox_json(user_obj)
+        singbox_json = build_mieru_singbox_json(user_obj, env=env)
         msg_json = f"📄 <b>Sing-box JSON для {nick} (копировать в Karing):</b>\n\n<code>{singbox_json}</code>"
         
         try:

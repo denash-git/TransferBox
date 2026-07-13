@@ -189,8 +189,9 @@ def build_client_link(user_obj, env=None):
     return ""
 
 
-def build_mieru_json_config(user_obj):
-    env = load_env()
+def build_mieru_json_config(user_obj, env=None):
+    if env is None:
+        env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
     creds = user_obj.get("credentials", {})
     username = creds.get("username")
@@ -221,8 +222,9 @@ def build_mieru_json_config(user_obj):
     return json.dumps(config, indent=2)
 
 
-def build_mieru_clash_yaml(user_obj):
-    env = load_env()
+def build_mieru_clash_yaml(user_obj, env=None):
+    if env is None:
+        env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
     creds = user_obj.get("credentials", {})
     username = creds.get("username")
@@ -239,8 +241,9 @@ def build_mieru_clash_yaml(user_obj):
     return yaml_str
 
 
-def build_mieru_singbox_json(user_obj):
-    env = load_env()
+def build_mieru_singbox_json(user_obj, env=None):
+    if env is None:
+        env = load_env()
     domain = env.get("DOMAIN", "yourdomain.com")
     creds = user_obj.get("credentials", {})
     username = creds.get("username")
@@ -317,7 +320,7 @@ def render_configs():
     caddy_content = caddy_content.replace("{{FAKESITE_DIR}}", fakesite_dir)
     caddy_content = caddy_content.replace("{{FORWARD_PROXY_BLOCK}}", forward_proxy_block)
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
-    caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service}")
+    caddy_content = caddy_content.replace("{{VLESS_GRPC_PATH}}", f"/{vless_grpc_service.lstrip('/')}")
     caddy_content = caddy_content.replace("{{VLESS_XHTTP_PATH}}", vless_xhttp_path)
     caddy_content = caddy_content.replace("{{PROJECT_ROOT}}", PROJECT_ROOT)
 
@@ -398,6 +401,7 @@ def render_configs():
     except Exception:
         pass
 
+    seen_nicks = set()
     for u in users:
         if not u.get("enabled", True):
             continue
@@ -407,6 +411,10 @@ def render_configs():
 
         # Find all active protocols for this nickname
         nick = u.get("nickname")
+        if not nick or nick in seen_nicks:
+            continue
+        seen_nicks.add(nick)
+
         nick_links = []
         for other in users:
             if other.get("nickname") == nick and other.get("enabled", True):
