@@ -24,11 +24,7 @@ async def main():
     
     # Регистрация команд в меню Telegram
     commands = [
-        BotCommand(command="start", description="Главное меню управления"),
-        BotCommand(command="users", description="Список пользователей"),
-        BotCommand(command="diag", description="Диагностика системы"),
-        BotCommand(command="settings", description="Настройки системы"),
-        BotCommand(command="services", description="Перезапуск служб")
+        BotCommand(command="start", description="Главное меню управления")
     ]
     await bot.set_my_commands(commands)
     

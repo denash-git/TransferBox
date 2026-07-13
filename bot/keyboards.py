@@ -68,8 +68,7 @@ def settings_backup_keyboard(enabled: bool):
     if enabled:
         keyboard.append([InlineKeyboardButton(text=btn3, callback_data="settings:backup_change_time")])
     keyboard.append([InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")])
-    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
-    )
+    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -211,7 +210,7 @@ def proto_delete_confirm_keyboard(nick: str, proto: str, utype: str):
     utype_val = utype if utype and utype != "none" else "none"
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🗑️ Да, удалить протокол", callback_data=f"user:proto:delete:run:{nick}:{proto}:{utype_val}"),
+            InlineKeyboardButton(text="🗑️ Да, удалить", callback_data=f"user:proto:delete:run:{nick}:{proto}:{utype_val}"),
             InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:proto:manage:{nick}:{proto}:{utype_val}")
         ],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
@@ -220,7 +219,7 @@ def proto_delete_confirm_keyboard(nick: str, proto: str, utype: str):
 def user_delete_confirm_keyboard(nick: str):
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🗑️ Да, удалить пользователя", callback_data=f"user:delete:run:{nick}"),
+            InlineKeyboardButton(text="🗑️ Да, удалить", callback_data=f"user:delete:run:{nick}"),
             InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:info:{nick}")
         ],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]

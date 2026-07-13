@@ -9,13 +9,12 @@ from aiogram.fsm.context import FSMContext
 
 from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw
 from bot.keyboards import settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard
-from bot.backup import run_backup, generate_random_password
+from bot.backup import run_backup
 
 router = Router()
 
 class SettingsStates(StatesGroup):
     waiting_ssh_port = State()
-    waiting_backup_password = State()
     waiting_backup_time = State()
 
 def update_cron_schedule(hour: int, minute: int, enabled: bool) -> tuple[bool, str]:
@@ -220,11 +219,14 @@ async def settings_run_update_callback(callback: CallbackQuery):
 
 # ─── НАСТРОЙКИ: МЕНЮ БЭКАПОВ ──────────────────────────────────────────────────
 
+# ─── НАСТРОЙКИ: МЕНЮ БЭКАПОВ ──────────────────────────────────────────────────
+
 @router.callback_query(F.data == "settings:backup_menu")
 async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     env = load_env()
     backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    password_set = bool(env.get("BACKUP_PASSWORD", "").strip())
     
     hour_str = env.get("BACKUP_HOUR")
     minute_str = env.get("BACKUP_MINUTE")
@@ -245,11 +247,15 @@ async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMConte
     
     text = (
         "💾 <b>Резервное копирование</b>\n\n"
-        "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
+        "Архивы бэкапов, отправляемые в Telegram, защищаются паролем, который вы задаете в TUI.\n\n"
         f"{status_text}\n"
-        f"{time_info}\n"
-        "Для получения пароля архива используйте пункт <b>«Получить пароль зашифрованного бэкапа»</b> в консольном меню сервера (TUI) по SSH, указав хэш-код из имени файла."
+        f"{time_info}"
     )
+    if password_set:
+        text += "\n🔐 <b>Пароль бэкапов:</b> задан"
+    else:
+        text += "\n⚠️ <b>Внимание:</b> Пароль для бэкапов не задан. Бэкапы отправляться не будут. Задайте его в TUI по SSH."
+        
     await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
     await callback.answer()
 
@@ -259,6 +265,7 @@ async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMConte
 async def settings_backup_toggle_callback(callback: CallbackQuery):
     env = load_env()
     current_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    password_set = bool(env.get("BACKUP_PASSWORD", "").strip())
     new_enabled = not current_enabled
     
     env["BACKUP_ENABLED"] = "true" if new_enabled else "false"
@@ -282,28 +289,38 @@ async def settings_backup_toggle_callback(callback: CallbackQuery):
     
     text = (
         "💾 <b>Резервное копирование</b>\n\n"
-        "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
+        "Архивы бэкапов, отправляемые в Telegram, защищаются паролем, который вы задаете в TUI.\n\n"
         f"{status_text}\n"
-        f"{time_info}\n"
-        "Для получения пароля архива используйте пункт <b>«Получить пароль зашифрованного бэкапа»</b> в консольном меню сервера (TUI) по SSH, указав хэш-код из имени файла."
+        f"{time_info}"
     )
+    if password_set:
+        text += "\n🔐 <b>Пароль бэкапов:</b> задан"
+    else:
+        text += "\n⚠️ <b>Внимание:</b> Пароль для бэкапов не задан. Бэкапы отправляться не будут. Задайте его в TUI по SSH."
+        
     await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(new_enabled), parse_mode="HTML")
 
 # ─── НАСТРОЙКИ: БЭКАП СЕЙЧАС ──────────────────────────────────────────────────
 
 @router.callback_query(F.data == "settings:backup_now")
 async def settings_backup_now_callback(callback: CallbackQuery):
+    env = load_env()
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    password_set = bool(env.get("BACKUP_PASSWORD", "").strip())
+    
+    if not password_set:
+        await callback.answer("❌ Пароль для бэкапов не задан! Задайте его в TUI по SSH.", show_alert=True)
+        return
+        
     await callback.message.edit_text("⏳ <b>Создание и отправка резервной копии...</b>", parse_mode="HTML")
     await callback.answer()
     
     success, msg = run_backup()
-    env = load_env()
-    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
     
     if success:
         text = (
             "✅ <b>Резервная копия успешно отправлена в этот чат!</b>\n\n"
-            "Для расшифровки архива введите его хэш-код в консольном меню сервера."
+            "Архив зашифрован вашим паролем бэкапов."
         )
     else:
         text = f"❌ <b>Ошибка резервного копирования:</b>\n\n<code>{msg}</code>"
@@ -364,3 +381,4 @@ async def settings_backup_time_msg(message: Message, state: FSMContext):
         text = f"❌ <b>Ошибка при изменении расписания cron:</b>\n\n<code>{err_msg}</code>"
         
     await message.answer(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
+

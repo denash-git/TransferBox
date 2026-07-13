@@ -50,7 +50,8 @@ def main():
                 send_alert(f"🔴 <b>Служба {s} не запущена</b>")
 
     # 2. Проверяем ресурсы сервера (CPU, RAM, Диск)
-    cpu_pct = psutil.cpu_percent(interval=1.0)
+    # Используем интервал 30.0 секунд, чтобы сгладить кратковременные пики
+    cpu_pct = psutil.cpu_percent(interval=30.0)
     ram_pct = psutil.virtual_memory().percent
     disk_pct = psutil.disk_usage('/').percent
     

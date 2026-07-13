@@ -95,7 +95,16 @@ def send_user_links(chat_id: int, user_nickname: str):
         return
         
     domain = env.get("DOMAIN", "yourdomain.com")
-    sub_link = f"https://{domain}/sub/{user_nickname}"
+    
+    sub_token = ""
+    for u in user_protocols:
+        if u.get("sub_token"):
+            sub_token = u["sub_token"]
+            break
+    if not sub_token:
+        sub_token = user_nickname
+        
+    sub_link = f"https://{domain}/sub/{sub_token}"
     
     msg_parts = [f"🔑 <b>Ссылки для {user_nickname}:</b>\n"]
     msg_parts.append("🌀 <b>Ссылка подписки:</b>")

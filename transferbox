@@ -1120,7 +1120,6 @@ diagnostics_menu() {
             "Показать логи"
             "Тест VPS → Интернет (speedtest-cli)"
             "Замер скорости Client ↔ VPS (iperf3)"
-            "Пересоздать конфигурации"
             "Назад"
         )
         select_menu SELECTED_INDEX "Диагностика" "${options[@]}"
@@ -1140,8 +1139,6 @@ diagnostics_menu() {
             run_speedtest_vps_internet
         elif [ "$clean_sel" == "Замер скорости Client ↔ VPS (iperf3)" ]; then
             run_speedtest_client_vps
-        elif [ "$clean_sel" == "Пересоздать конфигурации" ]; then
-            apply_settings_menu
         fi
     done
 }
@@ -2399,6 +2396,7 @@ settings_menu() {
             "Выбрать шаблон маскировочного сайта"
             "Настроить пути VLESS"
             "Изменить порт SSH"
+            "Пересоздать конфигурации"
         )
         if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
             options+=("Отключить BBR оптимизацию")
@@ -2430,6 +2428,8 @@ settings_menu() {
             change_vless_paths_menu
         elif [ "$clean_sel" == "Изменить порт SSH" ]; then
             change_ssh_port_menu
+        elif [ "$clean_sel" == "Пересоздать конфигурации" ]; then
+            apply_settings_menu
         elif [ "$clean_sel" == "Telegram-бот" ]; then
             telegram_bot_menu
         elif [ "$clean_sel" == "Проверить обновления панели" ]; then
@@ -2817,7 +2817,7 @@ backup_restore_menu() {
         local options=(
             "Создать бэкап настроек"
             "Восстановить из последнего бэкапа"
-            "Получить пароль зашифрованного бэкапа"
+            "Задать пароль для бэкапов"
             "Назад"
         )
         select_menu SELECTED_INDEX "Бэкап и Восстановление" "${options[@]}"
@@ -2830,31 +2830,40 @@ backup_restore_menu() {
             
             local tmpfile
             tmpfile=$(mktemp)
-            # Run creation in python helper
             python3 -c "
-import os, tarfile, datetime
+import os, subprocess, datetime
 backup_dir = '$backup_dir'
 os.makedirs(backup_dir, exist_ok=True)
-timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-backup_filename = f'transferbox_backup_{timestamp}.tar.gz'
-backup_path = os.path.join(backup_dir, backup_filename)
 
+# Ensure zip is installed
+res_installed = subprocess.run(['which', 'zip'], capture_output=True)
+if res_installed.returncode != 0:
+    subprocess.run(['apt-get', 'update'], capture_output=True)
+    subprocess.run(['apt-get', 'install', '-y', 'zip'], capture_output=True)
+
+timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+zip_filename = f'transferbox_backup_{timestamp}.zip'
+zip_path = os.path.join(backup_dir, zip_filename)
+
+users_path = '${PROJECT_ROOT}/users.json'
+env_path = '${PROJECT_ROOT}/instance.env'
+
+# Check if files exist
 files_to_backup = []
-paths = ['${PROJECT_ROOT}/users.json', '${PROJECT_ROOT}/instance.env']
-for p in paths:
+for p in [users_path, env_path]:
     if os.path.exists(p):
         files_to_backup.append(p)
 
 if not files_to_backup:
-    print('ERROR: No files to backup')
+    print('ERROR:No files to backup')
 else:
-    try:
-        with tarfile.open(backup_path, 'w:gz') as tar:
-            for p in files_to_backup:
-                tar.add(p, arcname=os.path.basename(p))
-        print(f'SUCCESS:{backup_path}')
-    except Exception as e:
-        print(f'ERROR:{e}')
+    # Run zip command without password
+    cmd = ['zip', '-j', zip_path] + files_to_backup
+    res_zip = subprocess.run(cmd, capture_output=True, text=True)
+    if res_zip.returncode == 0:
+        print(f'SUCCESS:{zip_path}')
+    else:
+        print(f'ERROR:{res_zip.stderr}')
 " > "$tmpfile"
             
             local res
@@ -2864,7 +2873,7 @@ else:
                 echo ""
                 center_print "${GREEN}✓ Бэкап успешно создан!${RESET}"
                 center_print "Файл сохранен: ${BOLD}${path}${RESET}"
-                center_print "Скачайте этот файл на свой компьютер для надежного хранения."
+                center_print "Этот бэкап не зашифрован и может быть быстро восстановлен локально."
             else
                 echo ""
                 center_print "${RED}✗ Ошибка создания бэкапа: ${res#ERROR:}${RESET}"
@@ -2879,16 +2888,15 @@ else:
             
             local tmpfile_find
             tmpfile_find=$(mktemp)
-            # Find latest in python
             python3 -c "
-import os, glob, datetime, tarfile
+import os, glob, datetime
 backup_dir = '$backup_dir'
-backup_files = glob.glob(os.path.join(backup_dir, 'transferbox_backup_*.tar.gz'))
-if not backup_files:
+zip_files = glob.glob(os.path.join(backup_dir, 'transferbox_*.zip'))
+if not zip_files:
     print('ERROR: No backup files found')
 else:
-    backup_files.sort(key=os.path.getmtime, reverse=True)
-    latest_backup = backup_files[0]
+    zip_files.sort(key=os.path.getmtime, reverse=True)
+    latest_backup = zip_files[0]
     mtime = os.path.getmtime(latest_backup)
     file_date = datetime.datetime.fromtimestamp(mtime).strftime('%Y-%m-%d %H:%M:%S')
     print(f'FOUND:{latest_backup}|{file_date}')
@@ -2925,21 +2933,39 @@ else:
                 continue
             fi
             
-            echo -e "\n  [*] Восстановление файлов..."
+            echo -e "\n  [*] Проверка архива и восстановление..."
             local tmpfile_ext
             tmpfile_ext=$(mktemp)
             python3 -c "
-import os, tarfile
+import os, zipfile
 try:
-    with tarfile.open('$latest_backup_info', 'r:gz') as tar:
-        resolved_root = os.path.abspath('${PROJECT_ROOT}')
-        safe_members = []
-        for m in tar.getmembers():
-            target = os.path.abspath(os.path.join(resolved_root, m.name))
-            if os.path.commonpath([resolved_root, target]) == resolved_root:
-                safe_members.append(m)
-        tar.extractall(path=resolved_root, members=safe_members)
-    print('SUCCESS')
+    latest_backup = '$latest_backup_info'
+    resolved_root = os.path.abspath('${PROJECT_ROOT}')
+    
+    with zipfile.ZipFile(latest_backup) as zf:
+        is_encrypted = any(zinfo.flag_bits & 0x1 for zinfo in zf.infolist())
+        
+    if is_encrypted:
+        from core.config_manager import load_env
+        env = load_env()
+        env_password = env.get('BACKUP_PASSWORD', '').strip()
+        
+        success_ext = False
+        if env_password:
+            try:
+                with zipfile.ZipFile(latest_backup) as zf:
+                    zf.extractall(path=resolved_root, pwd=env_password.encode('utf-8'))
+                print('SUCCESS')
+                success_ext = True
+            except Exception:
+                pass
+                
+        if not success_ext:
+            print('ASK_PASSWORD')
+    else:
+        with zipfile.ZipFile(latest_backup) as zf:
+            zf.extractall(path=resolved_root)
+        print('SUCCESS')
 except Exception as e:
     print('ERROR:', e)
 " > "$tmpfile_ext"
@@ -2947,6 +2973,28 @@ except Exception as e:
             local ext_res
             ext_res=$(cat "$tmpfile_ext")
             rm -f "$tmpfile_ext"
+            
+            if [ "$ext_res" == "ASK_PASSWORD" ]; then
+                local user_pwd
+                read_prompt "Архив защищен паролем. Введите пароль для расшифровки: " user_pwd
+                
+                local tmpfile_ext2
+                tmpfile_ext2=$(mktemp)
+                python3 -c "
+import os, zipfile
+try:
+    latest_backup = '$latest_backup_info'
+    resolved_root = os.path.abspath('${PROJECT_ROOT}')
+    user_pwd = '${user_pwd}'
+    with zipfile.ZipFile(latest_backup) as zf:
+        zf.extractall(path=resolved_root, pwd=user_pwd.encode('utf-8'))
+    print('SUCCESS')
+except Exception as e:
+    print('ERROR:', e)
+" > "$tmpfile_ext2"
+                ext_res=$(cat "$tmpfile_ext2")
+                rm -f "$tmpfile_ext2"
+            fi
             
             if [ "$ext_res" == "SUCCESS" ]; then
                 # Восстанавливаем состояния служб и устанавливаем их при отсутствии
@@ -3065,33 +3113,43 @@ else:
             pause
         elif [ "$choice" -eq 2 ]; then
             clear_screen
-            print_header "Восстановление пароля бэкапа" "false"
+            print_header "Задать пароль для бэкапов" "false"
             echo ""
-            local hash_val
-            read_prompt "Введите хэш-код из имени файла бэкапа: " hash_val
             
-            # Удаляем пробелы по краям
-            hash_val=$(echo "$hash_val" | xargs)
-            
-            if [ -z "$hash_val" ]; then
-                echo ""
-                center_print "${YELLOW}Операция отменена (пустой ввод).${RESET}"
-                pause
-                continue
-            fi
-            
-            local password
-            password=$(python3 -c "
-import hashlib
-file_hash = '${hash_val}'
-salt = 'TransferBox_AES_Backup_Salt_2026!'
-h = hashlib.sha256(f'{file_hash}{salt}'.encode('utf-8')).hexdigest()
-print(h[:16])
+            local pwd_status
+            pwd_status=$(python3 -c "
+from core.config_manager import load_env
+env = load_env()
+pwd = env.get('BACKUP_PASSWORD', '').strip()
+if pwd:
+    print(f'Текущий пароль для отправки в Telegram: {pwd}')
+else:
+    print('Текущий пароль для отправки в Telegram: не задан')
 ")
+            center_print "${pwd_status}"
             echo ""
-            center_print "${GREEN}✓ Пароль для расшифровки архива:${RESET}"
-            center_print "  ${BOLD}${password}${RESET}"
-            echo ""
+            local new_pwd
+            read_prompt "Введите новый пароль (не менее 4 символов, или Enter для отмены): " new_pwd
+            new_pwd=$(echo "$new_pwd" | xargs)
+            
+            if [ -n "$new_pwd" ]; then
+                if [ ${#new_pwd} -lt 4 ]; then
+                    echo ""
+                    center_print "${RED}❌ Пароль слишком короткий (минимум 4 символа).${RESET}"
+                else
+                    python3 -c "
+from core.config_manager import load_env, save_env
+env = load_env()
+env['BACKUP_PASSWORD'] = '${new_pwd}'
+save_env(env)
+"
+                    echo ""
+                    center_print "${GREEN}✓ Пароль для бэкапов успешно сохранен!${RESET}"
+                fi
+            else
+                echo ""
+                center_print "${YELLOW}Изменения отменены.${RESET}"
+            fi
             pause
         elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
             return 0

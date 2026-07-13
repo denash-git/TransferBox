@@ -285,7 +285,19 @@ async def user_send_links_callback(callback: CallbackQuery):
     token = env.get("TG_BOT_TOKEN")
     chat_id = callback.from_user.id
     domain = env.get("DOMAIN", "yourdomain.com")
-    sub_link = f"https://{domain}/sub/{nick}"
+    
+    # Load users to find the correct sub_token
+    users = load_users()
+    sub_token = ""
+    for u in users:
+        if u.get("nickname") == nick:
+            sub_token = u.get("sub_token", "")
+            break
+            
+    if not sub_token:
+        sub_token = nick
+        
+    sub_link = f"https://{domain}/sub/{sub_token}"
     
     msg_text = f"🌀 <b>Ссылка подписки для {nick}:</b>\n\n<code>{sub_link}</code>"
     
