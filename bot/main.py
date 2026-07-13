@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.types import BotCommand
 from core.config_manager import load_env
 from bot.auth import AuthMiddleware
-from bot.handlers import start, users, status, services
+from bot.handlers import start, users, status, services, settings
 
 async def main():
     env = load_env()
@@ -27,7 +27,7 @@ async def main():
         BotCommand(command="start", description="Главное меню управления"),
         BotCommand(command="users", description="Список пользователей"),
         BotCommand(command="diag", description="Диагностика системы"),
-        BotCommand(command="status", description="Мониторинг ресурсов"),
+        BotCommand(command="settings", description="Настройки системы"),
         BotCommand(command="services", description="Перезапуск служб")
     ]
     await bot.set_my_commands(commands)
@@ -40,6 +40,7 @@ async def main():
     dp.include_router(users.router)
     dp.include_router(status.router)
     dp.include_router(services.router)
+    dp.include_router(settings.router)
     
     print("[TG BOT] Starting polling...")
     try:
