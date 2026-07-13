@@ -3161,6 +3161,12 @@ else:
                     echo ""
                     center_print "${GREEN}✓ Настройки успешно восстановлены и применены!${RESET}"
                     center_print "Все службы запущены и функционируют на восстановленных данных."
+                    if [ -n "$restored_fqdn" ] && [ "$old_fqdn" != "$restored_fqdn" ]; then
+                        echo ""
+                        center_print "${YELLOW}⚠️ Имя хоста изменено на '$restored_fqdn'.${RESET}"
+                        center_print "${YELLOW}Переподключитесь по SSH или выполните 'exec bash' после выхода,${RESET}"
+                        center_print "${YELLOW}чтобы обновить имя в приглашении командной строки.${RESET}"
+                    fi
                 else
                     echo ""
                     center_print "${RED}✗ Ошибка при применении восстановленных настроек: ${apply_res#ERROR:}${RESET}"
