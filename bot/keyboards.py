@@ -1,5 +1,26 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+def align_button_text(text: str, target_width: float = 18.0) -> str:
+    # Оценка ширины символов для пропорционального шрифта Telegram
+    width = 0.0
+    for char in text:
+        if char in "🟢🔴":
+            width += 1.8
+        elif char.isupper():
+            width += 1.05
+        elif char.islower():
+            width += 0.8
+        elif char == " ":
+            width += 0.35
+        else:
+            width += 0.7
+            
+    # Добавляем неразрывные пробелы (\u00A0) для выравнивания по левой стороне кнопки
+    spaces_to_add = int((target_width - width) / 0.35)
+    if spaces_to_add > 0:
+        return text + ("\u00A0" * spaces_to_add)
+    return text
+
 def main_menu_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 Пользователи", callback_data="user:list")],
@@ -55,7 +76,7 @@ def users_list_keyboard(users: list):
 def user_info_keyboard(nick: str, protocols: list):
     keyboard = []
     
-    # Кнопки для каждого протокола пользователя
+    # Кнопки для каждого протокола пользователя (выровненные по левому краю с помощью неразрывных пробелов)
     for u in protocols:
         proto = u.get("protocol")
         utype = u.get("credentials", {}).get("type", "")
@@ -63,7 +84,9 @@ def user_info_keyboard(nick: str, protocols: list):
         
         status_lbl = "🟢" if enabled else "🔴"
         proto_lbl = f"{proto.upper()} {utype.upper()}".strip()
-        btn_text = f"{status_lbl} {proto_lbl}"
+        
+        # Выравниваем текст кнопки по левому краю с целевой шириной 15.0
+        btn_text = align_button_text(f"{status_lbl} {proto_lbl}", target_width=15.0)
         
         # Передаем пустую строку вместо None в callback_data, если тип пустой
         callback_data = f"user:proto:manage:{nick}:{proto}:{utype if utype else 'none'}"
