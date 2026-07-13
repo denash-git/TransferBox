@@ -226,7 +226,9 @@ fi
 mkdir -p "$PROJECT_ROOT"
 mkdir -p "${PROJECT_ROOT}/backups"
 cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/lib" "$SCRIPT_DIR/bot" "$PROJECT_ROOT/"
-chmod -R 700 "$PROJECT_ROOT"
+chmod 755 "$PROJECT_ROOT"
+chmod -R 755 "$PROJECT_ROOT/core" "$PROJECT_ROOT/templates" "$PROJECT_ROOT/lib" "$PROJECT_ROOT/bot" 2>/dev/null || true
+chmod 700 "$PROJECT_ROOT/backups"
 
 # Определение FQDN
 fqdn_val=$(hostname -f 2>/dev/null || hostname)
@@ -276,12 +278,6 @@ cp "$SCRIPT_DIR/transferbox" "$TRANSFERBOX_BIN"
 chmod +x "$TRANSFERBOX_BIN"
 log_ok "Утилита установлена. Вы можете запустить её командой: menu"
 
-# Рендеринг конфигураций и запуск
-step "Запуск прокси-серверов"
-export PYTHONPATH="$PROJECT_ROOT"
-python3 -c "from core.config_manager import render_configs, validate_and_restart; render_configs(); validate_and_restart()"
-log_ok "Конфигурации применены, службы запущены."
-
 # Настройка фаервола UFW
 step "Настройка фаервола UFW"
 
@@ -309,6 +305,25 @@ ufw allow 443/udp >/dev/null 2>&1
 ufw --force enable >/dev/null 2>&1
 log_ok "UFW фаервол настроен (открыты порты: $ssh_port/tcp, 80/tcp, 443/tcp, 443/udp)."
 
+# Рендеринг конфигураций и запуск
+step "Запуск прокси-серверов"
+export PYTHONPATH="$PROJECT_ROOT"
+python3 <<'PYEOF'
+import sys
+from core.config_manager import render_configs, validate_and_restart
+render_configs()
+ok, msg = validate_and_restart()
+if not ok:
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+PYEOF
+if [ $? -ne 0 ]; then
+    echo -e "  ${RED}✗ Ошибка: Не удалось применить конфигурацию и запустить службы.${RESET}"
+    echo -e "    Проверьте ошибки выше. Установка прервана.${RESET}"
+    exit 1
+fi
+log_ok "Конфигурации применены, службы запущены."
+
 # Вывод результатов
 step "Установка завершена!"
 echo -e "  Домен: ${GREEN}${domain}${RESET}"
@@ -316,5 +331,10 @@ echo -e "  Команда управления: ${GREEN}menu${RESET}"
 echo
 echo -e "  Сгенерированы стартовые учетные записи для пользователя ${BOLD}admin${RESET}."
 echo -e "  Запустите ${GREEN}menu${RESET} -> выберите ${BOLD}1${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
+echo
+echo -e "  ${YELLOW}⚠️ Важное примечание по SSL:${RESET}"
+echo -e "  Если ваш домен ${BOLD}${domain}${RESET} еще не направлен на IP этого сервера,"
+echo -e "  сертификат Let's Encrypt не будет получен сразу. Caddy автоматически"
+echo -e "  получит SSL-сертификат, как только обновятся DNS-записи домена."
 echo
 

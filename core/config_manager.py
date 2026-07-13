@@ -397,7 +397,7 @@ def render_configs():
         shutil.rmtree(sub_dir)
     os.makedirs(sub_dir, exist_ok=True)
     try:
-        os.chmod(sub_dir, 0o700)
+        os.chmod(sub_dir, 0o755)
     except Exception:
         pass
 
@@ -430,7 +430,7 @@ def render_configs():
             with open(sub_file, "w", encoding="utf-8") as sf:
                 sf.write(encoded)
             try:
-                os.chmod(sub_file, 0o600)
+                os.chmod(sub_file, 0o644)
             except Exception:
                 pass
 
