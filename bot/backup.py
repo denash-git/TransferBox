@@ -64,7 +64,8 @@ def run_backup() -> tuple[bool, str]:
                 url,
                 data={
                     "chat_id": chat_id,
-                    "caption": f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>"
+                    "caption": f"💾 <b>Зашифрованный бэкап TransferBox</b>\n\n📅 Дата: <code>{date_str}</code>",
+                    "parse_mode": "HTML"
                 },
                 files={"document": f},
                 timeout=30

@@ -18,12 +18,15 @@ class SettingsStates(StatesGroup):
     waiting_backup_password = State()
     waiting_backup_time = State()
 
-def update_cron_schedule(hour: int, minute: int) -> tuple[bool, str]:
-    cron_content = (
-        f"*/5 * * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_services.py >/dev/null 2>&1\n"
-        f"0 0 * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_updates.py >/dev/null 2>&1\n"
-        f"{minute} {hour} * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/backup.py >/dev/null 2>&1\n"
-    )
+def update_cron_schedule(hour: int, minute: int, enabled: bool) -> tuple[bool, str]:
+    cron_lines = [
+        "*/5 * * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_services.py >/dev/null 2>&1",
+        "0 0 * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_updates.py >/dev/null 2>&1"
+    ]
+    if enabled:
+        cron_lines.append(f"{minute} {hour} * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/backup.py >/dev/null 2>&1")
+        
+    cron_content = "\n".join(cron_lines) + "\n"
     try:
         cron_path = "/etc/cron.d/transferbox-bot"
         with open(cron_path, "w", encoding="utf-8") as f:
@@ -227,7 +230,8 @@ async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMConte
         env["BACKUP_PASSWORD"] = password
         save_env(env)
         
-    # Считываем время автобэкапа (по умолчанию 12:00)
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    
     hour_str = env.get("BACKUP_HOUR")
     minute_str = env.get("BACKUP_MINUTE")
     
@@ -237,20 +241,62 @@ async def settings_backup_menu_callback(callback: CallbackQuery, state: FSMConte
         env["BACKUP_HOUR"] = str(hour)
         env["BACKUP_MINUTE"] = str(minute)
         save_env(env)
-        update_cron_schedule(hour, minute)
+        update_cron_schedule(hour, minute, backup_enabled)
     else:
         hour = int(hour_str)
         minute = int(minute_str)
         
+    status_text = "🟢 <b>Автобэкапы:</b> включены" if backup_enabled else "🔴 <b>Автобэкапы:</b> отключены"
+    time_info = f"⏰ <b>Время автобэкапа:</b> <code>{hour:02d}:{minute:02d}</code> каждый день.\n" if backup_enabled else ""
+    
     text = (
         "💾 <b>Резервное копирование</b>\n\n"
         "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
-        f"⏰ <b>Время автобэкапа:</b> <code>{hour:02d}:{minute:02d}</code> каждый день.\n"
+        f"{status_text}\n"
+        f"{time_info}"
         f"🔑 <b>Пароль шифрования бэкапов:</b>\n<code>{password}</code>\n\n"
         "⚠️ <b>Внимание:</b> Сохраните этот пароль! Без него распаковать файлы бэкапа не получится."
     )
-    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
     await callback.answer()
+
+# ─── НАСТРОЙКИ: ПЕРЕКЛЮЧЕНИЕ АВТОБЭКАПОВ ──────────────────────────────────────
+
+@router.callback_query(F.data == "settings:backup_toggle")
+async def settings_backup_toggle_callback(callback: CallbackQuery):
+    env = load_env()
+    current_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    new_enabled = not current_enabled
+    
+    env["BACKUP_ENABLED"] = "true" if new_enabled else "false"
+    save_env(env)
+    
+    hour = int(env.get("BACKUP_HOUR", "12"))
+    minute = int(env.get("BACKUP_MINUTE", "0"))
+    
+    success, err_msg = update_cron_schedule(hour, minute, new_enabled)
+    
+    if new_enabled:
+        msg = "Автобэкапы успешно включены (в 12:00 по умолчанию)."
+    else:
+        msg = "Автобэкапы успешно отключены."
+        
+    await callback.answer(msg, show_alert=True)
+    
+    # Обновляем меню бэкапов
+    status_text = "🟢 <b>Автобэкапы:</b> включены" if new_enabled else "🔴 <b>Автобэкапы:</b> отключены"
+    time_info = f"⏰ <b>Время автобэкапа:</b> <code>{hour:02d}:{minute:02d}</code> каждый день.\n" if new_enabled else ""
+    password = env.get("BACKUP_PASSWORD", "")
+    
+    text = (
+        "💾 <b>Резервное копирование</b>\n\n"
+        "Архивы бэкапов защищены надежным шифрованием AES-256 (ZIP).\n\n"
+        f"{status_text}\n"
+        f"{time_info}"
+        f"🔑 <b>Пароль шифрования бэкапов:</b>\n<code>{password}</code>\n\n"
+        "⚠️ <b>Внимание:</b> Сохраните этот пароль! Без него распаковать файлы бэкапа не получится."
+    )
+    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(new_enabled), parse_mode="HTML")
 
 # ─── НАСТРОЙКИ: БЭКАП СЕЙЧАС ──────────────────────────────────────────────────
 
@@ -262,6 +308,7 @@ async def settings_backup_now_callback(callback: CallbackQuery):
     success, msg = run_backup()
     env = load_env()
     password = env.get("BACKUP_PASSWORD", "")
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
     
     if success:
         text = (
@@ -271,7 +318,7 @@ async def settings_backup_now_callback(callback: CallbackQuery):
     else:
         text = f"❌ <b>Ошибка резервного копирования:</b>\n\n<code>{msg}</code>"
         
-    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
 
 # ─── НАСТРОЙКИ: ИЗМЕНИТЬ ПАРОЛЬ БЭКАПА ─────────────────────────────────────────
 
@@ -297,12 +344,14 @@ async def settings_backup_password_msg(message: Message, state: FSMContext):
     env["BACKUP_PASSWORD"] = new_pass
     save_env(env)
     
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    
     text = (
         f"✅ <b>Пароль бэкапов изменен!</b>\n\n"
         f"Новый пароль: <code>{new_pass}</code>\n\n"
         f"Все последующие бэкапы будут зашифрованы этим паролем."
     )
-    await message.answer(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+    await message.answer(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
 
 # ─── НАСТРОЙКИ: ИЗМЕНИТЬ ВРЕМЯ БЭКАПА ──────────────────────────────────────────
 
@@ -346,7 +395,8 @@ async def settings_backup_time_msg(message: Message, state: FSMContext):
     env["BACKUP_MINUTE"] = str(minute)
     save_env(env)
     
-    success, err_msg = update_cron_schedule(hour, minute)
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
+    success, err_msg = update_cron_schedule(hour, minute, backup_enabled)
     
     if success:
         text = (
@@ -356,4 +406,4 @@ async def settings_backup_time_msg(message: Message, state: FSMContext):
     else:
         text = f"❌ <b>Ошибка при изменении расписания cron:</b>\n\n<code>{err_msg}</code>"
         
-    await message.answer(text, reply_markup=settings_backup_keyboard(), parse_mode="HTML")
+    await message.answer(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")

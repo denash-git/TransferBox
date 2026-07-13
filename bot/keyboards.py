@@ -54,18 +54,25 @@ def settings_menu_keyboard(bbr_active: bool):
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
-def settings_backup_keyboard():
-    btn1 = align_button_text("📥 Создать бэкап сейчас", 18.0)
-    btn2 = align_button_text("🔑 Новый пароль архива", 18.0)
-    btn3 = align_button_text("⏰ Время автобэкапа", 18.0)
+def settings_backup_keyboard(enabled: bool):
+    toggle_lbl = "🔴 Отключить автобэкапы" if enabled else "🟢 Включить автобэкапы"
     
-    return InlineKeyboardMarkup(inline_keyboard=[
+    btn1 = align_button_text("📥 Создать бэкап сейчас", 18.0)
+    btn2 = align_button_text(toggle_lbl, 18.0)
+    btn3 = align_button_text("🔑 Новый пароль архива", 18.0)
+    btn4 = align_button_text("⏰ Время автобэкапа", 18.0)
+    
+    keyboard = [
         [InlineKeyboardButton(text=btn1, callback_data="settings:backup_now")],
-        [InlineKeyboardButton(text=btn2, callback_data="settings:backup_change_pass")],
-        [InlineKeyboardButton(text=btn3, callback_data="settings:backup_change_time")],
-        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
-        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
-    ])
+        [InlineKeyboardButton(text=btn2, callback_data="settings:backup_toggle")]
+    ]
+    if enabled:
+        keyboard.append([InlineKeyboardButton(text=btn4, callback_data="settings:backup_change_time")])
+    keyboard.append([InlineKeyboardButton(text=btn3, callback_data="settings:backup_change_pass")])
+    keyboard.append([InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")])
+    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def settings_back_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
