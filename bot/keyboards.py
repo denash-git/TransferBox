@@ -18,7 +18,9 @@ def align_button_text(text: str, target_width: float = 18.0) -> str:
     # Добавляем неразрывные пробелы (\u00A0) для выравнивания по левой стороне кнопки
     spaces_to_add = int((target_width - width) / 0.35)
     if spaces_to_add > 0:
-        return text + ("\u00A0" * spaces_to_add)
+        # \u200b - невидимый символ нулевой ширины, служащий якорем на конце
+        # без него сервер Telegram обрезает все пробелы в конце текста кнопок
+        return text + ("\u00A0" * spaces_to_add) + "\u200b"
     return text
 
 def main_menu_keyboard():
@@ -85,8 +87,8 @@ def user_info_keyboard(nick: str, protocols: list):
         status_lbl = "🟢" if enabled else "🔴"
         proto_lbl = f"{proto.upper()} {utype.upper()}".strip()
         
-        # Выравниваем текст кнопки по левому краю с целевой шириной 15.0
-        btn_text = align_button_text(f"{status_lbl} {proto_lbl}", target_width=15.0)
+        # Выравниваем текст кнопки по левому краю с целевой шириной 18.0
+        btn_text = align_button_text(f"{status_lbl} {proto_lbl}", target_width=18.0)
         
         # Передаем пустую строку вместо None в callback_data, если тип пустой
         callback_data = f"user:proto:manage:{nick}:{proto}:{utype if utype else 'none'}"
