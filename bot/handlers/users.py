@@ -48,7 +48,7 @@ async def notify_and_restart(callback: CallbackQuery, action_name: str, action_f
 async def list_users_callback(event, state: FSMContext):
     await state.clear()
     users = load_users()
-    text = "👥 <b>Список пользователей:</b>\nВыберите пользователя для управления или добавьте нового."
+    text = "👥 <b>Управление пользователями</b>"
     if isinstance(event, CallbackQuery):
         try:
             await event.message.edit_text(text, reply_markup=users_list_keyboard(users), parse_mode="HTML")
@@ -75,8 +75,8 @@ async def user_info_callback(callback: CallbackQuery, state: FSMContext):
     is_active = any(u.get("enabled", True) for u in user_protocols)
     
     text = f"👤 <b>Пользователь:</b> <code>{nick}</code>\n"
-    text += f"Общий статус: {'🟢 Активен' if is_active else '🔴 Отключен'}\n\n"
-    text += "<b>Доступные протоколы (кликните для управления):</b>"
+    text += f"          {'🟢 Активен' if is_active else '🔴 Отключен'}\n\n"
+    text += "<b>Добавленные протоколы:</b>"
     
     await callback.message.edit_text(text, reply_markup=user_info_keyboard(nick, user_protocols), parse_mode="HTML")
     await callback.answer()
@@ -256,13 +256,21 @@ async def user_proto_add_callback(callback: CallbackQuery, state: FSMContext):
     await state.set_state(AddUserStates.waiting_protocol)
     await state.update_data(nickname=nick)
     
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="VLESS", callback_data="user:new:proto:vless")],
-        [InlineKeyboardButton(text="NaiveProxy", callback_data="user:new:proto:naive")],
-        [InlineKeyboardButton(text="Mieru", callback_data="user:new:proto:mieru")],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"user:info:{nick}")]
-    ])
+    users = load_users()
+    user_protocols = [u for u in users if u.get("nickname") == nick]
+    existing_protos = set(u.get("protocol") for u in user_protocols)
+    existing_vless_types = set(u.get("credentials", {}).get("type", "") for u in user_protocols if u.get("protocol") == "vless")
     
+    buttons = []
+    if len(existing_vless_types) < 3:
+        buttons.append([InlineKeyboardButton(text="VLESS", callback_data="user:new:proto:vless")])
+    if "naive" not in existing_protos:
+        buttons.append([InlineKeyboardButton(text="NaiveProxy", callback_data="user:new:proto:naive")])
+    if "mieru" not in existing_protos:
+        buttons.append([InlineKeyboardButton(text="Mieru", callback_data="user:new:proto:mieru")])
+    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=f"user:info:{nick}")])
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     await callback.message.edit_text(f"👤 Пользователь: <code>{nick}</code>\n\nВыберите новый протокол:", reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
@@ -371,12 +379,22 @@ async def add_user_proto_callback(callback: CallbackQuery, state: FSMContext):
     
     if proto == "vless":
         await state.set_state(AddUserStates.waiting_type)
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="WebSocket (ws)", callback_data="user:new:type:ws")],
-            [InlineKeyboardButton(text="gRPC", callback_data="user:new:type:grpc")],
-            [InlineKeyboardButton(text="HTTPUpgrade (xhttp)", callback_data="user:new:type:xhttp")],
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="user:list")]
-        ])
+        users = load_users()
+        user_protocols = [u for u in users if u.get("nickname") == nick]
+        existing_vless_types = set(u.get("credentials", {}).get("type", "") for u in user_protocols if u.get("protocol") == "vless")
+        
+        vless_buttons = []
+        if "ws" not in existing_vless_types:
+            vless_buttons.append([InlineKeyboardButton(text="WebSocket (ws)", callback_data="user:new:type:ws")])
+        if "grpc" not in existing_vless_types:
+            vless_buttons.append([InlineKeyboardButton(text="gRPC", callback_data="user:new:type:grpc")])
+        if "xhttp" not in existing_vless_types:
+            vless_buttons.append([InlineKeyboardButton(text="HTTPUpgrade (xhttp)", callback_data="user:new:type:xhttp")])
+            
+        back_callback = f"user:info:{nick}" if load_users_exist(nick) else "user:list"
+        vless_buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data=back_callback)])
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=vless_buttons)
         await callback.message.edit_text(f"Никнейм: <code>{nick}</code>\nПротокол: <code>VLESS</code>\n\nВыберите тип транспорта:", reply_markup=kb, parse_mode="HTML")
     else:
         await state.update_data(type="")

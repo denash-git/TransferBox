@@ -63,24 +63,35 @@ def user_info_keyboard(nick: str, protocols: list):
         
         status_lbl = "🟢" if enabled else "🔴"
         proto_lbl = f"{proto.upper()} {utype.upper()}".strip()
-        btn_text = f"• {proto_lbl} {status_lbl}"
+        btn_text = f"{status_lbl} {proto_lbl}"
         
         # Передаем пустую строку вместо None в callback_data, если тип пустой
         callback_data = f"user:proto:manage:{nick}:{proto}:{utype if utype else 'none'}"
         keyboard.append([InlineKeyboardButton(text=btn_text, callback_data=callback_data)])
         
+    # Проверяем, сколько протоколов уже настроено
+    configured_tuples = set()
+    for u in protocols:
+        proto = u.get("protocol")
+        utype = u.get("credentials", {}).get("type", "")
+        configured_tuples.add((proto, utype if utype else ""))
+        
+    can_add_proto = len(configured_tuples) < 5
+        
     # Функциональные кнопки управления пользователем
-    keyboard.append([
-        InlineKeyboardButton(text="➕ Добавить протокол", callback_data=f"user:proto:add:{nick}"),
-        InlineKeyboardButton(text="🌀 Подписка", callback_data=f"user:links:{nick}")
-    ])
+    row_buttons = []
+    if can_add_proto:
+        row_buttons.append(InlineKeyboardButton(text="➕ Добавить протокол", callback_data=f"user:proto:add:{nick}"))
+    row_buttons.append(InlineKeyboardButton(text="🌀 Подписка", callback_data=f"user:links:{nick}"))
+    keyboard.append(row_buttons)
+    
     keyboard.append([InlineKeyboardButton(text="🗑️ Удалить пользователя полностью", callback_data=f"user:delete:confirm:{nick}")])
     keyboard.append([InlineKeyboardButton(text="« К списку пользователей", callback_data="user:list")])
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def proto_manage_keyboard(nick: str, proto: str, utype: str, is_enabled: bool):
-    toggle_text = "🔴 Выключить протокол" if is_enabled else "🟢 Включить протокол"
+    toggle_text = "🔴 Отключить протокол" if is_enabled else "🟢 Включить протокол"
     toggle_val = "0" if is_enabled else "1"
     
     # Заменяем 'none' на пустоту для корректной передачи в callback_data
@@ -90,7 +101,8 @@ def proto_manage_keyboard(nick: str, proto: str, utype: str, is_enabled: bool):
         [InlineKeyboardButton(text=toggle_text, callback_data=f"user:proto:toggle:{nick}:{proto}:{utype_val}:{toggle_val}")],
         [InlineKeyboardButton(text="🔑 Получить ссылку & QR", callback_data=f"user:proto:links:{nick}:{proto}:{utype_val}")],
         [InlineKeyboardButton(text="🗑️ Удалить этот протокол", callback_data=f"user:proto:delete:confirm:{nick}:{proto}:{utype_val}")],
-        [InlineKeyboardButton(text="« Назад к пользователю", callback_data=f"user:info:{nick}")]
+        [InlineKeyboardButton(text="« Назад к пользователю", callback_data=f"user:info:{nick}")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
 def proto_delete_confirm_keyboard(nick: str, proto: str, utype: str):
@@ -99,7 +111,8 @@ def proto_delete_confirm_keyboard(nick: str, proto: str, utype: str):
         [
             InlineKeyboardButton(text="🗑️ Да, удалить протокол", callback_data=f"user:proto:delete:run:{nick}:{proto}:{utype_val}"),
             InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:proto:manage:{nick}:{proto}:{utype_val}")
-        ]
+        ],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
 def user_delete_confirm_keyboard(nick: str):
@@ -107,5 +120,6 @@ def user_delete_confirm_keyboard(nick: str):
         [
             InlineKeyboardButton(text="🗑️ Да, удалить пользователя", callback_data=f"user:delete:run:{nick}"),
             InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"user:info:{nick}")
-        ]
+        ],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
