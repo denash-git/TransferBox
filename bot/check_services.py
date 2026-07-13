@@ -50,8 +50,32 @@ def main():
                 send_alert(f"🔴 <b>Служба {s} не запущена</b>")
 
     # 2. Проверяем ресурсы сервера (CPU, RAM, Диск)
-    # Используем интервал 1.0 секунда, чтобы избежать блокировки cron
-    cpu_pct = psutil.cpu_percent(interval=1.0)
+    # Вычисляем среднюю нагрузку на CPU с момента предыдущего запуска (5 минут назад),
+    # чтобы избежать как блокировки cron на 30 секунд, так и ложных срабатываний от пиков в 1 секунду.
+    cpu_times = psutil.cpu_times()
+    old_cpu = old_states.get("_cpu_times")
+    cpu_pct = 0.0
+    if old_cpu:
+        try:
+            idle_old = old_cpu.get("idle", cpu_times.idle)
+            idle_diff = cpu_times.idle - idle_old
+            
+            total_old = sum(old_cpu.values())
+            total_now = sum(cpu_times)
+            total_diff = total_now - total_old
+            
+            if total_diff > 0:
+                cpu_pct = round(100.0 * (1.0 - idle_diff / total_diff), 1)
+            else:
+                cpu_pct = psutil.cpu_percent(interval=1.0)
+        except Exception:
+            cpu_pct = psutil.cpu_percent(interval=1.0)
+    else:
+        cpu_pct = psutil.cpu_percent(interval=1.0)
+        
+    # Сохраняем текущие времена CPU
+    new_states["_cpu_times"] = cpu_times._asdict()
+    
     ram_pct = psutil.virtual_memory().percent
     disk_pct = psutil.disk_usage('/').percent
     
