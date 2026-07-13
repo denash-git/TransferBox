@@ -11,17 +11,33 @@ from bot.keyboards import diagnostics_menu_keyboard, diagnostics_back_keyboard
 router = Router()
 
 def check_service_active(service_name: str) -> str:
-    try:
-        res = subprocess.run(["systemctl", "is-active", service_name], capture_output=True, text=True)
-        status = res.stdout.strip()
-        if status == "active":
-            return "🟢 работает"
-        elif status == "inactive":
-            return "🔴 не запущен"
+    if service_name == "netbird":
+        res_installed = subprocess.run(["command", "-v", "netbird"], shell=True, capture_output=True)
+        if res_installed.returncode != 0:
+            return "⚪"
+        
+        res_active = subprocess.run(["systemctl", "is-active", "netbird"], capture_output=True, text=True)
+        if res_active.stdout.strip() != "active":
+            return "🔴"
+            
+        res_status = subprocess.run(["netbird", "status"], capture_output=True, text=True)
+        status_out = res_status.stdout + "\n" + res_status.stderr
+        if "NeedsLogin" in status_out:
+            return "🟡 требует регистрации"
+        elif "Connected" in status_out and "Management: Disconnected" not in status_out:
+            return "🟢"
         else:
-            return f"⚪ {status}"
-    except Exception:
-        return "⚪ неизвестно"
+            return "🔴"
+    else:
+        try:
+            res = subprocess.run(["systemctl", "is-active", service_name], capture_output=True, text=True)
+            status = res.stdout.strip()
+            if status == "active":
+                return "🟢"
+            else:
+                return "🔴"
+        except Exception:
+            return "⚪"
 
 def get_status_text() -> str:
     # 1. Опрос служб
@@ -29,10 +45,10 @@ def get_status_text() -> str:
     singbox_status = check_service_active("sing-box")
     
     mita_installed = os.path.exists("/usr/bin/mita")
-    mita_status = check_service_active("mita") if mita_installed else "⚪ не установлен"
+    mita_status = check_service_active("mita") if mita_installed else "⚪"
     
     netbird_installed = subprocess.run(["command", "-v", "netbird"], shell=True, capture_output=True).returncode == 0
-    netbird_status = check_service_active("netbird") if netbird_installed else "⚪ не установлен"
+    netbird_status = check_service_active("netbird") if netbird_installed else "⚪"
     
     # 2. Опрос ресурсов
     cpu_pct = psutil.cpu_percent(interval=0.1)
@@ -52,21 +68,31 @@ def get_status_text() -> str:
         uptime_str += f"{hours} ч. "
     uptime_str += f"{minutes} мин."
     
-    # Формируем отчет с красивым выравниванием
-    text = "📈 <b>Мониторинг ресурсов и служб</b>\n\n"
+    # Формируем отчет в виде псевдографического дерева
+    text = "📈 <b>Мониторинг ресурсов</b>\n\n"
     text += "⚙️ <b>Состояние служб:</b>\n"
-    text += f"  • Caddy: {caddy_status}\n"
-    text += f"  • sing-box: {singbox_status}\n"
-    if mita_installed or mita_status != "⚪ не установлен":
-        text += f"  • Mieru (mita): {mita_status}\n"
-    if netbird_installed or netbird_status != "⚪ не установлен":
-        text += f"  • NetBird: {netbird_status}\n"
+    text += f"├─ Caddy: {caddy_status}\n"
+    text += f"├─ sing-box: {singbox_status}\n"
+    
+    # Добавляем дополнительные службы динамически
+    services_lines = []
+    if mita_installed or mita_status != "⚪":
+        services_lines.append(("Mieru (mita)", mita_status))
+    if netbird_installed or netbird_status != "⚪":
+        services_lines.append(("NetBird", netbird_status))
         
+    if not services_lines:
+        text = text.replace("├─ sing-box:", "└─ sing-box:")
+    else:
+        for idx, (name, val) in enumerate(services_lines):
+            prefix = "└─" if idx == len(services_lines) - 1 else "├─"
+            text += f"{prefix} {name}: {val}\n"
+            
     text += "\n🖥️ <b>Ресурсы сервера:</b>\n"
-    text += f"  • CPU: <code>{cpu_pct}%</code>\n"
-    text += f"  • RAM: <code>{ram.percent}%</code> ({ram.used // 1024 // 1024} / {ram.total // 1024 // 1024} MB)\n"
-    text += f"  • Диск (/): <code>{disk.percent}%</code> ({disk.used // 1024 // 1024 // 1024} / {disk.total // 1024 // 1024 // 1024} GB)\n"
-    text += f"  • Аптайм: <code>{uptime_str}</code>\n"
+    text += f"├─ CPU: <code>{cpu_pct}%</code>\n"
+    text += f"├─ RAM: <code>{ram.percent}%</code> ({ram.used // 1024 // 1024} / {ram.total // 1024 // 1024} MB)\n"
+    text += f"├─ Диск (/): <code>{disk.percent}%</code> ({disk.used // 1024 // 1024 // 1024} / {disk.total // 1024 // 1024 // 1024} GB)\n"
+    text += f"└─ Аптайм: <code>{uptime_str}</code>\n"
     return text
 
 # ─── ДИАГНОСТИКА: МЕНЮ ────────────────────────────────────────────────────────
@@ -74,7 +100,7 @@ def get_status_text() -> str:
 @router.message(Command("diag"))
 @router.callback_query(F.data == "diag:menu")
 async def diagnostics_menu_callback(event):
-    text = "📊 <b>Диагностика системы</b>\n\nВыберите нужный инструмент диагностики:"
+    text = "📊 <b>Диагностика</b>"
     if isinstance(event, CallbackQuery):
         try:
             await event.message.edit_text(text, reply_markup=diagnostics_menu_keyboard(), parse_mode="HTML")
@@ -104,20 +130,16 @@ async def diagnostics_speedtest_callback(callback: CallbackQuery):
     await callback.message.edit_text("⏳ <b>Запуск теста скорости на VPS...</b>\nЭто может занять до 30 секунд. Пожалуйста, подождите.", parse_mode="HTML")
     await callback.answer()
     
-    # 1. Проверяем установку Ookla speedtest
     res_installed = subprocess.run(["which", "speedtest"], capture_output=True)
     if res_installed.returncode != 0:
-        # Устанавливаем официальный speedtest
         subprocess.run("curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash", shell=True, capture_output=True)
         subprocess.run(["apt-get", "install", "-y", "speedtest"], capture_output=True)
         
-    # 2. Выполняем тест
     res = subprocess.run(["speedtest", "--accept-license", "--accept-gdpr"], capture_output=True, text=True)
     
     if res.returncode == 0:
         output_lines = []
         for line in res.stdout.split("\n"):
-            # Пропускаем пустые и рекламные строки Ookla
             if not line.strip() or "Speedtest by Ookla" in line or "https://" in line:
                 continue
             output_lines.append(line.strip())

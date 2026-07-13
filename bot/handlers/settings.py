@@ -7,7 +7,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
 from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw
-from bot.keyboards import settings_menu_keyboard, settings_back_keyboard
+from bot.keyboards import settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard
 
 router = Router()
 
@@ -163,7 +163,7 @@ async def settings_check_updates_callback(callback: CallbackQuery):
         text = (
             "🔄 <b>Обновление панели</b>\n\n"
             f"Доступна новая версия: <code>{latest}</code> (ваша: <code>{current}</code>).\n\n"
-            "Вы можете обновить панель через консольное меню сервера, выполнив команду <code>menu</code>."
+            "Вы можете обновить панель прямо сейчас или через консольное меню сервера."
         )
     elif "ошибка" in latest:
         text = f"❌ <b>Не удалось проверить обновления:</b>\n\n<code>{latest}</code>"
@@ -173,4 +173,25 @@ async def settings_check_updates_callback(callback: CallbackQuery):
             f"У вас установлена последняя версия панели: <code>{current}</code>."
         )
         
-    await callback.message.edit_text(text, reply_markup=settings_back_keyboard(), parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=settings_update_keyboard(has_update), parse_mode="HTML")
+
+# ─── НАСТРОЙКИ: ЗАПУСТИТЬ ОБНОВЛЕНИЕ ──────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:run_update")
+async def settings_run_update_callback(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "⏳ <b>Обновление панели запущено...</b>\n\n"
+        "Бот выполняет обновление файлов, миграцию базы данных и перезапуск служб. "
+        "Это займет несколько секунд, после чего служба бота перезагрузится.",
+        parse_mode="HTML"
+    )
+    await callback.answer()
+    
+    import subprocess
+    import os
+    subprocess.Popen(
+        ["nohup", "python3", "/opt/transferbox/bot/run_update.py"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        preexec_fn=os.setpgrp if hasattr(os, "setpgrp") else None
+    )

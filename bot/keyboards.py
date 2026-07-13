@@ -28,27 +28,27 @@ def align_button_text(text: str, target_width: float = 18.0) -> str:
 def main_menu_keyboard():
     btn1 = align_button_text("👥 Пользователи", 18.0)
     btn2 = align_button_text("📊 Диагностика", 18.0)
-    btn3 = align_button_text("🔄 Перезапуск служб", 18.0)
-    btn4 = align_button_text("⚙️ Настройки", 18.0)
+    btn3 = align_button_text("⚙️ Настройки", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn1, callback_data="user:list")],
         [InlineKeyboardButton(text=btn2, callback_data="diag:menu")],
-        [InlineKeyboardButton(text=btn3, callback_data="services:menu")],
-        [InlineKeyboardButton(text=btn4, callback_data="settings:menu")]
+        [InlineKeyboardButton(text=btn3, callback_data="settings:menu")]
     ])
 
 def settings_menu_keyboard(bbr_active: bool):
     toggle_bbr_lbl = "🚀 Отключить BBR" if bbr_active else "🚀 Включить BBR"
     
     btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
-    btn2 = align_button_text(toggle_bbr_lbl, 18.0)
-    btn3 = align_button_text("🔄 Проверить обновления", 18.0)
+    btn2 = align_button_text("🔄 Перезапуск служб", 18.0)
+    btn3 = align_button_text(toggle_bbr_lbl, 18.0)
+    btn4 = align_button_text("🔄 Проверить обновления", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
-        [InlineKeyboardButton(text=btn2, callback_data="settings:bbr_toggle")],
-        [InlineKeyboardButton(text=btn3, callback_data="settings:check_updates")],
+        [InlineKeyboardButton(text=btn2, callback_data="services:menu")],
+        [InlineKeyboardButton(text=btn3, callback_data="settings:bbr_toggle")],
+        [InlineKeyboardButton(text=btn4, callback_data="settings:check_updates")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
@@ -57,6 +57,14 @@ def settings_back_keyboard():
         [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
+
+def settings_update_keyboard(has_update: bool):
+    keyboard = []
+    if has_update:
+        keyboard.append([InlineKeyboardButton(text="🔄 Обновить сейчас", callback_data="settings:run_update")])
+    keyboard.append([InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")])
+    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def back_to_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -93,6 +101,7 @@ def services_menu_keyboard():
             InlineKeyboardButton(text="NetBird", callback_data="services:confirm:netbird")
         ],
         [InlineKeyboardButton(text="🔄 Все службы", callback_data="services:confirm:all")],
+        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
