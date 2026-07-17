@@ -316,7 +316,7 @@ def render_configs():
     if email:
         caddy_content = caddy_content.replace("{{ADMIN_EMAIL}}", email)
     else:
-        caddy_content = caddy_content.replace("tls {{ADMIN_EMAIL}}", "tls")
+        caddy_content = caddy_content.replace("tls {{ADMIN_EMAIL}}", "# tls")
     caddy_content = caddy_content.replace("{{FAKESITE_DIR}}", fakesite_dir)
     caddy_content = caddy_content.replace("{{FORWARD_PROXY_BLOCK}}", forward_proxy_block)
     caddy_content = caddy_content.replace("{{VLESS_WS_PATH}}", vless_ws_path)
