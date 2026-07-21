@@ -2014,7 +2014,8 @@ update_panel_menu() {
             local tmp_dir
             tmp_dir=$(mktemp -d)
             
-            if wget -qO "$tmp_dir/tb.tar.gz" "https://github.com/denash-git/TransferBox/archive/refs/tags/v${latest}.tar.gz" && \
+            if (wget -qO "$tmp_dir/tb.tar.gz" "https://github.com/denash-git/TransferBox/archive/refs/tags/v${latest}.tar.gz" || \
+                wget -qO "$tmp_dir/tb.tar.gz" "https://github.com/denash-git/TransferBox/archive/refs/heads/main.tar.gz") && \
                tar -xzf "$tmp_dir/tb.tar.gz" -C "$tmp_dir" --strip-components=1; then
                 
                 # Проверка структуры распакованного архива
