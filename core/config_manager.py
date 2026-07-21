@@ -36,6 +36,17 @@ def load_env():
                 if line and not line.startswith("#") and "=" in line:
                     key, val = line.split("=", 1)
                     env[key.strip()] = val.strip()
+
+    defaults = {
+        "BACKUP_ENABLED": "false",
+        "BACKUP_HOUR": "12",
+        "BACKUP_MINUTE": "0",
+        "BACKUP_PASSWORD": "",
+    }
+    for k, v in defaults.items():
+        if k not in env:
+            env[k] = v
+
     return env
 
 

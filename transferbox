@@ -2154,11 +2154,15 @@ EOF
                 systemctl enable transferbox-bot >/dev/null 2>&1
                 systemctl restart transferbox-bot >/dev/null 2>&1
                 
-                cat > /etc/cron.d/transferbox-bot <<EOF
-*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
-0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
-0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
-EOF
+                python3 -c "
+from bot.handlers.settings import update_cron_schedule
+from core.config_manager import load_env
+env = load_env()
+enabled = env.get('BACKUP_ENABLED', 'false').lower() == 'true'
+hour = int(env.get('BACKUP_HOUR', '12'))
+minute = int(env.get('BACKUP_MINUTE', '0'))
+update_cron_schedule(hour, minute, enabled)
+"
             fi
             if systemctl is-active --quiet transferbox-bot 2>/dev/null; then
                 running_status="${GREEN}активен${RESET}"
@@ -2281,11 +2285,15 @@ EOF
             
             echo ""
             center_print "${DIM}[*] Установка расписания Cron для алертов...${RESET}"
-            cat > /etc/cron.d/transferbox-bot <<EOF
-*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
-0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
-0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
-EOF
+            python3 -c "
+from bot.handlers.settings import update_cron_schedule
+from core.config_manager import load_env
+env = load_env()
+enabled = env.get('BACKUP_ENABLED', 'false').lower() == 'true'
+hour = int(env.get('BACKUP_HOUR', '12'))
+minute = int(env.get('BACKUP_MINUTE', '0'))
+update_cron_schedule(hour, minute, enabled)
+"
             
             python3 -c "
 from core.config_manager import load_env, save_env
@@ -3132,11 +3140,15 @@ EOF
                     systemctl enable transferbox-bot >/dev/null 2>&1
                     systemctl restart transferbox-bot >/dev/null 2>&1
                     
-                    cat > /etc/cron.d/transferbox-bot <<EOF
-*/5 * * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1
-0 0 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1
-0 1 * * * root PYTHONPATH=${PROJECT_ROOT} /usr/bin/python3 ${PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1
-EOF
+                    python3 -c "
+from bot.handlers.settings import update_cron_schedule
+from core.config_manager import load_env
+env = load_env()
+enabled = env.get('BACKUP_ENABLED', 'false').lower() == 'true'
+hour = int(env.get('BACKUP_HOUR', '12'))
+minute = int(env.get('BACKUP_MINUTE', '0'))
+update_cron_schedule(hour, minute, enabled)
+"
                     echo -e "  ${GREEN}✓ Служба Telegram-бота успешно восстановлена и запущена.${RESET}"
                 fi
                 

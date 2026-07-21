@@ -7,17 +7,21 @@ import urllib.parse
 import json
 from core.config_manager import PROJECT_ROOT, load_env
 
-def run_backup() -> tuple[bool, str]:
+def run_backup(ignore_enabled: bool = False) -> tuple[bool, str]:
     env = load_env()
     token = env.get("TG_BOT_TOKEN")
     chat_id = env.get("TG_CHAT_ID")
     backup_password = env.get("BACKUP_PASSWORD", "").strip()
+    backup_enabled = env.get("BACKUP_ENABLED", "false").lower() == "true"
     
     if not token or not chat_id:
         return False, "TG_BOT_TOKEN или TG_CHAT_ID не настроены в instance.env"
         
     if not backup_password:
         return False, "Пароль для бэкапов не задан. Задайте его в настройках."
+        
+    if not ignore_enabled and not backup_enabled:
+        return False, "Автоматические бэкапы отключены в настройках."
         
     # Проверяем установлен ли zip
     res_installed = subprocess.run(["which", "zip"], capture_output=True)

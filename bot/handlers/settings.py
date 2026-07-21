@@ -19,11 +19,11 @@ class SettingsStates(StatesGroup):
 
 def update_cron_schedule(hour: int, minute: int, enabled: bool) -> tuple[bool, str]:
     cron_lines = [
-        "*/5 * * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_services.py >/dev/null 2>&1",
-        "0 0 * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/check_updates.py >/dev/null 2>&1"
+        f"*/5 * * * * root PYTHONPATH={PROJECT_ROOT} /usr/bin/python3 {PROJECT_ROOT}/bot/check_services.py >/dev/null 2>&1",
+        f"0 0 * * * root PYTHONPATH={PROJECT_ROOT} /usr/bin/python3 {PROJECT_ROOT}/bot/check_updates.py >/dev/null 2>&1"
     ]
     if enabled:
-        cron_lines.append(f"{minute} {hour} * * * root PYTHONPATH=/opt/transferbox /usr/bin/python3 /opt/transferbox/bot/backup.py >/dev/null 2>&1")
+        cron_lines.append(f"{minute} {hour} * * * root PYTHONPATH={PROJECT_ROOT} /usr/bin/python3 {PROJECT_ROOT}/bot/backup.py >/dev/null 2>&1")
         
     cron_content = "\n".join(cron_lines) + "\n"
     try:
@@ -317,7 +317,7 @@ async def settings_backup_now_callback(callback: CallbackQuery):
     await callback.message.edit_text("⏳ <b>Создание и отправка резервной копии...</b>", parse_mode="HTML")
     await callback.answer()
     
-    success, msg = run_backup()
+    success, msg = run_backup(ignore_enabled=True)
     
     if success:
         text = (
