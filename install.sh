@@ -278,6 +278,8 @@ EOF
 chmod 600 "${PROJECT_ROOT}/users.json"
 
 # Установка исполняемой команды
+cp "$SCRIPT_DIR/transferbox" "${PROJECT_ROOT}/transferbox"
+chmod +x "${PROJECT_ROOT}/transferbox"
 cp "$SCRIPT_DIR/transferbox" "$TRANSFERBOX_BIN"
 chmod +x "$TRANSFERBOX_BIN"
 log_ok "Утилита установлена. Вы можете запустить её командой: menu"

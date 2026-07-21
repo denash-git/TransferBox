@@ -63,9 +63,14 @@ def main():
     project_root = "/opt/transferbox"
     
     # Резервная копия на всякий случай
-    shutil.copy(os.path.join(project_root, "users.json"), os.path.join(project_root, "users.json.bak"))
-    shutil.copy(os.path.join(project_root, "instance.env"), os.path.join(project_root, "instance.env.bak"))
-    shutil.copy(os.path.join(project_root, "transferbox"), os.path.join(project_root, "transferbox.bak"))
+    if os.path.exists(os.path.join(project_root, "users.json")):
+        shutil.copy(os.path.join(project_root, "users.json"), os.path.join(project_root, "users.json.bak"))
+    if os.path.exists(os.path.join(project_root, "instance.env")):
+        shutil.copy(os.path.join(project_root, "instance.env"), os.path.join(project_root, "instance.env.bak"))
+    if os.path.exists(os.path.join(project_root, "transferbox")):
+        shutil.copy(os.path.join(project_root, "transferbox"), os.path.join(project_root, "transferbox.bak"))
+    elif os.path.exists("/usr/local/bin/menu"):
+        shutil.copy("/usr/local/bin/menu", os.path.join(project_root, "transferbox.bak"))
     
     # Копируем папки
     for folder in ["core", "templates", "lib", "bot"]:
