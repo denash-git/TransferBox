@@ -2052,7 +2052,7 @@ success, msg = validate_and_restart()
 print('SUCCESS' if success else 'ERROR:' + msg)
 " 2>&1)
                     
-                    if [[ "$migration_res" == "SUCCESS" ]]; then
+                    if [[ "$migration_res" == *"SUCCESS"* ]]; then
                         # Перезапускаем службу бота, чтобы применился новый код бота
                         systemctl restart transferbox-bot 2>/dev/null || true
                         
