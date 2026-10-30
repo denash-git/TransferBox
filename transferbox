@@ -6,7 +6,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
-VERSION="3.0.1"
+VERSION="3.0.2"
 
 # ANSI Colors
 if [ -f "${PROJECT_ROOT}/lib/colors.sh" ]; then
@@ -2112,8 +2112,9 @@ update_panel_menu() {
                     
                     cp -r "$tmp_dir/core" "$tmp_dir/templates" "$tmp_dir/lib" "$tmp_dir/bot" "$PROJECT_ROOT/"
                     cp "$tmp_dir/transferbox" "$PROJECT_ROOT/"
-                    cp "$tmp_dir/transferbox" /usr/local/bin/menu
-                    chmod +x /usr/local/bin/menu
+                    chmod +x "$PROJECT_ROOT/transferbox"
+                    ln -sf "$PROJECT_ROOT/transferbox" /usr/local/bin/menu
+                    ln -sf "$PROJECT_ROOT/transferbox" /usr/local/bin/transferbox
                     
                     center_print "${DIM}[*] Запуск миграций и валидация конфигураций...${RESET}"
                     local migration_res
@@ -2150,7 +2151,9 @@ print('SUCCESS' if success else 'ERROR:' + msg)
                         [ -f "${PROJECT_ROOT}/instance.env.bak" ] && mv "${PROJECT_ROOT}/instance.env.bak" "${PROJECT_ROOT}/instance.env"
                         if [ -f "${PROJECT_ROOT}/transferbox.bak" ]; then
                             mv "${PROJECT_ROOT}/transferbox.bak" "${PROJECT_ROOT}/transferbox"
-                            cp "${PROJECT_ROOT}/transferbox" /usr/local/bin/menu
+                            chmod +x "${PROJECT_ROOT}/transferbox"
+                            ln -sf "${PROJECT_ROOT}/transferbox" /usr/local/bin/menu
+                            ln -sf "${PROJECT_ROOT}/transferbox" /usr/local/bin/transferbox
                         fi
                         if [ -d "$PROJECT_ROOT/core.bak" ]; then
                             rm -rf "$PROJECT_ROOT/core"
