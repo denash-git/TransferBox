@@ -2,7 +2,7 @@
 # =============================================================================
 # TransferBox — Установщик прокси-сервера (Caddy + sing-box) на Debian 13
 # =============================================================================
-set -euo pipefail
+set -e
 
 # Цвета
 BLUE='\033[1;34m'
@@ -300,12 +300,12 @@ ufw --force reset >/dev/null 2>&1
 ufw default deny incoming >/dev/null 2>&1
 ufw default allow outgoing >/dev/null 2>&1
 
-# Определение порта SSH
+# Определение порта SSH (по умолчанию 22)
 ssh_port=22
 if [ -f /etc/ssh/sshd_config ]; then
-    detected_port=$(grep -E "^Port " /etc/ssh/sshd_config | awk '{print $2}')
+    detected_port=$(grep -E "^Port " /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' || true)
     if [ -n "$detected_port" ]; then
-        ssh_port=$detected_port
+        ssh_port="$detected_port"
     fi
 fi
 
