@@ -399,10 +399,14 @@ select_menu() {
             fi
         elif [[ "$key" == "" ]]; then # Enter
             _result_ref=$active_idx
+            printf "\033[%d;1H\033[K" "$term_height"
+            printf "\033[H"
             tput cnorm # Показать курсор
             return 0
         elif [[ "$key" == "q" || "$key" == "Q" ]]; then
             _result_ref=-1
+            printf "\033[%d;1H\033[K" "$term_height"
+            printf "\033[H"
             tput cnorm # Показать курсор
             return 0
         elif [[ "$key" == "0" ]]; then
@@ -585,19 +589,28 @@ singbox_module_menu() {
         if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
         elif [ "$clean_sel" == "Запустить службу" ]; then
-            echo -e "\n  [*] Запуск службы sing-box..."
+            clear_screen
+            print_header "Модули → sing-box → Запуск" "false"
+            echo ""
+            center_print "${DIM}[*] Запуск службы sing-box...${RESET}"
             systemctl start sing-box
             echo ""
             center_print "${GREEN}✓ Служба sing-box запущена.${RESET}"
             pause
         elif [ "$clean_sel" == "Остановить службу" ]; then
-            echo -e "\n  [*] Остановка службы sing-box..."
+            clear_screen
+            print_header "Модули → sing-box → Остановка" "false"
+            echo ""
+            center_print "${DIM}[*] Остановка службы sing-box...${RESET}"
             systemctl stop sing-box
             echo ""
             center_print "${GREEN}✓ Служба sing-box остановлена.${RESET}"
             pause
         elif [ "$clean_sel" == "Перезапустить службу" ]; then
-            echo -e "\n  [*] Перезапуск службы sing-box..."
+            clear_screen
+            print_header "Модули → sing-box → Перезапуск" "false"
+            echo ""
+            center_print "${DIM}[*] Перезапуск службы sing-box...${RESET}"
             systemctl restart sing-box
             echo ""
             center_print "${GREEN}✓ Служба sing-box перезапущена.${RESET}"
@@ -614,7 +627,8 @@ singbox_module_menu() {
 }
 
 install_mieru() {
-    echo -e "  [*] Поиск последней версии mita (Mieru)..."
+    echo ""
+    center_print "${DIM}[*] Поиск последней версии mita (Mieru)...${RESET}"
     local latest_mita_ver
     latest_mita_ver=$(curl -fsSL https://api.github.com/repos/enfein/mieru/releases/latest | jq -r .tag_name || true)
     if [ -z "$latest_mita_ver" ] || [ "$latest_mita_ver" == "null" ]; then
@@ -632,11 +646,11 @@ install_mieru() {
     fi
     
     local deb_mita_url="https://github.com/enfein/mieru/releases/download/${latest_mita_ver}/mita_${clean_mita_ver}_${go_arch}.deb"
-    echo -e "  [*] Скачивание пакета с официального GitHub: $deb_mita_url"
+    center_print "${DIM}[*] Загрузка пакета Mieru v${clean_mita_ver}...${RESET}"
     local tmp_deb
     tmp_deb=$(mktemp)
     if wget -qO "$tmp_deb" "$deb_mita_url"; then
-        echo -e "  [*] Установка пакета..."
+        center_print "${DIM}[*] Установка пакета...${RESET}"
         dpkg -i "$tmp_deb" >/dev/null
         rm -f "$tmp_deb"
         
@@ -658,10 +672,11 @@ validate_and_restart()
 }
 
 uninstall_mieru() {
-    echo -e "  [*] Останавливаем и отключаем службу..."
+    echo ""
+    center_print "${DIM}[*] Остановка и отключение службы...${RESET}"
     systemctl stop mita >/dev/null 2>&1 || true
     systemctl disable mita >/dev/null 2>&1 || true
-    echo -e "  [*] Удаление пакета..."
+    center_print "${DIM}[*] Удаление пакета...${RESET}"
     dpkg -P mita >/dev/null 2>&1 || true
     rm -rf /etc/mita
     rm -f /etc/systemd/system/mita.service.d/override.conf
@@ -754,7 +769,10 @@ mieru_module_menu() {
             if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
                 return 0
             elif [ "$clean_sel" == "Запустить службу" ]; then
-                echo -e "\n  [*] Запуск службы Mieru..."
+                clear_screen
+                print_header "Модули → Mieru → Запуск" "false"
+                echo ""
+                center_print "${DIM}[*] Запуск службы Mieru...${RESET}"
                 if grep -q "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env; then
                     sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=true/" ${PROJECT_ROOT}/instance.env
                 else
@@ -772,7 +790,10 @@ validate_and_restart()
                 center_print "${GREEN}✓ Служба Mieru запущена. Сервисы перезапущены.${RESET}"
                 pause
             elif [ "$clean_sel" == "Остановить службу" ]; then
-                echo -e "\n  [*] Остановка службы Mieru..."
+                clear_screen
+                print_header "Модули → Mieru → Остановка" "false"
+                echo ""
+                center_print "${DIM}[*] Остановка службы Mieru...${RESET}"
                 if grep -q "^MIERU_ENABLED=" ${PROJECT_ROOT}/instance.env; then
                     sed -i "s/^MIERU_ENABLED=.*/MIERU_ENABLED=false/" ${PROJECT_ROOT}/instance.env
                 else
@@ -787,10 +808,13 @@ validate_and_restart()
                 center_print "${GREEN}✓ Служба Mieru остановлена. Сервисы перезапущены.${RESET}"
                 pause
             elif [ "$clean_sel" == "Перезапустить службу" ]; then
-                echo -e "\n  [*] Перезапуск службы Mieru..."
+                clear_screen
+                print_header "Модули → Mieru → Перезапуск" "false"
+                echo ""
+                center_print "${DIM}[*] Перезапуск службы Mieru...${RESET}"
                 systemctl restart mita >/dev/null 2>&1 || true
                 echo ""
-                center_print "${GREEN}✓ Служба Mieru перезапущенa.${RESET}"
+                center_print "${GREEN}✓ Служба Mieru перезапущена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Изменить порт (Текущий порт: $port)" ]; then
                 clear_screen
@@ -806,7 +830,8 @@ validate_and_restart()
                     continue
                 fi
                 
-                echo -e "\n  [*] Сохранение настроек порта Mieru..."
+                echo ""
+                center_print "${DIM}[*] Сохранение настроек порта Mieru...${RESET}"
                 if grep -q "^MIERU_PORT=" ${PROJECT_ROOT}/instance.env; then
                     sed -i "s/^MIERU_PORT=.*/MIERU_PORT=$new_port/" ${PROJECT_ROOT}/instance.env
                 else
@@ -829,7 +854,9 @@ validate_and_restart()
             elif [ "$clean_sel" == "Удалить Mieru" ]; then
                 clear_screen
                 print_header "Модули → Mieru → Удаление" "false"
-                echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит Mieru с этого сервера !${RESET}"
+                echo ""
+                center_print "${RED}⚠️ ВНИМАНИЕ: Это полностью удалит Mieru с этого сервера!${RESET}"
+                echo ""
                 local confirm
                 read_prompt "Вы уверены, что хотите удалить Mieru? (y/N): " confirm
                 if [[ "$confirm" =~ ^[yY]$ ]]; then
@@ -877,8 +904,9 @@ netbird_module_menu() {
             if [ "$choice" -eq 0 ]; then
                 clear_screen
                 print_header "Модули → NetBird → Установка" "false"
-                echo -e "  [*] Начало установки NetBird клиента..."
-                echo -e "  [*] Загрузка и запуск официального инсталлятора..."
+                echo ""
+                center_print "${DIM}[*] Начало установки NetBird клиента...${RESET}"
+                center_print "${DIM}[*] Загрузка и запуск официального инсталлятора...${RESET}"
                 
                 export SKIP_UI_APP=true
                 if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
@@ -1018,13 +1046,14 @@ netbird_module_menu() {
                     continue
                 fi
                 
-                echo -e "  [*] Запуск регистрации пира в сети NetBird..."
+                echo ""
+                center_print "${DIM}[*] Запуск регистрации пира в сети NetBird...${RESET}"
                 local cmd="netbird up --setup-key $nb_key"
                 if [ -n "$nb_url" ]; then
                     cmd="$cmd --management-url $nb_url"
                 fi
                 
-                echo -e "  [*] Выполняется: $cmd"
+                center_print "${DIM}[*] Выполняется: $cmd${RESET}"
                 if eval "$cmd"; then
                     echo ""
                     center_print "${GREEN}✓ Команда подключения выполнена!${RESET}"
@@ -1034,22 +1063,31 @@ netbird_module_menu() {
                 fi
                 pause
             elif [ "$clean_sel" == "Запустить службу" ]; then
-                echo -e "\n  [*] Запуск службы NetBird..."
+                clear_screen
+                print_header "Модули → NetBird → Запуск" "false"
+                echo ""
+                center_print "${DIM}[*] Запуск службы NetBird...${RESET}"
                 systemctl start netbird
                 echo ""
-                center_print "${GREEN}✓ Служба запущена.${RESET}"
+                center_print "${GREEN}✓ Служба NetBird запущена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Остановить службу" ]; then
-                echo -e "\n  [*] Остановка службы NetBird..."
+                clear_screen
+                print_header "Модули → NetBird → Остановка" "false"
+                echo ""
+                center_print "${DIM}[*] Остановка службы NetBird...${RESET}"
                 systemctl stop netbird
                 echo ""
-                center_print "${GREEN}✓ Служба остановлена.${RESET}"
+                center_print "${GREEN}✓ Служба NetBird остановлена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Перезапустить службу" ]; then
-                echo -e "\n  [*] Перезапуск службы NetBird..."
+                clear_screen
+                print_header "Модули → NetBird → Перезапуск" "false"
+                echo ""
+                center_print "${DIM}[*] Перезапуск службы NetBird...${RESET}"
                 systemctl restart netbird
                 echo ""
-                center_print "${GREEN}✓ Служба перезапущена.${RESET}"
+                center_print "${GREEN}✓ Служба NetBird перезапущена.${RESET}"
                 pause
             elif [ "$clean_sel" == "Показать подробный статус" ]; then
                 clear_screen
@@ -1069,7 +1107,8 @@ netbird_module_menu() {
             elif [ "$clean_sel" == "Обновить NetBird клиент" ]; then
                 clear_screen
                 print_header "Модули → NetBird → Обновление" "false"
-                echo -e "  [*] Обновление NetBird клиента из официального репозитория..."
+                echo ""
+                center_print "${DIM}[*] Обновление NetBird клиента из официального репозитория...${RESET}"
                 apt-get update >/dev/null 2>&1 || true
                 if apt-get install --only-upgrade -y netbird; then
                     echo ""
@@ -1082,16 +1121,19 @@ netbird_module_menu() {
             elif [ "$clean_sel" == "Удалить NetBird клиент" ]; then
                 clear_screen
                 print_header "Модули → NetBird → Удаление" "false"
-                echo -e "  ${RED}! ВНИМАНИЕ: Это полностью удалит NetBird с этого сервера !${RESET}"
+                echo ""
+                center_print "${RED}⚠️ ВНИМАНИЕ: Это полностью удалит NetBird с этого сервера!${RESET}"
+                echo ""
                 local confirm
                 read_prompt "Вы уверены, что хотите удалить NetBird? (y/N): " confirm
                 if [[ "$confirm" =~ ^[yY]$ ]]; then
-                    echo -e "\n  [*] Остановка службы..."
+                    echo ""
+                    center_print "${DIM}[*] Остановка службы...${RESET}"
                     systemctl stop netbird >/dev/null 2>&1 || true
                     systemctl disable netbird >/dev/null 2>&1 || true
-                    echo -e "  [*] Удаление пакета..."
+                    center_print "${DIM}[*] Удаление пакета...${RESET}"
                     apt-get remove --purge -y netbird >/dev/null 2>&1 || true
-                    echo -e "  [*] Удаление репозитория..."
+                    center_print "${DIM}[*] Удаление репозитория...${RESET}"
                     rm -f /etc/apt/sources.list.d/netbird.list
                     rm -f /usr/share/keyrings/netbird-archive-keyring.gpg
                     apt-get update >/dev/null 2>&1 || true
@@ -1148,7 +1190,8 @@ run_speedtest_vps_internet() {
     if ! dpkg -s speedtest >/dev/null 2>&1; then
         clear_screen
         print_header "Скорость VPS → Интернет" "false"
-        echo -e "  [*] Установка официального Ookla Speedtest..."
+        echo ""
+        center_print "${DIM}[*] Установка официального Ookla Speedtest...${RESET}"
         sudo apt-get purge -y speedtest-cli >/dev/null 2>&1 || true
         sudo apt-get install -f -y >/dev/null 2>&1 || true
         curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash >/dev/null 2>&1
@@ -1156,7 +1199,8 @@ run_speedtest_vps_internet() {
     fi
 
     if ! command -v speedtest >/dev/null 2>&1; then
-        echo -e "  ${RED}✗ Не удалось установить speedtest.${RESET}"
+        echo ""
+        center_print "${RED}✗ Не удалось установить speedtest.${RESET}"
         pause
         return 0
     fi
@@ -1181,7 +1225,8 @@ run_speedtest_vps_internet() {
         elif [ "$choice" -eq 1 ]; then
             clear_screen
             print_header "Поиск ближайших серверов" "false"
-            echo -e "  [*] Получение списка серверов..."
+            echo ""
+            center_print "${DIM}[*] Получение списка серверов...${RESET}"
             
             local servers_raw=()
             while IFS= read -r line; do
@@ -1192,7 +1237,8 @@ run_speedtest_vps_internet() {
             done < <(speedtest -L --accept-license --accept-gdpr 2>/dev/null)
             
             if [ ${#servers_raw[@]} -eq 0 ]; then
-                echo -e "\n  ${RED}✗ Не удалось получить список серверов.${RESET}"
+                echo ""
+                center_print "${RED}✗ Не удалось получить список серверов.${RESET}"
                 pause
                 continue
             fi
@@ -1426,10 +1472,14 @@ user_management_menu() {
         elif [ "$choice" -eq $(( num_protocols + 1 )) ]; then
             show_subscription_qr "$nick"
         elif [ "$choice" -eq $(( num_protocols + 2 )) ]; then
+            clear_screen
+            print_header "Удаление пользователя $nick" "false"
+            echo ""
             local confirm
             read_prompt "Вы действительно хотите полностью удалить пользователя $nick и все его протоколы? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-                echo -e "\n  [*] Удаление пользователя..."
+                echo ""
+                center_print "${DIM}[*] Удаление пользователя...${RESET}"
                 local res
                 res=$(python3 -c "
 from core.user_manager import delete_user
@@ -1506,6 +1556,8 @@ protocol_management_menu() {
         if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
         elif [[ "$clean_sel" == "Отключить протокол"* ]] || [[ "$clean_sel" == "Включить протокол"* ]]; then
+            clear_screen
+            print_header "$nick ($label) → Изменение статуса" "false"
             local new_status="True"
             if [ "$enabled" == "true" ]; then
                 new_status="False"
@@ -1577,10 +1629,14 @@ if user:
             fi
             pause
         elif [ "$choice" -eq 2 ]; then
+            clear_screen
+            print_header "Удаление протокола: $label ($nick)" "false"
+            echo ""
             local confirm
             read_prompt "Вы действительно хотите удалить протокол $label для $nick? [y/N]: " confirm
             if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-                echo -e "\n  [*] Удаление протокола..."
+                echo ""
+                center_print "${DIM}[*] Удаление протокола...${RESET}"
                 local res
                 res=$(python3 -c "
 from core.user_manager import delete_user
@@ -1677,7 +1733,10 @@ add_protocol_to_user() {
         return 0
     fi
     
-    echo -e "\n  [*] Добавление протокола..."
+    clear_screen
+    print_header "Добавление протокола для $nick" "false"
+    echo ""
+    center_print "${DIM}[*] Добавление протокола...${RESET}"
     local create_res
     create_res=$(python3 -c "
 from core.user_manager import add_user
@@ -1742,15 +1801,19 @@ if user:
             local send_tg
             read_prompt "Отправить ссылки и QR-коды в Telegram? [y/N]: " send_tg
             if [[ "$send_tg" =~ ^[yYдД]$ ]]; then
-                echo -e "  [*] Отправка сообщения в Telegram..."
+                echo ""
+                center_print "${DIM}[*] Отправка сообщения в Telegram...${RESET}"
                 python3 -c "from bot.alerts import send_user_links; send_user_links($TG_CHAT_ID, '$nick')" >/dev/null 2>&1
-                echo -e "  ${GREEN}✓ Отправлено!${RESET}"
+                center_print "${GREEN}✓ Отправлено!${RESET}"
                 sleep 1
             fi
         fi
         pause
     else
-        echo -e "\n  ${RED}✗ Ошибка добавления протокола: $create_res${RESET}"
+        clear_screen
+        print_header "Ошибка" "false"
+        echo ""
+        center_print "${RED}✗ Ошибка добавления протокола: $create_res${RESET}"
         pause
     fi
 }
@@ -1761,7 +1824,10 @@ show_subscription_qr() {
     sub_token=$(jq -r ".[] | select(.nickname == \"$nick\") | .sub_token" ${PROJECT_ROOT}/users.json 2>/dev/null | head -n 1)
     
     if [ -z "$sub_token" ] || [ "$sub_token" == "null" ]; then
-        echo -e "\n  ${RED}✗ Ошибка: Не удалось найти токен подписки для этого пользователя.${RESET}"
+        clear_screen
+        print_header "Ошибка" "false"
+        echo ""
+        center_print "${RED}✗ Ошибка: Не удалось найти токен подписки для этого пользователя.${RESET}"
         pause
         return 0
     fi
@@ -1835,7 +1901,10 @@ create_user_menu() {
         return 0
     fi
     
-    echo -e "\n  [*] Добавление пользователя..."
+    clear_screen
+    print_header "Создание пользователя: $nick" "false"
+    echo ""
+    center_print "${DIM}[*] Добавление пользователя...${RESET}"
     local create_res
     create_res=$(python3 -c "
 from core.user_manager import add_user
@@ -1931,14 +2000,18 @@ if user:
             local send_tg
             read_prompt "Отправить ссылки и QR-коды в Telegram? [y/N]: " send_tg
             if [[ "$send_tg" =~ ^[yYдД]$ ]]; then
-                echo -e "  [*] Отправка сообщения в Telegram..."
+                echo ""
+                center_print "${DIM}[*] Отправка сообщения в Telegram...${RESET}"
                 python3 -c "from bot.alerts import send_user_links; send_user_links($TG_CHAT_ID, '$nick')" >/dev/null 2>&1
-                echo -e "  ${GREEN}✓ Отправлено!${RESET}"
+                center_print "${GREEN}✓ Отправлено!${RESET}"
                 sleep 1
             fi
         fi
     else
-        echo -e "\n  ${RED}✗ Ошибка создания пользователя: $create_res${RESET}"
+        clear_screen
+        print_header "Ошибка" "false"
+        echo ""
+        center_print "${RED}✗ Ошибка создания пользователя: $create_res${RESET}"
         pause
     fi
 }
@@ -2342,6 +2415,8 @@ save_env(env)
             pause
             
         elif [ "$clean_sel" == "Включить оповещения" ] || [ "$clean_sel" == "Отключить оповещения" ]; then
+            clear_screen
+            print_header "Настройки → Telegram-бот → Оповещения" "false"
             local new_val="true"
             if [ "$alerts_enabled" == "true" ]; then
                 new_val="false"
@@ -2530,18 +2605,21 @@ change_ssh_port_menu() {
     
     # Валидация порта
     if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-        echo -e "\n  ${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
+        echo ""
+        center_print "${RED}✗ Неверный порт! Допустимы значения от 1 до 65535.${RESET}"
         pause
         return 0
     fi
     
     if [ "$new_port" -eq "$cur_port" ]; then
-        echo -e "\n  ${GREEN}✓ Введенный порт совпадает с текущим.${RESET}"
+        echo ""
+        center_print "${GREEN}✓ Введенный порт совпадает с текущим.${RESET}"
         pause
         return 0
     fi
     
-    echo -e "\n  [*] Применение изменений..."
+    echo ""
+    center_print "${DIM}[*] Применение изменений...${RESET}"
     local res
     res=$(python3 -c "
 from core.config_manager import change_ssh_port
@@ -2553,7 +2631,8 @@ else:
 ")
     
     if [ "$res" == "SUCCESS" ]; then
-        echo -e "\n  ${GREEN}✓ SSH успешно переведен на порт $new_port!${RESET}"
+        echo ""
+        center_print "${GREEN}✓ SSH успешно переведен на порт $new_port!${RESET}"
         echo -e "  ${RED}⚠️ ВАЖНО: Откройте НОВОЕ окно терминала и попробуйте подключиться:${RESET}"
         echo -e "  ${BOLD}ssh root@<IP_сервера> -p $new_port${RESET}"
         echo -e "  ${RED}НЕ ЗАКРЫВАЙТЕ текущее окно, пока не проверите подключение!${RESET}\n"
@@ -2563,15 +2642,18 @@ else:
         [ -z "$confirm" ] && confirm="y"
         
         if [[ "$confirm" =~ ^[yYдД]$ ]]; then
-            echo -e "\n  [*] Очистка старых правил UFW..."
+            echo ""
+            center_print "${DIM}[*] Очистка старых правил UFW...${RESET}"
             python3 -c "from core.config_manager import remove_old_ssh_port_ufw; remove_old_ssh_port_ufw($cur_port)"
-            echo -e "  ${GREEN}✓ Правило UFW для старого порта $cur_port удалено.${RESET}"
+            center_print "${GREEN}✓ Правило UFW для старого порта $cur_port удалено.${RESET}"
         else
-            echo -e "\n  ${YELLOW}⚠️ Внимание: старый порт SSH $cur_port оставлен открытым в UFW на всякий случай.${RESET}"
+            echo ""
+            center_print "${YELLOW}⚠️ Внимание: старый порт SSH $cur_port оставлен открытым в UFW на всякий случай.${RESET}"
         fi
         pause
     else
-        echo -e "\n  ${RED}✗ Ошибка: $res${RESET}"
+        echo ""
+        center_print "${RED}✗ Ошибка: $res${RESET}"
         pause
     fi
 }
@@ -2661,12 +2743,15 @@ change_domain_email_menu() {
     if [ "$changed" == "true" ]; then
         clear_screen
         print_header "Настройки → Домен и Email" "false"
-        echo -e "  Применяем настройки..."
+        echo ""
+        center_print "${DIM}[*] Применение настроек...${RESET}"
         python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+        echo ""
+        center_print "${GREEN}✓ Настройки успешно применены!${RESET}"
     fi
     pause
 }
@@ -2699,12 +2784,15 @@ change_site_template_menu() {
     python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['FAKE_SITE_TEMPLATE'] = '$name'; save_env(env)"
     clear_screen
     print_header "Настройки → Шаблон сайта" "false"
-    echo -e "  Применяем настройки..."
+    echo ""
+    center_print "${DIM}[*] Применение настроек...${RESET}"
     python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+    echo ""
+    center_print "${GREEN}✓ Шаблон успешно изменен!${RESET}"
     pause
 }
 
@@ -2730,6 +2818,9 @@ change_vless_paths_menu() {
         
         local changed=false
         if [ "$choice" -eq 0 ]; then
+            clear_screen
+            print_header "Настройки → Пути VLESS" "false"
+            echo ""
             local val
             read_prompt "Введите путь WS (должен начинаться со слэша /): " val
             val="${val// /}"
@@ -2737,16 +2828,23 @@ change_vless_paths_menu() {
                 python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_WS_PATH'] = '$val'; save_env(env)"
                 changed=true
             else
-                echo -e "  ${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
+                echo ""
+                center_print "${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
                 pause
             fi
         elif [ "$choice" -eq 1 ]; then
+            clear_screen
+            print_header "Настройки → Пути VLESS" "false"
+            echo ""
             local val
             read_prompt "Введите имя gRPC сервиса (можно пустой): " val
             val="${val// /}"
             python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_GRPC_SERVICE'] = '$val'; save_env(env)"
             changed=true
         elif [ "$choice" -eq 2 ]; then
+            clear_screen
+            print_header "Настройки → Пути VLESS" "false"
+            echo ""
             local val
             read_prompt "Введите путь XHTTP (должен начинаться со слэша /): " val
             val="${val// /}"
@@ -2754,7 +2852,8 @@ change_vless_paths_menu() {
                 python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['VLESS_XHTTP_PATH'] = '$val'; save_env(env)"
                 changed=true
             else
-                echo -e "  ${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
+                echo ""
+                center_print "${RED}✗ Некорректный путь (должен начинаться со слэша /)${RESET}"
                 pause
             fi
         else
@@ -2764,12 +2863,15 @@ change_vless_paths_menu() {
         if [ "$changed" == "true" ]; then
             clear_screen
             print_header "Настройки → Пути VLESS" "false"
-            echo -e "  Применяем настройки..."
+            echo ""
+            center_print "${DIM}[*] Применение настроек...${RESET}"
             python3 -c "
 from core.config_manager import render_configs, validate_and_restart
 render_configs()
 validate_and_restart()
 "
+            echo ""
+            center_print "${GREEN}✓ Настройки успешно применены!${RESET}"
             pause
         fi
     done
@@ -2777,8 +2879,9 @@ validate_and_restart()
 
 update_singbox_menu() {
     clear_screen
-    print_header "Модули → sing-box → Обновление"
-    echo -e "  Получение информации о версиях..."
+    print_header "Модули → sing-box → Обновление" "false"
+    echo ""
+    center_print "${DIM}[*] Получение информации о версиях...${RESET}"
     
     local current
     current=$(sing-box version 2>/dev/null | head -n 1 | awk '{print $3}' || echo "не установлен")
@@ -2788,7 +2891,8 @@ update_singbox_menu() {
     latest="${latest#v}"
     
     if [ -z "$latest" ]; then
-        echo -e "  ${RED}✗ Ошибка: Не удалось получить последнюю версию с GitHub.${RESET}"
+        echo ""
+        center_print "${RED}✗ Ошибка: Не удалось получить последнюю версию с GitHub.${RESET}"
         pause
         return 0
     fi
@@ -2806,7 +2910,10 @@ update_singbox_menu() {
     fi
     
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        echo -e "\n  [*] Запуск процесса обновления до версии $latest..."
+        clear_screen
+        print_header "Модули → sing-box → Обновление" "false"
+        echo ""
+        center_print "${DIM}[*] Запуск процесса обновления до версии $latest...${RESET}"
         local arch
         arch=$(dpkg --print-architecture 2>/dev/null || uname -m)
         local go_arch="amd64"
@@ -2819,29 +2926,38 @@ update_singbox_menu() {
         local deb_file
         deb_file=$(mktemp)
         
-        echo -e "  * Скачивание $deb_url..."
+        echo ""
+        center_print "${DIM}[*] Скачивание $deb_url...${RESET}"
         wget -qO "$deb_file" "$deb_url"
         
-        echo -e "  * Установка deb-пакета..."
+        echo ""
+        center_print "${DIM}[*] Установка deb-пакета...${RESET}"
         if dpkg -i "$deb_file" >/dev/null 2>&1; then
-            echo -e "  ${GREEN}✓ sing-box успешно установлен/обновлен.${RESET}"
+            echo ""
+            center_print "${GREEN}✓ sing-box успешно установлен/обновлен.${RESET}"
             rm -f "$deb_file"
             
-            echo -e "  * Проверка совместимости конфигурации..."
+            echo ""
+            center_print "${DIM}[*] Проверка совместимости конфигурации...${RESET}"
             if ! sing-box check -c /etc/sing-box/config.json; then
-                echo -e "  ${RED}✗ ВНИМАНИЕ: Новая версия не совместима с вашим конфигом!${RESET}"
-                echo -e "  Служба не будет перезапущена, чтобы сохранить работоспособность."
+                echo ""
+                center_print "${RED}✗ ВНИМАНИЕ: Новая версия не совместима с вашим конфигом!${RESET}"
+                center_print "${RED}Служба не будет перезапущена, чтобы сохранить работоспособность.${RESET}"
             else
-                echo -e "  * Перезапуск службы sing-box..."
+                echo ""
+                center_print "${DIM}[*] Перезапуск службы sing-box...${RESET}"
                 systemctl daemon-reload
                 systemctl restart sing-box
-                echo -e "  ${GREEN}✓ Служба sing-box успешно обновлена и перезапущена.${RESET}"
+                echo ""
+                center_print "${GREEN}✓ Служба sing-box успешно обновлена и перезапущена.${RESET}"
             fi
         else
-            echo -e "  ${RED}✗ Ошибка установки deb-пакета через dpkg.${RESET}"
+            echo ""
+            center_print "${RED}✗ Ошибка установки deb-пакета через dpkg.${RESET}"
         fi
     else
-        echo -e "  Обновление отменено."
+        echo ""
+        center_print "Обновление отменено."
     fi
     pause
 }
@@ -2969,7 +3085,8 @@ else:
                 continue
             fi
             
-            echo -e "\n  [*] Проверка архива и восстановление..."
+            echo ""
+            center_print "${DIM}[*] Проверка архива и восстановление...${RESET}"
             local tmpfile_ext
             tmpfile_ext=$(mktemp)
             python3 -c "
@@ -3044,12 +3161,13 @@ except Exception as e:
                     local old_fqdn
                     old_fqdn=$(hostname)
                     if [ "$old_fqdn" != "$restored_fqdn" ]; then
-                        echo -e "  [*] Восстановление FQDN имени хоста VPS ($restored_fqdn)..."
+                        echo ""
+                        center_print "${DIM}[*] Восстановление FQDN имени хоста VPS ($restored_fqdn)...${RESET}"
                         if hostnamectl set-hostname "$restored_fqdn" 2>/dev/null; then
                             if [ -f /etc/hosts ]; then
                                 sed -i "s/\b$old_fqdn\b/$restored_fqdn/g" /etc/hosts
                             fi
-                            echo -e "  ${GREEN}✓ FQDN успешно восстановлено.${RESET}"
+                            center_print "${GREEN}✓ FQDN успешно восстановлено.${RESET}"
                         fi
                     fi
                 fi
@@ -3058,7 +3176,8 @@ except Exception as e:
                 local bbr_enabled="${BBR_ENABLED:-false}"
                 if [ "$bbr_enabled" == "true" ]; then
                     if ! sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-                        echo -e "  [*] Включение BBR оптимизации из бэкапа..."
+                        echo ""
+                        center_print "${DIM}[*] Включение BBR оптимизации из бэкапа...${RESET}"
                         if modprobe tcp_bbr 2>/dev/null; then
                             sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
                             sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
@@ -3067,7 +3186,7 @@ net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
                             sysctl --system >/dev/null 2>&1
-                            echo -e "  ${GREEN}✓ BBR оптимизация успешно включена.${RESET}"
+                            center_print "${GREEN}✓ BBR оптимизация успешно включена.${RESET}"
                         fi
                     fi
                 fi
@@ -3076,15 +3195,18 @@ EOF
                 local m_enabled="${MIERU_ENABLED:-false}"
                 if [ "$m_enabled" == "true" ]; then
                     if [ ! -f "/usr/bin/mita" ]; then
-                        echo -e "  [*] Обнаружена конфигурация Mieru. Автоматическая установка..."
+                        echo ""
+                        center_print "${DIM}[*] Обнаружена конфигурация Mieru. Автоматическая установка...${RESET}"
                         install_mieru
                     else
-                        echo -e "  [*] Включение службы Mieru..."
+                        echo ""
+                        center_print "${DIM}[*] Включение службы Mieru...${RESET}"
                         systemctl enable --now mita >/dev/null 2>&1 || true
                     fi
                 else
                     if [ -f "/usr/bin/mita" ]; then
-                        echo -e "  [*] Отключение службы Mieru..."
+                        echo ""
+                        center_print "${DIM}[*] Отключение службы Mieru...${RESET}"
                         systemctl disable --now mita >/dev/null 2>&1 || true
                     fi
                 fi
@@ -3093,7 +3215,8 @@ EOF
                 local nb_key="${NETBIRD_SETUP_KEY:-}"
                 if [ -n "$nb_key" ]; then
                     if ! command -v netbird &>/dev/null; then
-                        echo -e "  [*] Обнаружена конфигурация NetBird. Автоматическая установка..."
+                        echo ""
+                        center_print "${DIM}[*] Обнаружена конфигурация NetBird. Автоматическая установка...${RESET}"
                         export SKIP_UI_APP=true
                         if curl -fsSL https://pkgs.netbird.io/install.sh | sh; then
                             systemctl enable --now netbird >/dev/null 2>&1 || true
@@ -3109,8 +3232,8 @@ if 'NETBIRD_SETUP_KEY' in env:
     save_env(env)
 "
                     echo ""
-                    echo -e "  ${YELLOW}⚠️  Внимание: Пакет NetBird установлен, но старый Setup Key из бэкапа недействителен.${RESET}"
-                    echo -e "     Вам потребуется ввести новый Setup Key через меню: Модули → NetBird."
+                    center_print "${YELLOW}⚠️  Внимание: Пакет NetBird установлен, но старый Setup Key из бэкапа недействителен.${RESET}"
+                    center_print "${YELLOW}Вам потребуется ввести новый Setup Key через меню: Модули → NetBird.${RESET}"
                     echo ""
                 fi
                 
@@ -3120,7 +3243,8 @@ if 'NETBIRD_SETUP_KEY' in env:
                 # Восстановление Telegram-бота
                 local bot_enabled="${TG_BOT_ENABLED:-false}"
                 if [ "$bot_enabled" == "true" ] && [ -n "${TG_BOT_TOKEN:-}" ] && [ -n "${TG_CHAT_ID:-}" ]; then
-                    echo -e "  [*] Восстановление службы Telegram-бота..."
+                    echo ""
+                    center_print "${DIM}[*] Восстановление службы Telegram-бота...${RESET}"
                     cat > /etc/systemd/system/transferbox-bot.service <<EOF
 [Unit]
 Description=TransferBox Telegram Bot
@@ -3150,10 +3274,11 @@ hour = int(env.get('BACKUP_HOUR', '12'))
 minute = int(env.get('BACKUP_MINUTE', '0'))
 update_cron_schedule(hour, minute, enabled)
 "
-                    echo -e "  ${GREEN}✓ Служба Telegram-бота успешно восстановлена и запущена.${RESET}"
+                    center_print "${GREEN}✓ Служба Telegram-бота успешно восстановлена и запущена.${RESET}"
                 fi
                 
-                echo -e "  [*] Пересборка конфигураций и перезапуск служб..."
+                echo ""
+                center_print "${DIM}[*] Пересборка конфигураций и перезапуск служб...${RESET}"
                 local tmpfile_apply
                 tmpfile_apply=$(mktemp)
                 python3 -c "
@@ -3239,8 +3364,9 @@ save_env(env)
 
 apply_settings_menu() {
     clear_screen
-    print_header "Пересоздать конфигурации"
-    echo -e "  Генерация конфигураций и перезапуск..."
+    print_header "Пересоздать конфигурации" "false"
+    echo ""
+    center_print "${DIM}[*] Генерация конфигураций и перезапуск...${RESET}"
     local tmpfile_res
     tmpfile_res=$(mktemp)
     python3 -c "
@@ -3257,10 +3383,12 @@ else:
     res=$(cat "$tmpfile_res")
     rm -f "$tmpfile_res"
     
+    echo ""
     if [ "$res" == "SUCCESS" ]; then
-        echo -e "\n  ${GREEN}✓ Службы успешно перезапущены!${RESET}"
+        center_print "${GREEN}✓ Службы успешно перезапущены!${RESET}"
     else
-        echo -e "\n  ${RED}✗ Ошибка:${RESET}\n  ${res#ERROR:}"
+        center_print "${RED}✗ Ошибка:${RESET}"
+        center_print "${RED}${res#ERROR:}${RESET}"
     fi
     pause
 }
@@ -3311,35 +3439,43 @@ logs_menu() {
             return 0
         elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — Caddy" ]; then
             clear_screen
+            print_header "Логи — Caddy" "false"
             journalctl -u caddy -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — sing-box" ]; then
             clear_screen
+            print_header "Логи — sing-box" "false"
             journalctl -u sing-box -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — Mieru" ]; then
             clear_screen
+            print_header "Логи — Mieru" "false"
             journalctl -u mita -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$clean_sel" == "Последние ${LOG_LINES_COUNT} строк — NetBird" ]; then
             clear_screen
+            print_header "Логи — NetBird" "false"
             journalctl -u netbird -n ${LOG_LINES_COUNT} --no-pager
             pause
         elif [ "$clean_sel" == "Следить за логом Caddy (Ctrl+C — выход)" ]; then
             clear_screen
-            echo -e "  Следим за логами Caddy... (Нажмите Ctrl+C для выхода)\n"
+            print_header "Следить за логом — Caddy" "false"
+            echo -e "  Нажмите Ctrl+C для выхода...\n"
             journalctl -u caddy -f
         elif [ "$clean_sel" == "Следить за логом sing-box (Ctrl+C — выход)" ]; then
             clear_screen
-            echo -e "  Следим за логами sing-box... (Нажмите Ctrl+C для выхода)\n"
+            print_header "Следить за логом — sing-box" "false"
+            echo -e "  Нажмите Ctrl+C для выхода...\n"
             journalctl -u sing-box -f
         elif [ "$clean_sel" == "Следить за логом Mieru (Ctrl+C — выход)" ]; then
             clear_screen
-            echo -e "  Следим за логами Mieru... (Нажмите Ctrl+C для выхода)\n"
+            print_header "Следить за логом — Mieru" "false"
+            echo -e "  Нажмите Ctrl+C для выхода...\n"
             journalctl -u mita -f
         elif [ "$clean_sel" == "Следить за логом NetBird (Ctrl+C — выход)" ]; then
             clear_screen
-            echo -e "  Следим за логами NetBird... (Нажмите Ctrl+C для выхода)\n"
+            print_header "Следить за логом — NetBird" "false"
+            echo -e "  Нажмите Ctrl+C для выхода...\n"
             journalctl -u netbird -f
         fi
     done
