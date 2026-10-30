@@ -172,7 +172,7 @@ def build_client_link(user_obj, env=None):
     if protocol == "naive":
         username = creds.get("username")
         password = creds.get("password")
-        return f"naive://{username}:{password}@{domain}:443#{nickname}"
+        return f"naive://{username}:{password}@{domain}:443#{nickname}-naive"
         
     elif protocol == "vless":
         user_uuid = creds.get("uuid")
@@ -180,13 +180,13 @@ def build_client_link(user_obj, env=None):
         
         if user_type == "ws":
             path = env.get("VLESS_WS_PATH", "/")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=ws&path={path}#{nickname}"
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=ws&path={path}#{nickname}-ws"
         elif user_type == "grpc":
             service = env.get("VLESS_GRPC_SERVICE", "")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=grpc&serviceName={service}#{nickname}"
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=grpc&serviceName={service}#{nickname}-grpc"
         elif user_type == "xhttp":
             path = env.get("VLESS_XHTTP_PATH", "/xhttp")
-            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}"
+            return f"vless://{user_uuid}@{domain}:443?encryption=none&security=tls&sni={domain}&type=httpupgrade&path={path}#{nickname}-xhttp"
             
     elif protocol == "mieru":
         username = creds.get("username")
@@ -194,8 +194,8 @@ def build_client_link(user_obj, env=None):
         port = int(env.get("MIERU_PORT", 21000))
         safe_user = urllib.parse.quote(username)
         safe_pass = urllib.parse.quote(password)
-        safe_profile = urllib.parse.quote(f"Mieru-{nickname}")
-        return f"mierus://{safe_user}:{safe_pass}@{domain}?profile={safe_profile}&port={port}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH"
+        safe_profile = urllib.parse.quote(f"{nickname}-mieru")
+        return f"mierus://{safe_user}:{safe_pass}@{domain}?profile={safe_profile}&port={port}&protocol=TCP&multiplexing=MULTIPLEXING_HIGH#{nickname}-mieru"
             
     return ""
 
@@ -209,7 +209,7 @@ def build_mieru_json_config(user_obj, env=None):
     password = creds.get("password")
     port = int(env.get("MIERU_PORT", 21000))
     config = {
-        "profileName": f"Mieru-{user_obj['nickname']}",
+        "profileName": f"{user_obj['nickname']}-mieru",
         "user": {
             "name": username,
             "password": password
@@ -242,7 +242,7 @@ def build_mieru_clash_yaml(user_obj, env=None):
     password = creds.get("password")
     port = int(env.get("MIERU_PORT", 21000))
     yaml_str = f"""proxies:
-  - name: "Mieru-{user_obj['nickname']}"
+  - name: "{user_obj['nickname']}-mieru"
     type: mieru
     server: {domain}
     port: {port}
@@ -264,7 +264,7 @@ def build_mieru_singbox_json(user_obj, env=None):
         "outbounds": [
             {
                 "type": "mieru",
-                "tag": f"Mieru-{user_obj['nickname']}",
+                "tag": f"{user_obj['nickname']}-mieru",
                 "server": domain,
                 "server_port": port,
                 "transport": "TCP",
