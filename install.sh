@@ -156,8 +156,12 @@ else
     export TMPDIR="/root/tmp"
     tmpdir=$(mktemp -d -p /root/tmp)
     log_info "Загрузка Go..."
-    wget -qO "${tmpdir}/go.tar.gz" "https://go.dev/dl/go${DEFAULT_GO_VERSION}.linux-${go_arch}.tar.gz"
-    tar -xzf "${tmpdir}/go.tar.gz" -C "$tmpdir"
+    if ! wget -qO "${tmpdir}/go.tar.gz" "https://go.dev/dl/go${DEFAULT_GO_VERSION}.linux-${go_arch}.tar.gz" >> "$INSTALL_LOG" 2>&1; then
+        error "Не удалось скачать Go ${DEFAULT_GO_VERSION}. Подробности см. в логе: $INSTALL_LOG"
+    fi
+    if ! tar -xzf "${tmpdir}/go.tar.gz" -C "$tmpdir" >> "$INSTALL_LOG" 2>&1; then
+        error "Ошибка распаковки архива Go. Подробности см. в логе: $INSTALL_LOG"
+    fi
     
     export GOROOT="${tmpdir}/go"
     export GOPATH="${tmpdir}/gopath"
@@ -169,12 +173,16 @@ else
     mkdir -p "$GOPATH" "$GOBIN"
     
     log_info "Установка xcaddy..."
-    go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest >/dev/null 2>&1
+    if ! go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest >> "$INSTALL_LOG" 2>&1; then
+        error "Не удалось установить xcaddy. Подробности см. в логе: $INSTALL_LOG"
+    fi
     
     log_info "Сборка бинарника..."
-    xcaddy build \
+    if ! xcaddy build \
         --output "${tmpdir}/caddy" \
-        --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive >/dev/null 2>&1
+        --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@c096d6a00cb2 >> "$INSTALL_LOG" 2>&1; then
+        error "Ошибка сборки Caddy с плагином NaiveProxy. Подробности см. в логе: $INSTALL_LOG"
+    fi
         
     cp "${tmpdir}/caddy" "$CADDY_BIN"
     chmod 755 "$CADDY_BIN"
