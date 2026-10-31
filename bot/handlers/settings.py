@@ -9,9 +9,10 @@ from aiogram.fsm.context import FSMContext
 
 from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw, PROJECT_ROOT
 from core.security_manager import enable_security, disable_security, get_security_status, unban_all, is_security_active
+from core.ssh_auth_manager import get_ssh_auth_status, set_ssh_auth_mode
 from bot.keyboards import (
     settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard,
-    security_menu_keyboard, security_banned_keyboard
+    security_menu_keyboard, security_banned_keyboard, ssh_auth_menu_keyboard
 )
 from bot.backup import run_backup
 
@@ -481,4 +482,71 @@ async def settings_security_banned_list_callback(callback: CallbackQuery):
     )
     await callback.answer()
 
+# ─── НАСТРОЙКИ: ДОСТУП SSH (ПАРОЛЬ / КЛЮЧ) ───────────────────────────────────
+
+def render_ssh_auth_text(status: dict) -> str:
+    mode = status.get("mode", "password")
+    mode_badge = "🟢 Вход по паролю" if mode == "password" else "🟢 Вход по ключу"
+    keys_count = status.get("keys_count", 0)
+    ssh_port = status.get("ssh_port", 22)
+    keys = status.get("keys", [])
+
+    lines = [
+        "🔐 <b>Доступ к серверу по SSH</b>\n",
+        f"• Активный режим: {mode_badge}",
+        f"• Установлено ключей: <code>{keys_count}</code>",
+        f"• Порт SSH: <code>{ssh_port}</code>\n"
+    ]
+
+    if keys:
+        lines.append("🔑 <b>Список открытых ключей:</b>")
+        for k in keys:
+            fp = k.get("fingerprint", "")
+            ktype = k.get("type", "ssh-key")
+            comment = k.get("comment", "")
+            idx = k.get("index", 1)
+            comment_str = f" ({comment})" if comment else ""
+            lines.append(f"{idx}. <code>{ktype}</code> <code>{fp}</code>{comment_str}")
+        lines.append("")
+    else:
+        lines.append("<i>Список открытых ключей пуст.</i>\n")
+
+    lines.append("<i>При включении входа по ключу - вход по паролю будет отключен</i>")
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data == "settings:ssh_auth")
+async def settings_ssh_auth_callback(callback: CallbackQuery):
+    status = get_ssh_auth_status()
+    text = render_ssh_auth_text(status)
+    await callback.message.edit_text(
+        text,
+        reply_markup=ssh_auth_menu_keyboard(mode=status["mode"]),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("ssh:toggle:"))
+async def settings_ssh_toggle_callback(callback: CallbackQuery):
+    target = callback.data.split(":")[2]
+    status = get_ssh_auth_status()
+
+    if target == "key" and status["keys_count"] == 0:
+        await callback.answer("Сначала сгенерируйте ключ в меню консоли (menu)!", show_alert=True)
+        return
+
+    ok, msg = set_ssh_auth_mode(target)
+    if not ok:
+        await callback.answer(f"❌ {msg}", show_alert=True)
+        return
+
+    await callback.answer(msg, show_alert=True)
+    new_status = get_ssh_auth_status()
+    text = render_ssh_auth_text(new_status)
+    await callback.message.edit_text(
+        text,
+        reply_markup=ssh_auth_menu_keyboard(mode=new_status["mode"]),
+        parse_mode="HTML"
+    )
 
