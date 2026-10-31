@@ -485,15 +485,18 @@ async def settings_security_banned_list_callback(callback: CallbackQuery):
 # ─── НАСТРОЙКИ: ДОСТУП SSH (ПАРОЛЬ / КЛЮЧ) ───────────────────────────────────
 
 def render_ssh_auth_text(status: dict) -> str:
-    mode = status.get("mode", "password")
-    mode_badge = "🟢 Вход по паролю" if mode == "password" else "🟢 Вход по ключу"
+    pwd_label = status.get("password_status_label")
+    if not pwd_label:
+        pwd_label = "🟢 Включен" if status.get("mode", "password") == "password" else "🔴 Отключен"
+    key_label = status.get("key_status_label", "🟢 Включен (всегда)")
     keys_count = status.get("keys_count", 0)
     ssh_port = status.get("ssh_port", 22)
     keys = status.get("keys", [])
 
     lines = [
         "🔐 <b>Доступ к серверу по SSH</b>\n",
-        f"• Активный режим: {mode_badge}",
+        f"• Вход по паролю: {pwd_label}",
+        f"• Вход по ключу: {key_label}",
         f"• Установлено ключей: <code>{keys_count}</code>",
         f"• Порт SSH: <code>{ssh_port}</code>\n"
     ]
@@ -511,7 +514,7 @@ def render_ssh_auth_text(status: dict) -> str:
     else:
         lines.append("<i>Список открытых ключей пуст.</i>\n")
 
-    lines.append("<i>При включении входа по ключу - вход по паролю будет отключен</i>")
+    lines.append("<i>При отключении входа по паролю доступ будет возможен только по SSH-ключу</i>")
     return "\n".join(lines)
 
 

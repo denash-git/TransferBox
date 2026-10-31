@@ -165,13 +165,21 @@ refresh_system_status() {
     HEADER_STATUS_SINGBOX="$sb_val"
     HEADER_STATUS_SB_RAW=$(echo "$sb_val" | sed 's/\x1b\[[0-9;]*m//g')
     
-    HEADER_SHOW_MIERU=false
-    if [ -f "/usr/bin/mita" ]; then
-        HEADER_SHOW_MIERU=true
-        local mita_val
-        mita_val=$(get_service_status mita)
+    HEADER_SHOW_MIERU=true
+    if [ -f "/usr/bin/mita" ] && systemctl is-active --quiet mita 2>/dev/null; then
+        local mita_val="${GREEN}● работает${RESET}"
         HEADER_STATUS_MITA="$mita_val"
-        HEADER_STATUS_MITA_RAW=$(echo "$mita_val" | sed 's/\x1b\[[0-9;]*m//g')
+        HEADER_STATUS_MITA_RAW="● работает"
+    elif [ -f "/usr/bin/mita" ]; then
+        local status
+        status=$(systemctl is-active mita 2>/dev/null || echo "inactive")
+        local mita_val="${RED}● не запущен ($status)${RESET}"
+        HEADER_STATUS_MITA="$mita_val"
+        HEADER_STATUS_MITA_RAW="● не запущен ($status)"
+    else
+        local mita_val="${RED}● не запущен (inactive)${RESET}"
+        HEADER_STATUS_MITA="$mita_val"
+        HEADER_STATUS_MITA_RAW="● не запущен (inactive)"
     fi
     
     HEADER_SHOW_NETBIRD=false
@@ -2493,13 +2501,14 @@ print(f'keys_count={s[\"keys_count\"]}')
 print(f'ssh_port={s[\"ssh_port\"]}')
 " 2>/dev/null || true)"
         
-        local mode_status="${GREEN}🟢 Вход по паролю${RESET}"
+        local pwd_status="${GREEN}🟢 Включен${RESET}"
         if [ "$mode" == "key" ]; then
-            mode_status="${GREEN}🟢 Вход по ключу${RESET}"
+            pwd_status="${RED}🔴 Отключен${RESET}"
         fi
         
         echo -e "  Текущая конфигурация:"
-        echo -e "  • Активный режим:     $mode_status"
+        echo -e "  • Вход по паролю:    $pwd_status"
+        echo -e "  • Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
         echo -e "  • Установлено ключей: ${YELLOW}${keys_count}${RESET}"
         echo -e "  • Порт SSH:           ${CYAN}${ssh_port}${RESET}"
         echo ""
@@ -2520,14 +2529,14 @@ for k in keys:
 "
         fi
         echo ""
-        echo -e "  ${DIM}ℹ При включении входа по ключу - вход по паролю будет отключен${RESET}"
+        echo -e "  ${DIM}ℹ При отключении входа по паролю доступ будет возможен только по SSH-ключу${RESET}"
         draw_line "─" "$BLUE"
         
         local auth_options=()
         if [ "$mode" == "password" ]; then
-            auth_options+=("Включить вход по ключу (отключить пароль)")
+            auth_options+=("Отключить вход по паролю")
         else
-            auth_options+=("Включить вход по паролю (отключить ключ)")
+            auth_options+=("Включить вход по паролю")
         fi
         auth_options+=("Сгенерировать новый ключ SSH")
         if [ "$keys_count" -gt 0 ]; then
@@ -2543,25 +2552,25 @@ for k in keys:
         
         if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
-        elif [ "$clean_sel" == "Включить вход по ключу (отключить пароль)" ]; then
+        elif [ "$clean_sel" == "Отключить вход по паролю" ]; then
             clear_screen
-            print_header "Настройки → Переключение режима SSH" "false"
+            print_header "Настройки → Отключение входа по паролю" "false"
             if [ "$keys_count" -eq 0 ]; then
                 echo ""
-                center_print "${RED}✗ Невозможно включить вход по ключу: в системе нет ключей!${RESET}"
+                center_print "${RED}✗ Нельзя отключить вход по паролю: в системе нет ни одного открытого ключа!${RESET}"
                 center_print "${DIM}Сначала сгенерируйте ключ SSH.${RESET}"
                 echo ""
                 pause
             else
                 echo ""
-                center_print "${DIM}[*] Включение авторизации только по ключу...${RESET}"
+                center_print "${DIM}[*] Отключение входа по паролю...${RESET}"
                 local out=""
                 out=$(python3 -c "from core.ssh_auth_manager import set_ssh_auth_mode; ok, msg = set_ssh_auth_mode('key'); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
                 if [[ "$out" == OK:* ]]; then
                     echo ""
                     center_print "${GREEN}✓ ${out#OK:}${RESET}"
                     echo ""
-                    center_print "${YELLOW}⚠️ Вход по паролю отключен! Используйте приватный ключ для входа.${RESET}"
+                    center_print "${YELLOW}⚠️ Вход по паролю отключен! Доступ возможен только по SSH-ключу.${RESET}"
                 else
                     echo ""
                     center_print "${RED}✗ ${out#ERR:}${RESET}"
@@ -2569,11 +2578,11 @@ for k in keys:
                 echo ""
                 pause
             fi
-        elif [ "$clean_sel" == "Включить вход по паролю (отключить ключ)" ]; then
+        elif [ "$clean_sel" == "Включить вход по паролю" ]; then
             clear_screen
-            print_header "Настройки → Переключение режима SSH" "false"
+            print_header "Настройки → Включение входа по паролю" "false"
             echo ""
-            center_print "${DIM}[*] Включение авторизации по паролю...${RESET}"
+            center_print "${DIM}[*] Включение входа по паролю...${RESET}"
             local out=""
             out=$(python3 -c "from core.ssh_auth_manager import set_ssh_auth_mode; ok, msg = set_ssh_auth_mode('password'); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
             if [[ "$out" == OK:* ]]; then
@@ -2590,6 +2599,7 @@ for k in keys:
             print_header "Настройки → Генерация ключа SSH" "false"
             echo ""
             center_print "${DIM}[*] Генерация новой пары ключей Ed25519...${RESET}"
+            echo ""
             
             local gen_file
             gen_file=$(mktemp)
@@ -2603,28 +2613,27 @@ print(json.dumps({'ok': ok, 'msg': msg, 'data': data}))
             local is_ok
             is_ok=$(python3 -c "import json; d=json.load(open('$gen_file')); print(d.get('ok'))")
             if [ "$is_ok" == "True" ]; then
-                local key_path
-                key_path=$(python3 -c "import json; d=json.load(open('$gen_file')); print(d.get('data', {}).get('private_key_path', ''))")
-                local key_fname
-                key_fname=$(python3 -c "import json; d=json.load(open('$gen_file')); print(d.get('data', {}).get('filename', ''))")
+                local priv_path
+                priv_path=$(python3 -c "import json; d=json.load(open('$gen_file')); print(d.get('data', {}).get('private_key_path', ''))")
+                local filename
+                filename=$(python3 -c "import json; d=json.load(open('$gen_file')); print(d.get('data', {}).get('filename', ''))")
                 rm -f "$gen_file"
                 
-                local vps_ip
-                vps_ip=$(curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || curl -4 -s --connect-timeout 5 api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
-                [ -z "$vps_ip" ] && vps_ip="IP_СЕРВЕРА"
+                local server_ip
+                server_ip=$(curl -s4 --max-time 3 https://api.ipify.org 2>/dev/null || curl -s4 --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+                [ -z "$server_ip" ] && server_ip="IP_СЕРВЕРА"
                 
-                echo ""
-                center_print "${GREEN}✓ Ключ Ed25519 успешно сгенерирован и добавлен в authorized_keys!${RESET}"
+                echo -e "  ${GREEN}✓ Ключ Ed25519 успешно сгенерирован и добавлен в authorized_keys!${RESET}"
                 echo ""
                 echo -e "  Приватный ключ сохранен в файл:"
-                echo -e "  ${CYAN}${key_path}${RESET}"
+                echo -e "  ${CYAN}${priv_path}${RESET}"
                 echo ""
                 echo -e "  ${YELLOW}⚠️ ВАЖНО: Скачайте этот файл на ваш ПК перед отключением пароля!${RESET}"
                 echo -e "  Команда для скачивания (выполнить на вашем ПК):"
-                echo -e "  ${DIM}scp -P ${ssh_port} root@${vps_ip}:${key_path} ~/.ssh/${key_fname}${RESET}"
+                echo -e "  ${DIM}scp -P ${ssh_port} root@${server_ip}:${priv_path} ~/.ssh/${filename}${RESET}"
                 echo ""
                 echo -e "  Команда для подключения к серверу:"
-                echo -e "  ${DIM}ssh -i ~/.ssh/${key_fname} -p ${ssh_port} root@${vps_ip}${RESET}"
+                echo -e "  ${DIM}ssh -i ~/.ssh/${filename} -p ${ssh_port} root@${server_ip}${RESET}"
                 echo ""
                 pause
             else
@@ -2701,9 +2710,9 @@ settings_menu() {
         
         local ssh_mode
         ssh_mode=$(python3 -c "from core.ssh_auth_manager import get_ssh_auth_mode; print(get_ssh_auth_mode())" 2>/dev/null || echo "password")
-        local ssh_mode_status="${GREEN}🟢 Вход по паролю${RESET}"
+        local ssh_pwd_status="${GREEN}🟢 Включен${RESET}"
         if [ "$ssh_mode" == "key" ]; then
-            ssh_mode_status="${GREEN}🟢 Вход по ключу${RESET}"
+            ssh_pwd_status="${RED}🔴 Отключен${RESET}"
         fi
         
         local bbr_status="${RED}отключен${RESET}"
@@ -2743,7 +2752,7 @@ settings_menu() {
         echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
         echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
         echo -e "  • Порт SSH:          $ssh_port"
-        echo -e "  • Доступ SSH:        $ssh_mode_status"
+        echo -e "  • Вход по паролю:    $ssh_pwd_status"
         echo -e "  • TCP BBR:           $bbr_status"
         echo -e "  • Защита от сканеров: $security_status"
         echo -e "  • Telegram-бот:      $bot_status"

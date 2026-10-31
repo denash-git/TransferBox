@@ -210,7 +210,7 @@ def delete_authorized_key(target_index: int) -> tuple[bool, str]:
         remaining = get_authorized_keys()
         if len(remaining) == 0 and get_ssh_auth_mode() == "key":
             set_ssh_auth_mode("password")
-            return True, f"Ключ #{target_index} удален. Ключей больше нет — авторизация автоматически переключена на вход по паролю."
+            return True, f"Ключ #{target_index} удален. Ключей больше нет — вход по паролю автоматически включен."
 
         return True, f"Ключ #{target_index} ({target_key['comment']}) успешно удален."
     except Exception as e:
@@ -222,18 +222,24 @@ def set_ssh_auth_mode(target_mode: str) -> tuple[bool, str]:
     Switches SSH authentication mode between 'password' and 'key'.
     Validates sshd config with sshd -t before restarting ssh.
     """
-    if target_mode not in ("password", "key"):
+    if target_mode in ("key", "disable_password", "key_only"):
+        normalized_mode = "key"
+    elif target_mode in ("password", "enable_password"):
+        normalized_mode = "password"
+    else:
         return False, f"Неверный режим: {target_mode}."
 
     current_mode = get_ssh_auth_mode()
-    if target_mode == current_mode:
-        label = "Вход по ключу" if target_mode == "key" else "Вход по паролю"
-        return True, f"Режим '{label}' уже активен."
+    if normalized_mode == current_mode:
+        if normalized_mode == "key":
+            return True, "Вход по паролю уже отключен."
+        else:
+            return True, "Вход по паролю уже включен."
 
-    if target_mode == "key":
+    if normalized_mode == "key":
         keys = get_authorized_keys()
         if len(keys) == 0:
-            return False, "Невозможно включить вход по ключу: в системе нет ни одного открытого ключа! Сначала сгенерируйте ключ."
+            return False, "Нельзя отключить вход по паролю: в системе нет ни одного открытого ключа! Сначала сгенерируйте ключ."
 
     ensure_sshd_includes_dropin()
     os.makedirs(SSHD_CONFIG_DIR, exist_ok=True)
@@ -255,19 +261,18 @@ def set_ssh_auth_mode(target_mode: str) -> tuple[bool, str]:
             pass
 
     try:
-        if target_mode == "key":
-            content = """# TransferBox SSH Key-Only Authentication
+        if normalized_mode == "key":
+            content = """# TransferBox SSH Authentication
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PubkeyAuthentication yes
 AuthorizedKeysFile .ssh/authorized_keys
 """
         else:
-            content = """# TransferBox SSH Password Authentication
+            content = """# TransferBox SSH Authentication
 PasswordAuthentication yes
 KbdInteractiveAuthentication yes
 PubkeyAuthentication yes
-PermitRootLogin yes
 AuthorizedKeysFile .ssh/authorized_keys
 """
 
@@ -302,11 +307,11 @@ AuthorizedKeysFile .ssh/authorized_keys
                 return False, f"Не удалось перезапустить службу SSH: {res.stderr.strip()}"
 
         env = load_env()
-        env["SSH_AUTH_MODE"] = target_mode
+        env["SSH_AUTH_MODE"] = normalized_mode
         save_env(env)
 
-        if target_mode == "key":
-            return True, "Вход только по ключу успешно включен. Вход по паролю отключен."
+        if normalized_mode == "key":
+            return True, "Вход по паролю успешно отключен."
         else:
             return True, "Вход по паролю успешно включен."
     except Exception as e:
@@ -318,9 +323,13 @@ def get_ssh_auth_status() -> dict:
     mode = get_ssh_auth_mode()
     keys = get_authorized_keys()
     ssh_port = get_current_ssh_port()
+    password_allowed = (mode == "password")
     return {
         "mode": mode,
-        "mode_label": "Вход по паролю" if mode == "password" else "Вход по ключу",
+        "password_auth": password_allowed,
+        "password_status_label": "🟢 Включен" if password_allowed else "🔴 Отключен",
+        "key_status_label": "🟢 Включен (всегда)",
+        "mode_label": "Вход по паролю: 🟢 Включен" if password_allowed else "Вход по паролю: 🔴 Отключен",
         "keys": keys,
         "keys_count": len(keys),
         "ssh_port": ssh_port

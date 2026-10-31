@@ -60,10 +60,10 @@ def settings_menu_keyboard(bbr_active: bool):
 
 def ssh_auth_menu_keyboard(mode: str):
     if mode == "password":
-        btn_toggle = align_button_text("🔑 Включить вход по ключу (отключить пароль)", 18.0)
+        btn_toggle = align_button_text("🔒 Отключить вход по паролю", 18.0)
         target = "key"
     else:
-        btn_toggle = align_button_text("🔒 Включить вход по паролю (отключить ключ)", 18.0)
+        btn_toggle = align_button_text("🔑 Включить вход по паролю", 18.0)
         target = "password"
         
     return InlineKeyboardMarkup(inline_keyboard=[
