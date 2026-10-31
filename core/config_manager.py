@@ -540,10 +540,22 @@ def validate_and_restart():
         return False, f"sing-box config validation failed:\n{res.stderr}"
 
     # Restart services
-    res = subprocess.run(["systemctl", "restart", "caddy"], capture_output=True, text=True)
-    if res.returncode != 0:
-        return False, f"Не удалось перезапустить caddy:\n{res.stderr}"
+    # Prevent Caddy start-limit-hit lock:
+    caddy_active = subprocess.run(["systemctl", "is-active", "--quiet", "caddy"]).returncode == 0
+    if caddy_active:
+        res = subprocess.run(["systemctl", "reload", "caddy"], capture_output=True, text=True)
+        if res.returncode != 0:
+            subprocess.run(["systemctl", "reset-failed", "caddy"], capture_output=True)
+            res = subprocess.run(["systemctl", "restart", "caddy"], capture_output=True, text=True)
+            if res.returncode != 0:
+                return False, f"Не удалось перезапустить caddy:\n{res.stderr}"
+    else:
+        subprocess.run(["systemctl", "reset-failed", "caddy"], capture_output=True)
+        res = subprocess.run(["systemctl", "restart", "caddy"], capture_output=True, text=True)
+        if res.returncode != 0:
+            return False, f"Не удалось перезапустить caddy:\n{res.stderr}"
 
+    subprocess.run(["systemctl", "reset-failed", "sing-box"], capture_output=True)
     res = subprocess.run(["systemctl", "restart", "sing-box"], capture_output=True, text=True)
     if res.returncode != 0:
         return False, f"Не удалось перезапустить sing-box:\n{res.stderr}"

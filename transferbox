@@ -42,15 +42,25 @@ pause() {
     read -rsn1
 }
 
+get_block_pad() {
+    local block_len="${1:-60}"
+    local term_width
+    term_width=$(tput cols 2>/dev/null || echo 80)
+    local indent=$(( (term_width - block_len) / 2 ))
+    [ $indent -lt 2 ] && indent=2
+    printf "%${indent}s" ""
+}
+
 read_prompt() {
     local prompt_text="$1"
     local var_name="$2"
-    local term_width
-    term_width=$(tput cols 2>/dev/null || echo 80)
-    local indent=$(( (term_width - 50) / 2 ))
-    [ $indent -lt 2 ] && indent=2
-    printf "%${indent}s%s" "" "$prompt_text"
+    local pad
+    pad=$(get_block_pad 60)
+    prompt_text=$(echo "$prompt_text" | sed 's/^[[:space:]]*//')
+    tput cnorm 2>/dev/null || true
+    printf "%s%s" "$pad" "$prompt_text"
     read -r "$var_name"
+    tput civis 2>/dev/null || true
 }
 
 center_print() {
@@ -645,8 +655,10 @@ singbox_module_menu() {
             status_label="${GREEN}включен${RESET}"
         fi
         
-        echo -e "  Состояние sing-box:"
-        echo -e "  • Статус:          $status_label"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Состояние sing-box:"
+        echo -e "${pad_spaces}• Статус:          $status_label"
         draw_line "─" "$BLUE"
         
         local options=()
@@ -794,9 +806,11 @@ mieru_module_menu() {
             is_installed=true
         fi
         
-        echo -e "  Состояние Mieru:"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Состояние Mieru:"
         if [ "$is_installed" == "false" ]; then
-            echo -e "  • Статус:          ${RED}не установлен${RESET}"
+            echo -e "${pad_spaces}• Статус:          ${RED}не установлен${RESET}"
             draw_line "─" "$BLUE"
             
             local options=(
@@ -824,8 +838,8 @@ mieru_module_menu() {
             
             local port="${MIERU_PORT:-21000}"
             
-            echo -e "  • Статус:          $status_label"
-            echo -e "  • Порт:            ${CYAN}$port${RESET}"
+            echo -e "${pad_spaces}• Статус:          $status_label"
+            echo -e "${pad_spaces}• Порт:            ${CYAN}$port${RESET}"
             draw_line "─" "$BLUE"
             
             local options=()
@@ -977,9 +991,11 @@ netbird_module_menu() {
             is_installed=true
         fi
         
-        echo -e "  Состояние NetBird клиента:"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Состояние NetBird клиента:"
         if [ "$is_installed" == "false" ]; then
-            echo -e "  • Статус:          ${RED}не установлен${RESET}"
+            echo -e "${pad_spaces}• Статус:          ${RED}не установлен${RESET}"
             draw_line "─" "$BLUE"
             
             local options=(
@@ -1012,7 +1028,7 @@ netbird_module_menu() {
         else
             local status_text
             status_text=$(get_netbird_status)
-            echo -e "  • Статус:          $status_text"
+            echo -e "${pad_spaces}• Статус:          $status_text"
             
             if systemctl is-active --quiet netbird; then
                 local status_raw
@@ -1021,12 +1037,12 @@ netbird_module_menu() {
                 local ip_info
                 ip_info=$(echo "$status_raw" | grep -i "NetBird IP:" | awk '{print $3}' || true)
                 [ -z "$ip_info" ] && ip_info="N/A"
-                echo -e "  • NetBird IP:      ${CYAN}$ip_info${RESET}"
+                echo -e "${pad_spaces}• NetBird IP:      ${CYAN}$ip_info${RESET}"
                 
                 local peers_info
                 peers_info=$(echo "$status_raw" | grep -i "Peers count:" | cut -d':' -f2- | xargs || true)
                 [ -z "$peers_info" ] && peers_info="N/A"
-                echo -e "  • Пиры:            ${CYAN}$peers_info${RESET}"
+                echo -e "${pad_spaces}• Пиры:            ${CYAN}$peers_info${RESET}"
             fi
             
             local masked_key="[не задан]"
@@ -1037,8 +1053,8 @@ netbird_module_menu() {
                     masked_key="[задан]"
                 fi
             fi
-            echo -e "  • Setup Key:       ${CYAN}$masked_key${RESET}"
-            echo -e "  • Management URL:  ${CYAN}${nb_url:-[не задан]}${RESET}"
+            echo -e "${pad_spaces}• Setup Key:       ${CYAN}$masked_key${RESET}"
+            echo -e "${pad_spaces}• Management URL:  ${CYAN}${nb_url:-[не задан]}${RESET}"
             draw_line "─" "$BLUE"
             
             local active_status
@@ -2166,7 +2182,7 @@ update_panel_menu() {
         echo ""
         center_print "Доступно обновление до версии ${GREEN}$latest${RESET}."
         local confirm
-        read_prompt "  Обновить панель? [y/N]: " confirm
+        read_prompt "Обновить панель? [y/N]: " confirm
         if [[ "$confirm" =~ ^[yYдД]$ ]]; then
             clear_screen
             print_header "Настройки → Обновление панели" "false"
@@ -2397,11 +2413,11 @@ update_cron_schedule(hour, minute, enabled)
             echo ""
             
             local input_token
-            read_prompt "  Введите Токен бота: " input_token
+            read_prompt "Введите Токен бота: " input_token
             [ -z "$input_token" ] && continue
             
             local input_chat
-            read_prompt "  Введите Chat ID: " input_chat
+            read_prompt "Введите Chat ID: " input_chat
             [ -z "$input_chat" ] && continue
             
             # Сохраняем настройки
@@ -2573,18 +2589,22 @@ print(f'ssh_port={s[\"ssh_port\"]}')
             pwd_status="${RED}🔴 Отключен${RESET}"
         fi
         
-        echo -e "  Текущая конфигурация:"
-        echo -e "  • Вход по паролю:    $pwd_status"
-        echo -e "  • Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
-        echo -e "  • Установлено ключей: ${YELLOW}${keys_count}${RESET}"
-        echo -e "  • Порт SSH:           ${CYAN}${ssh_port}${RESET}"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Текущая конфигурация:"
+        echo -e "${pad_spaces}• Вход по паролю:    $pwd_status"
+        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
+        echo -e "${pad_spaces}• Установлено ключей: ${YELLOW}${keys_count}${RESET}"
+        echo -e "${pad_spaces}• Порт SSH:           ${CYAN}${ssh_port}${RESET}"
         echo ""
-        echo -e "  ${BOLD}Список открытых ключей:${RESET}"
+        echo -e "${pad_spaces}${BOLD}Список открытых ключей:${RESET}"
         if [ "$keys_count" -eq 0 ]; then
-            echo -e "  ${DIM}(список пуст — добавьте или сгенерируйте ключ)${RESET}"
+            echo -e "${pad_spaces}${DIM}(список пуст — добавьте или сгенерируйте ключ)${RESET}"
         else
             python3 -c "
+import sys
 from core.ssh_auth_manager import get_authorized_keys
+pad = sys.argv[1]
 keys = get_authorized_keys()
 for k in keys:
     idx = k.get('index', 1)
@@ -2592,11 +2612,11 @@ for k in keys:
     fp = k.get('fingerprint', '')
     comment = k.get('comment', '')
     comm_str = f' ({comment})' if comment else ''
-    print(f'  [{idx}] {ktype} {fp}{comm_str}')
-"
+    print(f'{pad}  [{idx}] {ktype} {fp}{comm_str}')
+" "$pad_spaces"
         fi
         echo ""
-        echo -e "  ${DIM}ℹ При отключении входа по паролю доступ будет возможен только по SSH-ключу${RESET}"
+        echo -e "${pad_spaces}${DIM}ℹ При отключении входа по паролю доступ будет возможен только по SSH-ключу${RESET}"
         draw_line "─" "$BLUE"
         
         local auth_options=()
@@ -2690,17 +2710,19 @@ print(json.dumps({'ok': ok, 'msg': msg, 'data': data}))
                 server_ip=$(curl -s4 --max-time 3 https://api.ipify.org 2>/dev/null || curl -s4 --max-time 3 https://ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
                 [ -z "$server_ip" ] && server_ip="IP_СЕРВЕРА"
                 
-                echo -e "  ${GREEN}✓ Ключ Ed25519 успешно сгенерирован и добавлен в authorized_keys!${RESET}"
+                local pad_spaces
+                pad_spaces=$(get_block_pad 60)
+                echo -e "${pad_spaces}${GREEN}✓ Ключ Ed25519 успешно сгенерирован и добавлен в authorized_keys!${RESET}"
                 echo ""
-                echo -e "  Приватный ключ сохранен в файл:"
-                echo -e "  ${CYAN}${priv_path}${RESET}"
+                echo -e "${pad_spaces}Приватный ключ сохранен в файл:"
+                echo -e "${pad_spaces}${CYAN}${priv_path}${RESET}"
                 echo ""
-                echo -e "  ${YELLOW}⚠️ ВАЖНО: Скачайте этот файл на ваш ПК перед отключением пароля!${RESET}"
-                echo -e "  Команда для скачивания (выполнить на вашем ПК):"
-                echo -e "  ${DIM}scp -P ${ssh_port} root@${server_ip}:${priv_path} ~/.ssh/${filename}${RESET}"
+                echo -e "${pad_spaces}${YELLOW}⚠️ ВАЖНО: Скачайте этот файл на ваш ПК перед отключением пароля!${RESET}"
+                echo -e "${pad_spaces}Команда для скачивания (выполнить на вашем ПК):"
+                echo -e "${pad_spaces}${DIM}scp -P ${ssh_port} root@${server_ip}:${priv_path} ~/.ssh/${filename}${RESET}"
                 echo ""
-                echo -e "  Команда для подключения к серверу:"
-                echo -e "  ${DIM}ssh -i ~/.ssh/${filename} -p ${ssh_port} root@${server_ip}${RESET}"
+                echo -e "${pad_spaces}Команда для подключения к серверу:"
+                echo -e "${pad_spaces}${DIM}ssh -i ~/.ssh/${filename} -p ${ssh_port} root@${server_ip}${RESET}"
                 echo ""
                 pause
             else
@@ -2715,9 +2737,13 @@ print(json.dumps({'ok': ok, 'msg': msg, 'data': data}))
         elif [ "$clean_sel" == "Удалить ключ из списка" ]; then
             clear_screen
             print_header "Настройки → Удаление ключа SSH" "false"
-            echo -e "  Текущие ключи:"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Текущие ключи:"
             python3 -c "
+import sys
 from core.ssh_auth_manager import get_authorized_keys
+pad = sys.argv[1]
 keys = get_authorized_keys()
 for k in keys:
     idx = k.get('index', 1)
@@ -2725,15 +2751,13 @@ for k in keys:
     fp = k.get('fingerprint', '')
     comment = k.get('comment', '')
     comm_str = f' ({comment})' if comment else ''
-    print(f'  [{idx}] {ktype} {fp}{comm_str}')
-"
+    print(f'{pad}  [{idx}] {ktype} {fp}{comm_str}')
+" "$pad_spaces"
             echo ""
-            echo -e "  Введите номер ключа для удаления (1-$keys_count):"
-            echo -e "  ${DIM}(или нажмите Enter для отмены)${RESET}\n"
-            tput cnorm
+            echo -e "${pad_spaces}Введите номер ключа для удаления (1-$keys_count):"
+            echo -e "${pad_spaces}${DIM}(или нажмите Enter для отмены)${RESET}\n"
             local key_idx=""
             read_prompt "Номер ключа: " key_idx
-            tput civis
             if [ -n "$key_idx" ]; then
                 if ! [[ "$key_idx" =~ ^[0-9]+$ ]] || [ "$key_idx" -lt 1 ] || [ "$key_idx" -gt "$keys_count" ]; then
                     echo ""
@@ -2774,11 +2798,13 @@ ssh_management_menu() {
 
         clear_screen
         print_header "Настройки → Управление SSH" "false"
-        echo -e "  Текущие параметры SSH:"
-        echo -e "  • Порт SSH:          ${CYAN}${cur_port}${RESET}"
-        echo -e "  • Вход по паролю:    $ssh_pwd_status"
-        echo -e "  • Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
-        echo -e "  • Всего SSH-ключей:  ${YELLOW}${keys_count}${RESET}"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Текущие параметры SSH:"
+        echo -e "${pad_spaces}• Порт SSH:          ${CYAN}${cur_port}${RESET}"
+        echo -e "${pad_spaces}• Вход по паролю:    $ssh_pwd_status"
+        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
+        echo -e "${pad_spaces}• Всего SSH-ключей:  ${YELLOW}${keys_count}${RESET}"
         draw_line "─" "$BLUE"
 
         local options=(
@@ -2844,15 +2870,17 @@ settings_menu() {
         
         clear_screen
         print_header "Настройки"
-        echo -e "  Текущая конфигурация:"
-        echo -e "  • Домен:             $domain"
-        echo -e "  • Email Let's Encrypt: $email"
-        echo -e "  • FQDN имя VPS:      $vps_fqdn"
-        echo -e "  • Шаблон сайта:      $template"
-        echo -e "  • Порт SSH:          $ssh_port"
-        echo -e "  • Вход по паролю:    $ssh_pwd_status"
-        echo -e "  • Защита от сканеров: $security_status"
-        echo -e "  • Telegram-бот:      $bot_status"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Текущая конфигурация:"
+        echo -e "${pad_spaces}• Домен:             $domain"
+        echo -e "${pad_spaces}• Email Let's Encrypt: $email"
+        echo -e "${pad_spaces}• FQDN имя VPS:      $vps_fqdn"
+        echo -e "${pad_spaces}• Шаблон сайта:      $template"
+        echo -e "${pad_spaces}• Порт SSH:          $ssh_port"
+        echo -e "${pad_spaces}• Вход по паролю:    $ssh_pwd_status"
+        echo -e "${pad_spaces}• Защита от сканеров: $security_status"
+        echo -e "${pad_spaces}• Telegram-бот:      $bot_status"
         draw_line "─" "$BLUE"
         
         local options=(
@@ -2939,15 +2967,17 @@ security_protection_menu() {
             port80_status="${YELLOW}открыт в UFW${RESET}"
         fi
         
-        echo -e "  Статус защиты:"
-        echo -e "  • Служба Fail2ban:      $active_status"
-        echo -e "  • Режим блокировки:     ${CYAN}DROP (Silent Drop - тихий сброс пакетов)${RESET}"
-        echo -e "  • Порт 80 (HTTP):       $port80_status"
-        echo -e "  • Заблокировано всего:  ${YELLOW}${total_banned}${RESET} IP-адресов"
-        echo -e "  • Перебор SSH (sshd):   ${YELLOW}${sshd_banned}${RESET}"
-        echo -e "  • Ловушки портов:       ${YELLOW}${trap_banned}${RESET}"
+        local pad_spaces
+        pad_spaces=$(get_block_pad 60)
+        echo -e "${pad_spaces}Статус защиты:"
+        echo -e "${pad_spaces}• Служба Fail2ban:      $active_status"
+        echo -e "${pad_spaces}• Режим блокировки:     ${CYAN}DROP (Silent Drop - тихий сброс пакетов)${RESET}"
+        echo -e "${pad_spaces}• Порт 80 (HTTP):       $port80_status"
+        echo -e "${pad_spaces}• Заблокировано всего:  ${YELLOW}${total_banned}${RESET} IP-адресов"
+        echo -e "${pad_spaces}• Перебор SSH (sshd):   ${YELLOW}${sshd_banned}${RESET}"
+        echo -e "${pad_spaces}• Ловушки портов:       ${YELLOW}${trap_banned}${RESET}"
         if [ -n "$current_client_ip" ]; then
-            echo -e "  • Ваш текущий IP:       ${CYAN}${current_client_ip}${RESET}"
+            echo -e "${pad_spaces}• Ваш текущий IP:       ${CYAN}${current_client_ip}${RESET}"
         fi
         draw_line "─" "$BLUE"
         
@@ -3015,22 +3045,26 @@ security_protection_menu() {
         elif [ "$clean_sel" == "Просмотреть список заблокированных IP" ]; then
             clear_screen
             print_header "Заблокированные сканеры" "false"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
             python3 -c "
+import sys
 from core.security_manager import get_security_status
+pad = sys.argv[1]
 s = get_security_status()
 ips = s.get('banned_ips', [])
 if not ips:
-    print('  Список заблокированных IP пуст. Сканеров не зафиксировано.')
+    print(f'{pad}Список заблокированных IP пуст. Сканеров не зафиксировано.')
 else:
-    print(f'  Всего заблокировано: {len(ips)} IP\n')
+    print(f'{pad}Всего заблокировано: {len(ips)} IP\n')
     jails = s.get('jails', {})
     for ip in ips[:60]:
         info = [j for j, d in jails.items() if ip in d.get('banned_ips', [])]
         jail_str = f' ({ \", \".join(info) })' if info else ''
-        print(f'  • {ip}{jail_str}')
+        print(f'{pad}• {ip}{jail_str}')
     if len(ips) > 60:
-        print(f'\n  ... и ещё {len(ips) - 60} IP-адресов')
-"
+        print(f'\n{pad}... и ещё {len(ips) - 60} IP-адресов')
+" "$pad_spaces"
             echo ""
             pause
         elif [[ "$clean_sel" =~ "Разблокировать мой текущий IP" ]]; then
@@ -3062,12 +3096,12 @@ else:
         elif [ "$clean_sel" == "Разблокировать конкретный IP" ]; then
             clear_screen
             print_header "Настройки → Разблокировка IP" "false"
-            echo -e "  Введите IP-адрес для снятия блокировки:"
-            echo -e "  ${DIM}(или нажмите Enter для отмены)${RESET}\n"
-            tput cnorm
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Введите IP-адрес для снятия блокировки:"
+            echo -e "${pad_spaces}${DIM}(или нажмите Enter для отмены)${RESET}\n"
             local target_ip=""
             read_prompt "IP-адрес: " target_ip
-            tput civis
             if [ -n "$target_ip" ]; then
                 echo ""
                 center_print "${DIM}[*] Разблокировка $target_ip...${RESET}"
@@ -3091,12 +3125,14 @@ change_ssh_port_menu() {
     cur_port=$(python3 -c "from core.config_manager import get_current_ssh_port; print(get_current_ssh_port())")
     
     clear_screen
-    print_header "Настройки → Изменение порта SSH" "false"
-    echo -e "  Текущий порт SSH: ${CYAN}$cur_port${RESET}"
-    echo -e "  ${RED}⚠️ ВНИМАНИЕ: Изменение порта SSH — чувствительное действие.${RESET}"
-    echo -e "  Мы автоматически настроим фаервол UFW, чтобы не заблокировать доступ,"
-    echo -e "  но после изменения настоятельно рекомендуется проверить подключение"
-    echo -e "  в новом окне терминала, не закрывая текущую сессию!\n"
+    print_header "Настройки → Управление SSH → Изменение порта SSH" "false"
+    local pad_spaces
+    pad_spaces=$(get_block_pad 60)
+    echo -e "${pad_spaces}Текущий порт SSH: ${CYAN}$cur_port${RESET}"
+    echo -e "${pad_spaces}${RED}⚠️ ВНИМАНИЕ: Изменение порта SSH — чувствительное действие.${RESET}"
+    echo -e "${pad_spaces}Мы автоматически настроим фаервол UFW, чтобы не заблокировать доступ,"
+    echo -e "${pad_spaces}но после изменения настоятельно рекомендуется проверить подключение"
+    echo -e "${pad_spaces}в новом окне терминала, не закрывая текущую сессию!\n"
     
     local new_port
     read_prompt "Введите новый порт SSH (1-65535, или Enter для отмены): " new_port
@@ -3134,9 +3170,9 @@ else:
     if [ "$res" == "SUCCESS" ]; then
         echo ""
         center_print "${GREEN}✓ SSH успешно переведен на порт $new_port!${RESET}"
-        echo -e "  ${RED}⚠️ ВАЖНО: Откройте НОВОЕ окно терминала и попробуйте подключиться:${RESET}"
-        echo -e "  ${BOLD}ssh root@<IP_сервера> -p $new_port${RESET}"
-        echo -e "  ${RED}НЕ ЗАКРЫВАЙТЕ текущее окно, пока не проверите подключение!${RESET}\n"
+        echo -e "${pad_spaces}${RED}⚠️ ВАЖНО: Откройте НОВОЕ окно терминала и попробуйте подключиться:${RESET}"
+        echo -e "${pad_spaces}${BOLD}ssh root@<IP_сервера> -p $new_port${RESET}"
+        echo -e "${pad_spaces}${RED}НЕ ЗАКРЫВАЙТЕ текущее окно, пока не проверите подключение!${RESET}\n"
         
         local confirm
         read_prompt "Вы успешно подключились по новому порту? (y/n, по умолчанию y): " confirm
@@ -3164,7 +3200,9 @@ change_vps_fqdn_menu() {
     print_header "Настройки → FQDN имя VPS" "false"
     local cur_fqdn
     cur_fqdn=$(hostname -f 2>/dev/null || hostname)
-    center_print "Текущее FQDN имя VPS: ${CYAN}$cur_fqdn${RESET}"
+    local pad_spaces
+    pad_spaces=$(get_block_pad 60)
+    echo -e "${pad_spaces}Текущее FQDN имя VPS: ${CYAN}$cur_fqdn${RESET}"
     echo ""
     
     local new_fqdn
@@ -3208,11 +3246,13 @@ change_vps_fqdn_menu() {
 
 change_domain_email_menu() {
     clear_screen
-    print_header "Настройки → Домен и Email"
+    print_header "Настройки → Домен и Email" "false"
     source ${PROJECT_ROOT}/instance.env
+    local pad_spaces
+    pad_spaces=$(get_block_pad 60)
     
-    echo -e "  Текущий домен: ${DOMAIN:-не задан}"
-    echo -e "  Текущий Email: ${ADMIN_EMAIL:-не задан (анонимный SSL)}"
+    echo -e "${pad_spaces}Текущий домен: ${DOMAIN:-не задан}"
+    echo -e "${pad_spaces}Текущий Email: ${ADMIN_EMAIL:-не задан (анонимный SSL)}"
     draw_line "─" "$BLUE"
     
     local new_domain
@@ -3223,10 +3263,11 @@ change_domain_email_menu() {
     if [ -n "$new_domain" ]; then
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['DOMAIN'] = '$new_domain'; save_env(env)"
         changed=true
-        echo -e "  ${GREEN}✓ Домен изменен на $new_domain${RESET}"
+        echo -e "${pad_spaces}${GREEN}✓ Домен изменен на $new_domain${RESET}"
     fi
     
-    echo -e "\n  Для анонимного SSL (без почты) введите символ '-'"
+    echo ""
+    echo -e "${pad_spaces}Для анонимного SSL (без почты) введите символ '-'"
     local new_email
     read_prompt "Введите новый Email (или Enter для отмены): " new_email
     new_email="${new_email// /}"
@@ -3234,11 +3275,11 @@ change_domain_email_menu() {
     if [ "$new_email" == "-" ]; then
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = ''; save_env(env)"
         changed=true
-        echo -e "  ${GREEN}✓ Email удален (анонимный SSL активирован)${RESET}"
+        echo -e "${pad_spaces}${GREEN}✓ Email удален (анонимный SSL активирован)${RESET}"
     elif [ -n "$new_email" ]; then
         python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['ADMIN_EMAIL'] = '$new_email'; save_env(env)"
         changed=true
-        echo -e "  ${GREEN}✓ Email изменен на $new_email${RESET}"
+        echo -e "${pad_spaces}${GREEN}✓ Email изменен на $new_email${RESET}"
     fi
     
     if [ "$changed" == "true" ]; then
@@ -3259,9 +3300,11 @@ validate_and_restart()
 
 change_site_template_menu() {
     clear_screen
-    print_header "Настройки → Шаблон сайта"
+    print_header "Настройки → Шаблон сайта" "false"
     source ${PROJECT_ROOT}/instance.env
-    echo -e "  Текущий шаблон: ${FAKE_SITE_TEMPLATE:-aether}\n"
+    local pad_spaces
+    pad_spaces=$(get_block_pad 60)
+    echo -e "${pad_spaces}Текущий шаблон: ${FAKE_SITE_TEMPLATE:-aether}\n"
     
     local options=(
         "Aether Resonance (Эфирный Резонанс)"
@@ -3398,15 +3441,18 @@ update_singbox_menu() {
         return 0
     fi
     
-    echo -e "\n  Текущая установленная версия: ${BOLD}$current${RESET}"
-    echo -e "  Последняя официальная версия: ${BOLD}$latest${RESET}\n"
+    local pad_spaces
+    pad_spaces=$(get_block_pad 60)
+    echo ""
+    echo -e "${pad_spaces}Текущая установленная версия: ${BOLD}$current${RESET}"
+    echo -e "${pad_spaces}Последняя официальная версия: ${BOLD}$latest${RESET}\n"
     
     local confirm
     if [ "$current" == "$latest" ]; then
-        echo -e "  ${GREEN}✓ У вас уже установлена последняя официальная версия.${RESET}"
+        echo -e "${pad_spaces}${GREEN}✓ У вас уже установлена последняя официальная версия.${RESET}"
         read_prompt "Хотите переустановить/принудительно обновить версию $latest? [y/N]: " confirm
     else
-        echo -e "  ${YELLOW}⚠ Доступно обновление до версии $latest!${RESET}"
+        echo -e "${pad_spaces}${YELLOW}⚠ Доступно обновление до версии $latest!${RESET}"
         read_prompt "Продолжить обновление? [y/N]: " confirm
     fi
     
@@ -3571,9 +3617,11 @@ else:
             local latest_filename
             latest_filename=$(basename "$latest_backup_info")
             
-            echo -e "  Найден последний файл бэкапа:"
-            echo -e "  • Имя:  ${BOLD}${latest_filename}${RESET}"
-            echo -e "  • Дата: ${file_date}"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Найден последний файл бэкапа:"
+            echo -e "${pad_spaces}• Имя:  ${BOLD}${latest_filename}${RESET}"
+            echo -e "${pad_spaces}• Дата: ${file_date}"
             draw_line "─" "$BLUE"
             echo ""
             
@@ -3961,22 +4009,30 @@ logs_menu() {
         elif [ "$clean_sel" == "Следить за логом Caddy (Ctrl+C — выход)" ]; then
             clear_screen
             print_header "Следить за логом — Caddy" "false"
-            echo -e "  Нажмите Ctrl+C для выхода...\n"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Нажмите Ctrl+C для выхода...\n"
             journalctl -u caddy -f
         elif [ "$clean_sel" == "Следить за логом sing-box (Ctrl+C — выход)" ]; then
             clear_screen
             print_header "Следить за логом — sing-box" "false"
-            echo -e "  Нажмите Ctrl+C для выхода...\n"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Нажмите Ctrl+C для выхода...\n"
             journalctl -u sing-box -f
         elif [ "$clean_sel" == "Следить за логом Mieru (Ctrl+C — выход)" ]; then
             clear_screen
             print_header "Следить за логом — Mieru" "false"
-            echo -e "  Нажмите Ctrl+C для выхода...\n"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Нажмите Ctrl+C для выхода...\n"
             journalctl -u mita -f
         elif [ "$clean_sel" == "Следить за логом NetBird (Ctrl+C — выход)" ]; then
             clear_screen
             print_header "Следить за логом — NetBird" "false"
-            echo -e "  Нажмите Ctrl+C для выхода...\n"
+            local pad_spaces
+            pad_spaces=$(get_block_pad 60)
+            echo -e "${pad_spaces}Нажмите Ctrl+C для выхода...\n"
             journalctl -u netbird -f
         fi
     done
