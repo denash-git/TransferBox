@@ -12,7 +12,8 @@ from core.security_manager import enable_security, disable_security, get_securit
 from core.ssh_auth_manager import get_ssh_auth_status, set_ssh_auth_mode
 from bot.keyboards import (
     settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard,
-    security_menu_keyboard, security_banned_keyboard, ssh_auth_menu_keyboard
+    security_menu_keyboard, security_banned_keyboard, ssh_auth_menu_keyboard,
+    ssh_management_keyboard, ssh_back_keyboard
 )
 from bot.backup import run_backup
 
@@ -123,6 +124,28 @@ async def settings_menu_callback(event, state: FSMContext = None):
     else:
         await event.answer(text, reply_markup=settings_menu_keyboard(bbr_active), parse_mode="HTML")
 
+# ─── НАСТРОЙКИ: УПРАВЛЕНИЕ SSH ──────────────────────────────────────────────────
+
+@router.callback_query(F.data == "settings:ssh_menu")
+async def settings_ssh_menu_callback(callback: CallbackQuery, state: FSMContext = None):
+    if state:
+        await state.clear()
+    status = get_ssh_auth_status()
+    cur_port = get_current_ssh_port()
+    pwd_label = status.get("password_status_label", "🟢 Включен")
+    keys_count = status.get("keys_count", 0)
+
+    text = (
+        "🔐 <b>Управление SSH</b>\n\n"
+        f"• Порт SSH: <code>{cur_port}</code>\n"
+        f"• Вход по паролю: {pwd_label}\n"
+        f"• Вход по ключу: 🟢 Включен (всегда)\n"
+        f"• Установлено ключей: <code>{keys_count}</code>\n\n"
+        "Выберите действие:"
+    )
+    await callback.message.edit_text(text, reply_markup=ssh_management_keyboard(), parse_mode="HTML")
+    await callback.answer()
+
 # ─── НАСТРОЙКИ: ИЗМЕНИТЬ ПОРТ SSH ─────────────────────────────────────────────
 
 @router.callback_query(F.data == "settings:ssh_port")
@@ -135,7 +158,7 @@ async def settings_ssh_port_callback(callback: CallbackQuery, state: FSMContext)
         f"Текущий порт SSH: <code>{cur_port}</code>\n\n"
         "Введите новый порт SSH (число от 1 до 65535) или нажмите кнопку отмены:"
     )
-    await callback.message.edit_text(text, reply_markup=settings_back_keyboard(), parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=ssh_back_keyboard(), parse_mode="HTML")
     await callback.answer()
 
 @router.message(SettingsStates.waiting_ssh_port)
@@ -165,7 +188,7 @@ async def settings_ssh_port_msg(message: Message, state: FSMContext):
     else:
         text = f"❌ <b>Ошибка изменения порта SSH:</b>\n\n<code>{msg}</code>"
         
-    await message.answer(text, reply_markup=settings_back_keyboard(), parse_mode="HTML")
+    await message.answer(text, reply_markup=ssh_back_keyboard(), parse_mode="HTML")
 
 # ─── НАСТРОЙКИ: BBR ОПТИМИЗАЦИЯ ────────────────────────────────────────────────
 

@@ -39,8 +39,7 @@ def main_menu_keyboard():
 def settings_menu_keyboard(bbr_active: bool):
     toggle_bbr_lbl = "🚀 Отключить BBR" if bbr_active else "🚀 Включить BBR"
     
-    btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
-    btn_ssh_auth = align_button_text("🔐 Доступ SSH", 18.0)
+    btn_ssh = align_button_text("🔐 Управление SSH", 18.0)
     btn2 = align_button_text("🔄 Перезапуск служб", 18.0)
     btn3 = align_button_text(toggle_bbr_lbl, 18.0)
     btn4 = align_button_text("🛡️ Защита от сканеров", 18.0)
@@ -48,13 +47,28 @@ def settings_menu_keyboard(bbr_active: bool):
     btn6 = align_button_text("🔄 Проверить обновления", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
-        [InlineKeyboardButton(text=btn_ssh_auth, callback_data="settings:ssh_auth")],
+        [InlineKeyboardButton(text=btn_ssh, callback_data="settings:ssh_menu")],
         [InlineKeyboardButton(text=btn2, callback_data="services:menu")],
         [InlineKeyboardButton(text=btn3, callback_data="settings:bbr_toggle")],
         [InlineKeyboardButton(text=btn4, callback_data="settings:security_menu")],
         [InlineKeyboardButton(text=btn5, callback_data="settings:backup_menu")],
         [InlineKeyboardButton(text=btn6, callback_data="settings:check_updates")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def ssh_management_keyboard():
+    btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
+    btn2 = align_button_text("🔐 Доступ SSH (Пароль / Ключ)", 18.0)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
+        [InlineKeyboardButton(text=btn2, callback_data="settings:ssh_auth")],
+        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def ssh_back_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="« Назад к Управлению SSH", callback_data="settings:ssh_menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
@@ -68,7 +82,7 @@ def ssh_auth_menu_keyboard(mode: str):
         
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn_toggle, callback_data=f"ssh:toggle:{target}")],
-        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
+        [InlineKeyboardButton(text="« Назад к Управлению SSH", callback_data="settings:ssh_menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 

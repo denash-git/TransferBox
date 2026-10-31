@@ -170,17 +170,10 @@ refresh_system_status() {
         local mita_val="${GREEN}● работает${RESET}"
         HEADER_STATUS_MITA="$mita_val"
         HEADER_STATUS_MITA_RAW="● работает"
-    elif [ -f "/usr/bin/mita" ]; then
-        local status
-        status=$(systemctl is-active mita 2>/dev/null || true)
-        [ -z "$status" ] && status="inactive"
-        local mita_val="${RED}● не запущен ($status)${RESET}"
-        HEADER_STATUS_MITA="$mita_val"
-        HEADER_STATUS_MITA_RAW="● не запущен ($status)"
     else
-        local mita_val="${RED}● не запущен (inactive)${RESET}"
+        local mita_val="${RED}● не запущен${RESET}"
         HEADER_STATUS_MITA="$mita_val"
-        HEADER_STATUS_MITA_RAW="● не запущен (inactive)"
+        HEADER_STATUS_MITA_RAW="● не запущен"
     fi
     
     HEADER_SHOW_NETBIRD=false
@@ -190,6 +183,23 @@ refresh_system_status() {
         nb_val=$(get_netbird_status)
         HEADER_STATUS_NETBIRD="$nb_val"
         HEADER_STATUS_NB_RAW=$(echo "$nb_val" | sed 's/\x1b\[[0-9;]*m//g')
+    fi
+
+    local ssh_pwd_mode="password"
+    if [ -f "/etc/ssh/sshd_config.d/00-transferbox-auth.conf" ]; then
+        if grep -qiE "^\s*PasswordAuthentication\s+no" "/etc/ssh/sshd_config.d/00-transferbox-auth.conf"; then
+            ssh_pwd_mode="key"
+        fi
+    elif sshd -T 2>/dev/null | grep -qi "^passwordauthentication no"; then
+        ssh_pwd_mode="key"
+    fi
+
+    if [ "$ssh_pwd_mode" == "key" ]; then
+        HEADER_STATUS_SSH="${RED}● отключен${RESET}"
+        HEADER_STATUS_SSH_RAW="● отключен"
+    else
+        HEADER_STATUS_SSH="${GREEN}● включен${RESET}"
+        HEADER_STATUS_SSH_RAW="● включен"
     fi
 
     if systemctl is-active --quiet fail2ban 2>/dev/null; then
@@ -235,6 +245,7 @@ print_header() {
         local len_sb=$(( 14 + ${#status_sb_raw} ))
         local len_bbr=$(( 14 + ${#bbr_dot_raw} ))
         local len_sec=$(( 14 + ${#HEADER_STATUS_SEC_RAW} ))
+        local len_ssh=$(( 14 + ${#HEADER_STATUS_SSH_RAW} ))
         
         local max_block_len=$len_dom
         [ $len_fqdn -gt $max_block_len ] && max_block_len=$len_fqdn
@@ -242,6 +253,7 @@ print_header() {
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
         [ $len_bbr -gt $max_block_len ] && max_block_len=$len_bbr
         [ $len_sec -gt $max_block_len ] && max_block_len=$len_sec
+        [ $len_ssh -gt $max_block_len ] && max_block_len=$len_ssh
         
         local show_mieru="${HEADER_SHOW_MIERU:-false}"
         if [ "$show_mieru" == "true" ]; then
@@ -281,6 +293,7 @@ print_header() {
         if [ "$show_netbird" == "true" ]; then
             echo -e "${pad_spaces}NetBird:      ${HEADER_STATUS_NETBIRD:-}"
         fi
+        echo -e "${pad_spaces}SSH пароль:   ${HEADER_STATUS_SSH:-}"
         echo -e "${pad_spaces}Защита:       ${HEADER_STATUS_SECURITY:-}"
         center_print "${BLUE}${line_double}${RESET}"
     fi
@@ -533,6 +546,44 @@ get_netbird_status() {
     fi
 }
 
+bbr_optimization_menu() {
+    clear_screen
+    print_header "Модули → BBR Оптимизация" "false"
+    if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+        echo ""
+        center_print "${DIM}[*] Отключение BBR оптимизации...${RESET}"
+        if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
+            rm -f /etc/sysctl.d/99-transferbox-bbr.conf
+            sysctl --system >/dev/null 2>&1
+            python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'false'; save_env(env)"
+            echo ""
+            center_print "${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
+        else
+            echo ""
+            center_print "${RED}✗ Ошибка при отключении BBR.${RESET}"
+        fi
+    else
+        echo ""
+        center_print "${DIM}[*] Включение BBR оптимизации...${RESET}"
+        if modprobe tcp_bbr 2>/dev/null; then
+            sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+            sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+            cat > /etc/sysctl.d/99-transferbox-bbr.conf <<EOF
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+EOF
+            sysctl --system >/dev/null 2>&1
+            python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'true'; save_env(env)"
+            echo ""
+            center_print "${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
+        else
+            echo ""
+            center_print "${RED}✗ Ошибка: Ядро вашей системы не поддерживает BBR.${RESET}"
+        fi
+    fi
+    pause
+}
+
 modules_menu() {
     while true; do
         local mieru_status="${RED}отключен${RESET}"
@@ -548,23 +599,38 @@ modules_menu() {
             sb_status="${GREEN}включен${RESET}"
         fi
         
+        local bbr_opt="Включить BBR оптимизацию"
+        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
+            bbr_opt="Отключить BBR оптимизацию"
+        fi
+        
         local options=(
             "Mieru       [$mieru_status]"
             "NetBird     [$netbird_status]"
             "sing-box    [$sb_status]"
+            "Настроить пути VLESS"
+            "$bbr_opt"
             "Назад"
         )
         select_menu SELECTED_INDEX "Модули" "${options[@]}"
         local choice=$SELECTED_INDEX
         
-        if [ "$choice" -eq 0 ]; then
+        local selected_option="${options[$choice]}"
+        local clean_sel
+        clean_sel=$(printf "%b" "$selected_option" | sed 's/\x1b\[[0-9;]*m//g')
+        
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$choice" -eq 0 ]; then
             mieru_module_menu
         elif [ "$choice" -eq 1 ]; then
             netbird_module_menu
         elif [ "$choice" -eq 2 ]; then
             singbox_module_menu
-        elif [ "$choice" -eq 3 ] || [ "$choice" -eq -1 ]; then
-            return 0
+        elif [ "$clean_sel" == "Настроить пути VLESS" ]; then
+            change_vless_paths_menu
+        elif [ "$clean_sel" == "Включить BBR оптимизацию" ] || [ "$clean_sel" == "Отключить BBR оптимизацию" ]; then
+            bbr_optimization_menu
         fi
     done
 }
@@ -2692,6 +2758,49 @@ for k in keys:
     done
 }
 
+ssh_management_menu() {
+    while true; do
+        local cur_port
+        cur_port=$(python3 -c "from core.config_manager import get_current_ssh_port; print(get_current_ssh_port())" 2>/dev/null || echo "22")
+        
+        local ssh_mode
+        ssh_mode=$(python3 -c "from core.ssh_auth_manager import get_ssh_auth_mode; print(get_ssh_auth_mode())" 2>/dev/null || echo "password")
+        local ssh_pwd_status="${GREEN}🟢 Включен${RESET}"
+        if [ "$ssh_mode" == "key" ]; then
+            ssh_pwd_status="${RED}🔴 Отключен${RESET}"
+        fi
+        local keys_count
+        keys_count=$(python3 -c "from core.ssh_auth_manager import get_authorized_keys; print(len(get_authorized_keys()))" 2>/dev/null || echo "0")
+
+        clear_screen
+        print_header "Настройки → Управление SSH" "false"
+        echo -e "  Текущие параметры SSH:"
+        echo -e "  • Порт SSH:          ${CYAN}${cur_port}${RESET}"
+        echo -e "  • Вход по паролю:    $ssh_pwd_status"
+        echo -e "  • Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
+        echo -e "  • Всего SSH-ключей:  ${YELLOW}${keys_count}${RESET}"
+        draw_line "─" "$BLUE"
+
+        local options=(
+            "Изменить порт SSH"
+            "Доступ SSH (Пароль / Ключ)"
+            "Назад"
+        )
+        select_menu SELECTED_INDEX "Управление SSH" "${options[@]}"
+        local choice=$SELECTED_INDEX
+        local sel="${options[$choice]}"
+        local clean_sel=$(printf "%b" "$sel" | sed 's/\x1b\[[0-9;]*m//g')
+
+        if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
+            return 0
+        elif [ "$clean_sel" == "Изменить порт SSH" ]; then
+            change_ssh_port_menu
+        elif [ "$clean_sel" == "Доступ SSH (Пароль / Ключ)" ]; then
+            ssh_auth_menu
+        fi
+    done
+}
+
 settings_menu() {
     while true; do
         if [ -f "${PROJECT_ROOT}/instance.env" ]; then
@@ -2701,10 +2810,6 @@ settings_menu() {
         local email="${ADMIN_EMAIL:-не задан (анонимный SSL)}"
         [ -z "$email" ] && email="не задан (анонимный SSL)"
         local template="${FAKE_SITE_TEMPLATE:-aether}"
-        local vless_ws="${VLESS_WS_PATH:-/}"
-        local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
-        [ -z "$vless_grpc" ] && vless_grpc="(пусто)"
-        local vless_xhttp="${VLESS_XHTTP_PATH:-/xhttp}"
         
         local ssh_port
         ssh_port=$(python3 -c "from core.config_manager import get_current_ssh_port; print(get_current_ssh_port())")
@@ -2714,11 +2819,6 @@ settings_menu() {
         local ssh_pwd_status="${GREEN}🟢 Включен${RESET}"
         if [ "$ssh_mode" == "key" ]; then
             ssh_pwd_status="${RED}🔴 Отключен${RESET}"
-        fi
-        
-        local bbr_status="${RED}отключен${RESET}"
-        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-            bbr_status="${GREEN}активен${RESET}"
         fi
         
         local security_status="${RED}отключена${RESET}"
@@ -2749,12 +2849,8 @@ settings_menu() {
         echo -e "  • Email Let's Encrypt: $email"
         echo -e "  • FQDN имя VPS:      $vps_fqdn"
         echo -e "  • Шаблон сайта:      $template"
-        echo -e "  • Путь VLESS WS:     $vless_ws"
-        echo -e "  • Сервис VLESS gRPC:  $vless_grpc"
-        echo -e "  • Путь VLESS XHTTP:  $vless_xhttp"
         echo -e "  • Порт SSH:          $ssh_port"
         echo -e "  • Вход по паролю:    $ssh_pwd_status"
-        echo -e "  • TCP BBR:           $bbr_status"
         echo -e "  • Защита от сканеров: $security_status"
         echo -e "  • Telegram-бот:      $bot_status"
         draw_line "─" "$BLUE"
@@ -2763,18 +2859,9 @@ settings_menu() {
             "Изменить Домен и Email"
             "Изменить FQDN имя VPS"
             "Выбрать шаблон маскировочного сайта"
-            "Настроить пути VLESS"
-            "Изменить порт SSH"
-            "Доступ SSH (Пароль / Ключ)"
+            "Управление SSH"
             "Защита от сканеров (Fail2ban)"
             "Пересоздать конфигурации"
-        )
-        if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-            options+=("Отключить BBR оптимизацию")
-        else
-            options+=("Включить BBR оптимизацию")
-        fi
-        options+=(
             "Telegram-бот"
             "Проверить обновления панели"
             "Назад"
@@ -2795,12 +2882,8 @@ settings_menu() {
             change_vps_fqdn_menu
         elif [ "$clean_sel" == "Выбрать шаблон маскировочного сайта" ]; then
             change_site_template_menu
-        elif [ "$clean_sel" == "Настроить пути VLESS" ]; then
-            change_vless_paths_menu
-        elif [ "$clean_sel" == "Изменить порт SSH" ]; then
-            change_ssh_port_menu
-        elif [ "$clean_sel" == "Доступ SSH (Пароль / Ключ)" ]; then
-            ssh_auth_menu
+        elif [ "$clean_sel" == "Управление SSH" ]; then
+            ssh_management_menu
         elif [ "$clean_sel" == "Защита от сканеров (Fail2ban)" ]; then
             security_protection_menu
         elif [ "$clean_sel" == "Пересоздать конфигурации" ]; then
@@ -2809,42 +2892,6 @@ settings_menu() {
             telegram_bot_menu
         elif [ "$clean_sel" == "Проверить обновления панели" ]; then
             update_panel_menu
-        elif [ "$clean_sel" == "Включить BBR оптимизацию" ] || [ "$clean_sel" == "Отключить BBR оптимизацию" ]; then
-            clear_screen
-            print_header "Настройки → BBR Оптимизация"
-            if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
-                echo ""
-                center_print "${DIM}[*] Отключение BBR оптимизации...${RESET}"
-                if sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1; then
-                    rm -f /etc/sysctl.d/99-transferbox-bbr.conf
-                    sysctl --system >/dev/null 2>&1
-                    python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'false'; save_env(env)"
-                    echo ""
-                    center_print "${GREEN}✓ BBR оптимизация успешно отключена (переключено на cubic).${RESET}"
-                else
-                    echo ""
-                    center_print "${RED}✗ Ошибка при отключении BBR.${RESET}"
-                fi
-            else
-                echo ""
-                center_print "${DIM}[*] Включение BBR оптимизации...${RESET}"
-                if modprobe tcp_bbr 2>/dev/null; then
-                    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-                    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-                    cat > /etc/sysctl.d/99-transferbox-bbr.conf <<EOF
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr
-EOF
-                    sysctl --system >/dev/null 2>&1
-                    python3 -c "from core.config_manager import load_env, save_env; env = load_env(); env['BBR_ENABLED'] = 'true'; save_env(env)"
-                    echo ""
-                    center_print "${GREEN}✓ BBR оптимизация успешно включена!${RESET}"
-                else
-                    echo ""
-                    center_print "${RED}✗ Ошибка: Ядро вашей системы не поддерживает BBR.${RESET}"
-                fi
-            fi
-            pause
         fi
     done
 }
@@ -3254,7 +3301,7 @@ change_vless_paths_menu() {
     while true; do
         source ${PROJECT_ROOT}/instance.env
         clear_screen
-        print_header "Настройки → Пути VLESS"
+        print_header "Модули → Пути VLESS"
         
         local vless_ws="${VLESS_WS_PATH:-/}"
         local vless_grpc="${VLESS_GRPC_SERVICE:-(пусто)}"
@@ -3273,7 +3320,7 @@ change_vless_paths_menu() {
         local changed=false
         if [ "$choice" -eq 0 ]; then
             clear_screen
-            print_header "Настройки → Пути VLESS" "false"
+            print_header "Модули → Пути VLESS" "false"
             echo ""
             local val
             read_prompt "Введите путь WS (должен начинаться со слэша /): " val
@@ -3288,7 +3335,7 @@ change_vless_paths_menu() {
             fi
         elif [ "$choice" -eq 1 ]; then
             clear_screen
-            print_header "Настройки → Пути VLESS" "false"
+            print_header "Модули → Пути VLESS" "false"
             echo ""
             local val
             read_prompt "Введите имя gRPC сервиса (можно пустой): " val
@@ -3297,7 +3344,7 @@ change_vless_paths_menu() {
             changed=true
         elif [ "$choice" -eq 2 ]; then
             clear_screen
-            print_header "Настройки → Пути VLESS" "false"
+            print_header "Модули → Пути VLESS" "false"
             echo ""
             local val
             read_prompt "Введите путь XHTTP (должен начинаться со слэша /): " val
@@ -3316,7 +3363,7 @@ change_vless_paths_menu() {
         
         if [ "$changed" == "true" ]; then
             clear_screen
-            print_header "Настройки → Пути VLESS" "false"
+            print_header "Модули → Пути VLESS" "false"
             echo ""
             center_print "${DIM}[*] Применение настроек...${RESET}"
             python3 -c "
