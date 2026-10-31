@@ -6,7 +6,7 @@ def align_button_text(text: str, target_width: float = 18.0) -> str:
     for char in text:
         if char in "🟢🔴":
             width += 1.8
-        elif char in "⚙️🚀👥📊🔄🔑":
+        elif char in "⚙️🚀👥📊🔄🔑🛡️🔓📋":
             width += 1.6
         elif char.isupper():
             width += 1.05
@@ -42,17 +42,44 @@ def settings_menu_keyboard(bbr_active: bool):
     btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
     btn2 = align_button_text("🔄 Перезапуск служб", 18.0)
     btn3 = align_button_text(toggle_bbr_lbl, 18.0)
-    btn4 = align_button_text("💾 Резервные копии", 18.0)
-    btn5 = align_button_text("🔄 Проверить обновления", 18.0)
+    btn4 = align_button_text("🛡️ Защита от сканеров", 18.0)
+    btn5 = align_button_text("💾 Резервные копии", 18.0)
+    btn6 = align_button_text("🔄 Проверить обновления", 18.0)
     
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
         [InlineKeyboardButton(text=btn2, callback_data="services:menu")],
         [InlineKeyboardButton(text=btn3, callback_data="settings:bbr_toggle")],
-        [InlineKeyboardButton(text=btn4, callback_data="settings:backup_menu")],
-        [InlineKeyboardButton(text=btn5, callback_data="settings:check_updates")],
+        [InlineKeyboardButton(text=btn4, callback_data="settings:security_menu")],
+        [InlineKeyboardButton(text=btn5, callback_data="settings:backup_menu")],
+        [InlineKeyboardButton(text=btn6, callback_data="settings:check_updates")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
+
+def security_menu_keyboard(active: bool, has_bans: bool = False):
+    toggle_lbl = "🔴 Отключить защиту" if active else "🟢 Включить защиту"
+    btn1 = align_button_text(toggle_lbl, 18.0)
+    btn2 = align_button_text("📋 Список заблокированных", 18.0)
+    btn3 = align_button_text("🔓 Снять все блокировки", 18.0)
+    
+    keyboard = [
+        [InlineKeyboardButton(text=btn1, callback_data="settings:security_toggle")],
+    ]
+    if active:
+        keyboard.append([InlineKeyboardButton(text=btn2, callback_data="settings:security_banned_list")])
+        if has_bans:
+            keyboard.append([InlineKeyboardButton(text=btn3, callback_data="settings:security_unban_all")])
+    keyboard.append([InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")])
+    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+def security_banned_keyboard(has_bans: bool):
+    keyboard = []
+    if has_bans:
+        keyboard.append([InlineKeyboardButton(text="🔓 Снять все блокировки", callback_data="settings:security_unban_all")])
+    keyboard.append([InlineKeyboardButton(text="« Назад к Защите", callback_data="settings:security_menu")])
+    keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 def settings_backup_keyboard(enabled: bool):
     toggle_lbl = "🟢 Отключить автобэкапы" if enabled else "🔴 Включить автобэкапы"

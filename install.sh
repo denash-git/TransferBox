@@ -83,7 +83,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     build-essential curl wget git ca-certificates \
-    python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin iperf3 >/dev/null
+    python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin iperf3 fail2ban ipset python3-systemd >/dev/null
 
 log_info "Установка Python-зависимостей (aiogram)..."
 pip3 install --break-system-packages aiogram >/dev/null 2>&1 || pip3 install aiogram >/dev/null 2>&1 || true
@@ -309,15 +309,14 @@ if [ -f /etc/ssh/sshd_config ]; then
     fi
 fi
 
-# Разрешаем SSH, HTTP и HTTPS
+# Разрешаем SSH и HTTPS (порт 80 закрыт для скрытности)
 ufw allow "$ssh_port"/tcp >/dev/null 2>&1
-ufw allow 80/tcp >/dev/null 2>&1
 ufw allow 443/tcp >/dev/null 2>&1
 ufw allow 443/udp >/dev/null 2>&1
 
 # Включаем UFW в неинтерактивном режиме
 ufw --force enable >/dev/null 2>&1
-log_ok "UFW фаервол настроен (открыты порты: $ssh_port/tcp, 80/tcp, 443/tcp, 443/udp)."
+log_ok "UFW фаервол настроен (открыты порты: $ssh_port/tcp, 443/tcp, 443/udp; порт 80 закрыт для скрытности)."
 
 # Рендеринг конфигураций и запуск
 step "Запуск прокси-серверов"
@@ -337,6 +336,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 log_ok "Конфигурации применены, службы запущены."
+
+# Настройка защиты от сканеров (Fail2ban + Silent Drop)
+step "Настройка защиты от сканеров (Fail2ban + Silent Drop)"
+python3 <<'PYEOF'
+import sys
+from core.security_manager import enable_security
+ok, msg = enable_security()
+if not ok:
+    print(f"Предупреждение: {msg}", file=sys.stderr)
+PYEOF
+log_ok "Защита от сканеров активирована (Silent Drop на уровне ядра)."
 
 # Вывод результатов
 step "Установка завершена!"

@@ -7,8 +7,12 @@ from aiogram.filters import Command
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 
-from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw
-from bot.keyboards import settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard
+from core.config_manager import load_env, save_env, get_current_ssh_port, change_ssh_port, remove_old_ssh_port_ufw, PROJECT_ROOT
+from core.security_manager import enable_security, disable_security, get_security_status, unban_all, is_security_active
+from bot.keyboards import (
+    settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard,
+    security_menu_keyboard, security_banned_keyboard
+)
 from bot.backup import run_backup
 
 router = Router()
@@ -383,4 +387,98 @@ async def settings_backup_time_msg(message: Message, state: FSMContext):
         text = f"❌ <b>Ошибка при изменении расписания cron:</b>\n\n<code>{err_msg}</code>"
         
     await message.answer(text, reply_markup=settings_backup_keyboard(backup_enabled), parse_mode="HTML")
+
+
+# ─── НАСТРОЙКИ: ЗАЩИТА ОТ СКАНЕРОВ (FAIL2BAN + SILENT DROP) ──────────────────
+
+def render_security_menu_text(status: dict) -> str:
+    active = status.get("active", False)
+    status_str = "🟢 <b>Включена</b>" if active else "🔴 <b>Отключена</b>"
+    port80_str = "🔒 <b>Закрыт</b> (тихий сброс)" if not status.get("port80_allowed", False) else "⚠️ <b>Открыт</b>"
+    
+    total = status.get("total_banned", 0)
+    jails = status.get("jails", {})
+    sshd_bans = jails.get("sshd", {}).get("currently_banned", 0)
+    trap_bans = jails.get("portscan-trap", {}).get("currently_banned", 0)
+    
+    return (
+        "🛡️ <b>Защита от сканеров и ботов</b>\n\n"
+        f"• Статус службы: {status_str}\n"
+        "• Режим блокировки: <code>Silent Drop (DROP)</code>\n"
+        f"• Порт 80 (HTTP): {port80_str}\n\n"
+        "📊 <b>Текущие блокировки:</b>\n"
+        f"• Всего заблокировано: <code>{total}</code> IP\n"
+        f"• Подбор паролей SSH (sshd): <code>{sshd_bans}</code>\n"
+        f"• Ловушки портов (honeypot): <code>{trap_bans}</code>\n\n"
+        "<i>Блокировка действует на уровне ядра (DROP). При динамическом IP используйте кнопку «Снять все блокировки» для мгновенного разбана.</i>"
+    )
+
+@router.callback_query(F.data == "settings:security_menu")
+async def settings_security_menu_callback(callback: CallbackQuery):
+    status = get_security_status()
+    text = render_security_menu_text(status)
+    await callback.message.edit_text(
+        text,
+        reply_markup=security_menu_keyboard(active=status["active"], has_bans=status["total_banned"] > 0),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "settings:security_toggle")
+async def settings_security_toggle_callback(callback: CallbackQuery):
+    active = is_security_active()
+    if active:
+        ok, msg = disable_security()
+    else:
+        ok, msg = enable_security()
+        
+    status = get_security_status()
+    text = render_security_menu_text(status)
+    await callback.answer(msg[:150], show_alert=not ok)
+    await callback.message.edit_text(
+        text,
+        reply_markup=security_menu_keyboard(active=status["active"], has_bans=status["total_banned"] > 0),
+        parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "settings:security_unban_all")
+async def settings_security_unban_all_callback(callback: CallbackQuery):
+    ok, msg = unban_all()
+    await callback.answer(msg[:150], show_alert=True)
+    status = get_security_status()
+    text = render_security_menu_text(status)
+    await callback.message.edit_text(
+        text,
+        reply_markup=security_menu_keyboard(active=status["active"], has_bans=status["total_banned"] > 0),
+        parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "settings:security_banned_list")
+async def settings_security_banned_list_callback(callback: CallbackQuery):
+    status = get_security_status()
+    banned_ips = status.get("banned_ips", [])
+    
+    if not banned_ips:
+        text = (
+            "📋 <b>Список заблокированных сканеров</b>\n\n"
+            "🟢 В настоящее время нет заблокированных IP-адресов. Система чиста."
+        )
+    else:
+        lines = ["📋 <b>Заблокированные IP (Silent Drop):</b>\n"]
+        jails = status.get("jails", {})
+        for ip in banned_ips[:30]:
+            found_jails = [j for j, data in jails.items() if ip in data.get("banned_ips", [])]
+            jail_info = f" ({', '.join(found_jails)})" if found_jails else ""
+            lines.append(f"• <code>{ip}</code>{jail_info}")
+        if len(banned_ips) > 30:
+            lines.append(f"\n<i>... и ещё {len(banned_ips) - 30} IP-адресов</i>")
+        text = "\n".join(lines)
+        
+    await callback.message.edit_text(
+        text,
+        reply_markup=security_banned_keyboard(has_bans=len(banned_ips) > 0),
+        parse_mode="HTML"
+    )
+    await callback.answer()
+
 

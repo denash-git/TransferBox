@@ -1,16 +1,17 @@
 {
     order forward_proxy before file_server
     grace_period 2s
-}
-
-# HTTP to HTTPS redirect
-:80 {
-    redir https://{host}{uri} permanent
+    auto_https disable_redirects
 }
 
 # Main HTTPS server
 :443, {{DOMAIN}} {
-    tls {{ADMIN_EMAIL}}
+    tls {
+        issuer acme {
+            {{CADDY_TLS_EMAIL}}
+            disable_http_challenge
+        }
+    }
 
     # NaiveProxy with credentials and upstream to sing-box
     {{FORWARD_PROXY_BLOCK}}
@@ -69,10 +70,15 @@
         header Content-Type "text/plain; charset=utf-8"
     }
 
-    # Fake site serving (fallback for standard visits, scanners, probes)
-    file_server {
-        root {{FAKESITE_DIR}}
+    # Fake site serving (SPA fallback for standard visits, scanners, probes)
+    handle {
+        root * {{FAKESITE_DIR}}
+        try_files {path} {path}/ /index.html
+        file_server
     }
+
+    # Hide server signature
+    header -Server
 
     log {
         output stderr

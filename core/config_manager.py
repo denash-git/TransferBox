@@ -324,7 +324,12 @@ def render_configs():
 
     # Direct substitution of domain, email, and fake site directory
     caddy_content = caddy_tmpl.replace("{{DOMAIN}}", domain)
-    if email:
+    if "{{CADDY_TLS_EMAIL}}" in caddy_content:
+        if email:
+            caddy_content = caddy_content.replace("{{CADDY_TLS_EMAIL}}", f"email {email}")
+        else:
+            caddy_content = caddy_content.replace("{{CADDY_TLS_EMAIL}}", "# anonymous ACME")
+    elif email:
         caddy_content = caddy_content.replace("{{ADMIN_EMAIL}}", email)
     else:
         caddy_content = caddy_content.replace("tls {{ADMIN_EMAIL}}", "# tls")
@@ -548,6 +553,13 @@ def validate_and_restart():
             subprocess.run(["systemctl", "stop", "mita"], capture_output=True)
             subprocess.run(["systemctl", "disable", "mita"], capture_output=True)
 
+    # Remove port 80 allow rules in UFW for stealth
+    try:
+        from core.security_manager import remove_port80_ufw
+        remove_port80_ufw()
+    except Exception:
+        pass
+
     return True, "Services successfully reloaded and validated!"
 
 
@@ -627,6 +639,15 @@ def change_ssh_port(new_port):
         subprocess.run(["systemctl", "restart", "sshd"], capture_output=True)
         return False, f"Ошибка: SSH-сервер не запустился на порту {new_port}. Изменения отменены."
         
+    # Update fail2ban SSH jail port if fail2ban is installed
+    try:
+        from core.security_manager import is_fail2ban_installed, configure_fail2ban
+        if is_fail2ban_installed():
+            configure_fail2ban(new_port)
+            subprocess.run(["systemctl", "reload", "fail2ban"], capture_output=True)
+    except Exception:
+        pass
+
     return True, f"Успешно! SSH переведен на порт {new_port}."
 
 
