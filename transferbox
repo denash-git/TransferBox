@@ -172,7 +172,8 @@ refresh_system_status() {
         HEADER_STATUS_MITA_RAW="● работает"
     elif [ -f "/usr/bin/mita" ]; then
         local status
-        status=$(systemctl is-active mita 2>/dev/null || echo "inactive")
+        status=$(systemctl is-active mita 2>/dev/null || true)
+        [ -z "$status" ] && status="inactive"
         local mita_val="${RED}● не запущен ($status)${RESET}"
         HEADER_STATUS_MITA="$mita_val"
         HEADER_STATUS_MITA_RAW="● не запущен ($status)"
