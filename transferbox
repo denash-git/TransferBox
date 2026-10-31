@@ -119,6 +119,8 @@ HEADER_STATUS_MITA_RAW=""
 HEADER_SHOW_NETBIRD=false
 HEADER_STATUS_NETBIRD=""
 HEADER_STATUS_NB_RAW=""
+HEADER_STATUS_SECURITY=""
+HEADER_STATUS_SEC_RAW=""
 
 load_update_badge() {
     local cache_file="${PROJECT_ROOT}/.tb_update_cache"
@@ -180,6 +182,14 @@ refresh_system_status() {
         HEADER_STATUS_NETBIRD="$nb_val"
         HEADER_STATUS_NB_RAW=$(echo "$nb_val" | sed 's/\x1b\[[0-9;]*m//g')
     fi
+
+    if systemctl is-active --quiet fail2ban 2>/dev/null; then
+        HEADER_STATUS_SECURITY="${GREEN}● активна${RESET}"
+        HEADER_STATUS_SEC_RAW="● активна"
+    else
+        HEADER_STATUS_SECURITY="${RED}● отключена${RESET}"
+        HEADER_STATUS_SEC_RAW="● отключена"
+    fi
 }
 
 print_header() {
@@ -215,12 +225,14 @@ print_header() {
         local len_cad=$(( 14 + ${#status_cad_raw} ))
         local len_sb=$(( 14 + ${#status_sb_raw} ))
         local len_bbr=$(( 14 + ${#bbr_dot_raw} ))
+        local len_sec=$(( 14 + ${#HEADER_STATUS_SEC_RAW} ))
         
         local max_block_len=$len_dom
         [ $len_fqdn -gt $max_block_len ] && max_block_len=$len_fqdn
         [ $len_cad -gt $max_block_len ] && max_block_len=$len_cad
         [ $len_sb -gt $max_block_len ] && max_block_len=$len_sb
         [ $len_bbr -gt $max_block_len ] && max_block_len=$len_bbr
+        [ $len_sec -gt $max_block_len ] && max_block_len=$len_sec
         
         local show_mieru="${HEADER_SHOW_MIERU:-false}"
         if [ "$show_mieru" == "true" ]; then
@@ -260,6 +272,7 @@ print_header() {
         if [ "$show_netbird" == "true" ]; then
             echo -e "${pad_spaces}NetBird:      ${HEADER_STATUS_NETBIRD:-}"
         fi
+        echo -e "${pad_spaces}Защита:       ${HEADER_STATUS_SECURITY:-}"
         center_print "${BLUE}${line_double}${RESET}"
     fi
     echo ""
@@ -2606,13 +2619,22 @@ EOF
 security_protection_menu() {
     while true; do
         clear_screen
-        print_header "Настройки → Защита от сканеров"
+        print_header "Настройки → Защита от сканеров" "false"
         
+        local f2b_installed=true
+        if ! command -v fail2ban-client &>/dev/null || ! command -v ipset &>/dev/null; then
+            f2b_installed=false
+        fi
+
         local active_status="${RED}отключена${RESET}"
         local active_bool=false
-        if systemctl is-active --quiet fail2ban 2>/dev/null; then
-            active_status="${GREEN}активна (Silent Drop)${RESET}"
-            active_bool=true
+        if [ "$f2b_installed" = true ]; then
+            if systemctl is-active --quiet fail2ban 2>/dev/null; then
+                active_status="${GREEN}активна (Silent Drop)${RESET}"
+                active_bool=true
+            fi
+        else
+            active_status="${YELLOW}не установлена (требуются пакеты)${RESET}"
         fi
         
         local current_client_ip=""
@@ -2620,17 +2642,20 @@ security_protection_menu() {
             current_client_ip=$(echo "$SSH_CLIENT" | awk '{print $1}')
         fi
         
+        # Мгновенный подсчет блокировок в bash (без вызова Python)
         local total_banned=0
         local sshd_banned=0
         local trap_banned=0
         if [ "$active_bool" = true ]; then
-            total_banned=$(python3 -c "from core.security_manager import get_security_status; print(get_security_status().get('total_banned', 0))" 2>/dev/null || echo 0)
-            sshd_banned=$(python3 -c "from core.security_manager import get_security_status; print(get_security_status().get('jails', {}).get('sshd', {}).get('currently_banned', 0))" 2>/dev/null || echo 0)
-            trap_banned=$(python3 -c "from core.security_manager import get_security_status; print(get_security_status().get('jails', {}).get('portscan-trap', {}).get('currently_banned', 0))" 2>/dev/null || echo 0)
+            sshd_banned=$(fail2ban-client status sshd 2>/dev/null | grep "Currently banned:" | awk '{print $NF}' || echo 0)
+            [ -z "$sshd_banned" ] && sshd_banned=0
+            trap_banned=$(fail2ban-client status portscan-trap 2>/dev/null | grep "Currently banned:" | awk '{print $NF}' || echo 0)
+            [ -z "$trap_banned" ] && trap_banned=0
+            total_banned=$(( sshd_banned + trap_banned ))
         fi
         
         local port80_status="${GREEN}закрыт (скрыт)${RESET}"
-        if python3 -c "from core.security_manager import is_port80_allowed; exit(0 if is_port80_allowed() else 1)" 2>/dev/null; then
+        if iptables -nL ufw-user-input 2>/dev/null | grep -q 'dpt:80'; then
             port80_status="${YELLOW}открыт в UFW${RESET}"
         fi
         
@@ -2657,8 +2682,10 @@ security_protection_menu() {
                 sec_options+=("Снять все блокировки (Unban All)")
             fi
             sec_options+=("Разблокировать конкретный IP")
-        else
+        elif [ "$f2b_installed" = true ]; then
             sec_options+=("Включить защиту от сканеров")
+        else
+            sec_options+=("Установить компоненты и включить защиту")
         fi
         sec_options+=("Назад")
         
@@ -2670,9 +2697,10 @@ security_protection_menu() {
         
         if [ "$choice" -eq -1 ] || [ "$clean_sel" == "Назад" ]; then
             return 0
-        elif [ "$clean_sel" == "Включить защиту от сканеров" ]; then
-            echo ""
-            center_print "${DIM}[*] Активация защиты от сканеров (Fail2ban + Silent Drop)...${RESET}"
+        elif [ "$clean_sel" == "Включить защиту от сканеров" ] || [ "$clean_sel" == "Установить компоненты и включить защиту" ]; then
+            clear_screen
+            print_header "Настройки → Активация защиты" "false"
+            center_print "${DIM}[*] Настройка Fail2ban + Silent Drop (DROP)...${RESET}"
             local out
             out=$(python3 -c "from core.security_manager import enable_security; ok, msg = enable_security(); print(msg); exit(0 if ok else 1)")
             if [ $? -eq 0 ]; then
@@ -2684,8 +2712,9 @@ security_protection_menu() {
             fi
             sleep 2
         elif [ "$clean_sel" == "Отключить защиту от сканеров" ]; then
-            echo ""
-            center_print "${DIM}[*] Отключение защиты...${RESET}"
+            clear_screen
+            print_header "Настройки → Отключение защиты" "false"
+            center_print "${DIM}[*] Остановка защиты...${RESET}"
             local out
             out=$(python3 -c "from core.security_manager import disable_security; ok, msg = disable_security(); print(msg); exit(0 if ok else 1)")
             echo ""
@@ -2693,7 +2722,7 @@ security_protection_menu() {
             sleep 2
         elif [ "$clean_sel" == "Просмотреть список заблокированных IP" ]; then
             clear_screen
-            print_header "Заблокированные сканеры (Silent Drop)"
+            print_header "Заблокированные сканеры (Silent Drop)" "false"
             python3 -c "
 from core.security_manager import get_security_status
 s = get_security_status()
@@ -2703,34 +2732,48 @@ if not ips:
 else:
     print(f'  Всего заблокировано: {len(ips)} IP\n')
     jails = s.get('jails', {})
-    for ip in ips:
+    for ip in ips[:60]:
         info = [j for j, d in jails.items() if ip in d.get('banned_ips', [])]
         jail_str = f' ({ \", \".join(info) })' if info else ''
         print(f'  • {ip}{jail_str}')
+    if len(ips) > 60:
+        print(f'\n  ... и ещё {len(ips) - 60} IP-адресов')
 "
             echo ""
-            press_enter
+            pause
         elif [[ "$clean_sel" =~ "Разблокировать мой текущий IP" ]]; then
+            clear_screen
+            print_header "Настройки → Разблокировка текущего IP" "false"
             local out
             out=$(python3 -c "from core.security_manager import unban_client_session; ok, msg = unban_client_session('$current_client_ip'); print(msg)")
             echo ""
             center_print "${GREEN}✓ $out${RESET}"
             sleep 2
         elif [ "$clean_sel" == "Снять все блокировки (Unban All)" ]; then
+            clear_screen
+            print_header "Настройки → Снятие всех блокировок" "false"
             local out
             out=$(python3 -c "from core.security_manager import unban_all; ok, msg = unban_all(); print(msg)")
             echo ""
             center_print "${GREEN}✓ $out${RESET}"
             sleep 2
         elif [ "$clean_sel" == "Разблокировать конкретный IP" ]; then
-            echo ""
-            read -r -p "  Введите IP-адрес для разблокировки: " target_ip
+            clear_screen
+            print_header "Настройки → Разблокировка IP" "false"
+            echo -e "  Введите IP-адрес для снятия блокировки:"
+            echo -e "  ${DIM}(или нажмите Enter для отмены)${RESET}\n"
+            tput cnorm
+            local target_ip=""
+            read_prompt "IP-адрес: " target_ip
+            tput civis
             if [ -n "$target_ip" ]; then
+                echo ""
+                center_print "${DIM}[*] Разблокировка $target_ip...${RESET}"
                 local out
                 out=$(python3 -c "from core.security_manager import unban_ip; ok, msg = unban_ip('$target_ip'); print(msg)")
                 echo ""
                 center_print "${GREEN}✓ $out${RESET}"
-                sleep 2
+                pause
             fi
         fi
     done

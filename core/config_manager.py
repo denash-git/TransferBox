@@ -149,12 +149,22 @@ def run_migrations():
         save_env(env)
         migrated = True
 
-    # Future migrations can go here:
-    # if current_version < 3:
-    #     ...
-    #     env["SCHEMA_VERSION"] = "3"
-    #     save_env(env)
-    #     migrated = True
+    # Migration 3: Scanner protection packages and rules
+    if current_version < 3:
+        try:
+            from core.security_manager import is_fail2ban_installed, enable_security, remove_port80_ufw
+            remove_port80_ufw()
+            if not is_fail2ban_installed():
+                subprocess.run(
+                    ["DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", "-qq", "fail2ban", "ipset", "python3-systemd"],
+                    shell=True, capture_output=True
+                )
+            enable_security()
+        except Exception as e:
+            print(f"[WARN] Ошибка миграции безопасности v3: {e}")
+        env["SCHEMA_VERSION"] = "3"
+        save_env(env)
+        migrated = True
 
     if migrated:
         print(f"[INFO] Успешно завершена миграция до версии схемы {env.get('SCHEMA_VERSION')}.")
