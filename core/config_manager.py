@@ -152,17 +152,31 @@ def run_migrations():
     # Migration 3: Scanner protection packages and rules
     if current_version < 3:
         try:
-            from core.security_manager import is_fail2ban_installed, enable_security, remove_port80_ufw
+            from core.security_manager import is_fail2ban_installed, install_fail2ban_packages, enable_security, remove_port80_ufw
             remove_port80_ufw()
             if not is_fail2ban_installed():
-                subprocess.run(
-                    ["DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", "-qq", "fail2ban", "ipset", "python3-systemd"],
-                    shell=True, capture_output=True
-                )
+                install_fail2ban_packages()
+
+
+
             enable_security()
         except Exception as e:
             print(f"[WARN] Ошибка миграции безопасности v3: {e}")
         env["SCHEMA_VERSION"] = "3"
+        save_env(env)
+        migrated = True
+
+    # Migration 4: Ensure scanner protection packages and rules are installed properly
+    if current_version < 4:
+        try:
+            from core.security_manager import is_fail2ban_installed, install_fail2ban_packages, enable_security, remove_port80_ufw
+            remove_port80_ufw()
+            if not is_fail2ban_installed():
+                install_fail2ban_packages()
+                enable_security()
+        except Exception as e:
+            print(f"[WARN] Ошибка миграции безопасности v4: {e}")
+        env["SCHEMA_VERSION"] = "4"
         save_env(env)
         migrated = True
 

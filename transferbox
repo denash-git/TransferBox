@@ -6,7 +6,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
-VERSION="3.0.4"
+VERSION="3.0.5"
 
 # ANSI Colors
 if [ -f "${PROJECT_ROOT}/lib/colors.sh" ]; then
@@ -2122,7 +2122,7 @@ update_panel_menu() {
                 fi
                 
                 center_print "${DIM}[*] Проверка целостности и синтаксиса файлов...${RESET}"
-                if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/user_manager.py" "$tmp_dir/bot/main.py" "$tmp_dir/bot/keyboards.py" "$tmp_dir/bot/handlers/start.py"; then
+                if bash -n "$tmp_dir/transferbox" && bash -n "$tmp_dir/install.sh" && python3 -m py_compile "$tmp_dir/core/config_manager.py" "$tmp_dir/core/security_manager.py" "$tmp_dir/core/user_manager.py" "$tmp_dir/bot/main.py" "$tmp_dir/bot/keyboards.py" "$tmp_dir/bot/handlers/start.py"; then
                     center_print "${DIM}[*] Установка обновлений...${RESET}"
                     
                     # Создаем бэкап папок core и bot на всякий случай
@@ -2135,6 +2135,12 @@ update_panel_menu() {
                     ln -sf "$PROJECT_ROOT/transferbox" /usr/local/bin/menu
                     ln -sf "$PROJECT_ROOT/transferbox" /usr/local/bin/transferbox
                     
+                    if ! command -v fail2ban-client &>/dev/null || ! command -v ipset &>/dev/null; then
+                        center_print "${DIM}[*] Доустановка системных пакетов безопасности...${RESET}"
+                        export DEBIAN_FRONTEND=noninteractive
+                        apt-get update -qq && apt-get install -y -qq fail2ban ipset python3-systemd >/dev/null 2>&1 || true
+                    fi
+
                     center_print "${DIM}[*] Запуск миграций и валидация конфигураций...${RESET}"
                     local migration_res
                     migration_res=$(python3 -c "
@@ -2700,25 +2706,37 @@ security_protection_menu() {
         elif [ "$clean_sel" == "Включить защиту от сканеров" ] || [ "$clean_sel" == "Установить компоненты и включить защиту" ]; then
             clear_screen
             print_header "Настройки → Активация защиты" "false"
+            if [ "$f2b_installed" = false ]; then
+                center_print "${DIM}[*] Установка пакетов fail2ban, ipset, python3-systemd...${RESET}"
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get update -qq && apt-get install -y -qq fail2ban ipset python3-systemd >/dev/null 2>&1 || true
+            fi
             center_print "${DIM}[*] Настройка Fail2ban + Silent Drop (DROP)...${RESET}"
-            local out
-            out=$(python3 -c "from core.security_manager import enable_security; ok, msg = enable_security(); print(msg); exit(0 if ok else 1)")
-            if [ $? -eq 0 ]; then
+            local out=""
+            out=$(python3 -c "from core.security_manager import enable_security; ok, msg = enable_security(); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
+            if [[ "$out" == OK:* ]]; then
                 echo ""
-                center_print "${GREEN}✓ $out${RESET}"
+                center_print "${GREEN}✓ ${out#OK:}${RESET}"
+                sleep 2
             else
                 echo ""
-                center_print "${RED}✗ $out${RESET}"
+                center_print "${RED}✗ ${out#ERR:}${RESET}"
+                echo ""
+                pause
             fi
-            sleep 2
         elif [ "$clean_sel" == "Отключить защиту от сканеров" ]; then
             clear_screen
             print_header "Настройки → Отключение защиты" "false"
             center_print "${DIM}[*] Остановка защиты...${RESET}"
-            local out
-            out=$(python3 -c "from core.security_manager import disable_security; ok, msg = disable_security(); print(msg); exit(0 if ok else 1)")
-            echo ""
-            center_print "${GREEN}✓ $out${RESET}"
+            local out=""
+            out=$(python3 -c "from core.security_manager import disable_security; ok, msg = disable_security(); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
+            if [[ "$out" == OK:* ]]; then
+                echo ""
+                center_print "${GREEN}✓ ${out#OK:}${RESET}"
+            else
+                echo ""
+                center_print "${RED}✗ ${out#ERR:}${RESET}"
+            fi
             sleep 2
         elif [ "$clean_sel" == "Просмотреть список заблокированных IP" ]; then
             clear_screen
@@ -2744,18 +2762,28 @@ else:
         elif [[ "$clean_sel" =~ "Разблокировать мой текущий IP" ]]; then
             clear_screen
             print_header "Настройки → Разблокировка текущего IP" "false"
-            local out
-            out=$(python3 -c "from core.security_manager import unban_client_session; ok, msg = unban_client_session('$current_client_ip'); print(msg)")
-            echo ""
-            center_print "${GREEN}✓ $out${RESET}"
+            local out=""
+            out=$(python3 -c "from core.security_manager import unban_client_session; ok, msg = unban_client_session('$current_client_ip'); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
+            if [[ "$out" == OK:* ]]; then
+                echo ""
+                center_print "${GREEN}✓ ${out#OK:}${RESET}"
+            else
+                echo ""
+                center_print "${RED}✗ ${out#ERR:}${RESET}"
+            fi
             sleep 2
         elif [ "$clean_sel" == "Снять все блокировки (Unban All)" ]; then
             clear_screen
             print_header "Настройки → Снятие всех блокировок" "false"
-            local out
-            out=$(python3 -c "from core.security_manager import unban_all; ok, msg = unban_all(); print(msg)")
-            echo ""
-            center_print "${GREEN}✓ $out${RESET}"
+            local out=""
+            out=$(python3 -c "from core.security_manager import unban_all; ok, msg = unban_all(); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
+            if [[ "$out" == OK:* ]]; then
+                echo ""
+                center_print "${GREEN}✓ ${out#OK:}${RESET}"
+            else
+                echo ""
+                center_print "${RED}✗ ${out#ERR:}${RESET}"
+            fi
             sleep 2
         elif [ "$clean_sel" == "Разблокировать конкретный IP" ]; then
             clear_screen
@@ -2769,10 +2797,15 @@ else:
             if [ -n "$target_ip" ]; then
                 echo ""
                 center_print "${DIM}[*] Разблокировка $target_ip...${RESET}"
-                local out
-                out=$(python3 -c "from core.security_manager import unban_ip; ok, msg = unban_ip('$target_ip'); print(msg)")
-                echo ""
-                center_print "${GREEN}✓ $out${RESET}"
+                local out=""
+                out=$(python3 -c "from core.security_manager import unban_ip; ok, msg = unban_ip('$target_ip'); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
+                if [[ "$out" == OK:* ]]; then
+                    echo ""
+                    center_print "${GREEN}✓ ${out#OK:}${RESET}"
+                else
+                    echo ""
+                    center_print "${RED}✗ ${out#ERR:}${RESET}"
+                fi
                 pause
             fi
         fi

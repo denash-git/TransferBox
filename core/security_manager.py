@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 from core.config_manager import load_env, save_env, get_current_ssh_port
 
@@ -12,8 +13,38 @@ TRAP_PORTS = "21,23,25,445,1433,3389,5900,8080"
 
 
 def is_fail2ban_installed() -> bool:
-    """Check if fail2ban-client is available in PATH."""
-    return subprocess.run(["which", "fail2ban-client"], capture_output=True).returncode == 0
+    """Check if fail2ban-client and ipset are available in PATH."""
+    return (shutil.which("fail2ban-client") is not None) and (shutil.which("ipset") is not None)
+
+
+def install_fail2ban_packages() -> tuple[bool, str]:
+    """Install fail2ban, ipset, python3-systemd via apt-get with noninteractive environment."""
+    if is_fail2ban_installed():
+        return True, "Пакеты уже установлены"
+    try:
+        env_vars = os.environ.copy()
+        env_vars["DEBIAN_FRONTEND"] = "noninteractive"
+        # 1. apt-get update
+        subprocess.run(
+            ["apt-get", "update", "-qq"],
+            env=env_vars,
+            capture_output=True,
+            timeout=120
+        )
+        # 2. apt-get install
+        res = subprocess.run(
+            ["apt-get", "install", "-y", "-qq", "fail2ban", "ipset", "python3-systemd"],
+            env=env_vars,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if res.returncode != 0:
+            err_msg = res.stderr.strip() if res.stderr else "apt-get вернул ошибку"
+            return False, f"Ошибка apt-get install: {err_msg}"
+        return True, "Пакеты успешно установлены"
+    except Exception as e:
+        return False, f"Исключение при установке пакетов: {e}"
 
 
 def is_security_active() -> bool:
@@ -138,10 +169,9 @@ banaction = nftables[type=allports, blocktype=drop]
 def enable_security() -> tuple[bool, str]:
     """Enable full scanner and bot protection (Fail2ban, Trap, Port 80 close)."""
     if not is_fail2ban_installed():
-        res = subprocess.run(["DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", "fail2ban", "ipset"],
-                             shell=True, capture_output=True, text=True)
-        if res.returncode != 0:
-            return False, f"Ошибка установки fail2ban: {res.stderr}"
+        ok, msg = install_fail2ban_packages()
+        if not ok:
+            return False, msg
 
     ssh_port = get_current_ssh_port()
     ok, msg = configure_fail2ban(ssh_port)
