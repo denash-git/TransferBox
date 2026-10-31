@@ -7,7 +7,7 @@ from core.config_manager import load_env, save_env, get_current_ssh_port
 
 PROJECT_ROOT = "/opt/transferbox"
 SSHD_CONFIG_DIR = "/etc/ssh/sshd_config.d"
-TRANSFERBOX_SSH_AUTH_CONF = "/etc/ssh/sshd_config.d/99-transferbox-auth.conf"
+TRANSFERBOX_SSH_AUTH_CONF = "/etc/ssh/sshd_config.d/00-transferbox-auth.conf"
 AUTHORIZED_KEYS_PATH = "/root/.ssh/authorized_keys"
 ROOT_SSH_DIR = "/root/.ssh"
 
@@ -246,6 +246,14 @@ def set_ssh_auth_mode(target_mode: str) -> tuple[bool, str]:
         except Exception:
             pass
 
+    # Clean up legacy 99-transferbox-auth.conf if present
+    legacy_conf = "/etc/ssh/sshd_config.d/99-transferbox-auth.conf"
+    if os.path.exists(legacy_conf):
+        try:
+            os.remove(legacy_conf)
+        except Exception:
+            pass
+
     try:
         if target_mode == "key":
             content = """# TransferBox SSH Key-Only Authentication
@@ -259,6 +267,7 @@ AuthorizedKeysFile .ssh/authorized_keys
 PasswordAuthentication yes
 KbdInteractiveAuthentication yes
 PubkeyAuthentication yes
+PermitRootLogin yes
 AuthorizedKeysFile .ssh/authorized_keys
 """
 
