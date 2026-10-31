@@ -60,7 +60,7 @@ def security_menu_keyboard(active: bool, has_bans: bool = False):
     toggle_lbl = "🔴 Отключить защиту" if active else "🟢 Включить защиту"
     btn1 = align_button_text(toggle_lbl, 18.0)
     btn2 = align_button_text("📋 Список заблокированных", 18.0)
-    btn3 = align_button_text("🔓 Снять все блокировки", 18.0)
+    btn3 = align_button_text("🔓 Разблокировать всех", 18.0)
     
     keyboard = [
         [InlineKeyboardButton(text=btn1, callback_data="settings:security_toggle")],
@@ -76,7 +76,7 @@ def security_menu_keyboard(active: bool, has_bans: bool = False):
 def security_banned_keyboard(has_bans: bool):
     keyboard = []
     if has_bans:
-        keyboard.append([InlineKeyboardButton(text="🔓 Снять все блокировки", callback_data="settings:security_unban_all")])
+        keyboard.append([InlineKeyboardButton(text="🔓 Разблокировать всех", callback_data="settings:security_unban_all")])
     keyboard.append([InlineKeyboardButton(text="« Назад к Защите", callback_data="settings:security_menu")])
     keyboard.append([InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

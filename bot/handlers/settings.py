@@ -394,7 +394,7 @@ async def settings_backup_time_msg(message: Message, state: FSMContext):
 def render_security_menu_text(status: dict) -> str:
     active = status.get("active", False)
     status_str = "🟢 <b>Включена</b>" if active else "🔴 <b>Отключена</b>"
-    port80_str = "🔒 <b>Закрыт</b> (тихий сброс)" if not status.get("port80_allowed", False) else "⚠️ <b>Открыт</b>"
+
     
     total = status.get("total_banned", 0)
     jails = status.get("jails", {})
@@ -403,14 +403,14 @@ def render_security_menu_text(status: dict) -> str:
     
     return (
         "🛡️ <b>Защита от сканеров и ботов</b>\n\n"
-        f"• Статус службы: {status_str}\n"
-        "• Режим блокировки: <code>Silent Drop (DROP)</code>\n"
-        f"• Порт 80 (HTTP): {port80_str}\n\n"
+        f"• Статус службы: {status_str}\n\n"
+
+
         "📊 <b>Текущие блокировки:</b>\n"
         f"• Всего заблокировано: <code>{total}</code> IP\n"
-        f"• Подбор паролей SSH (sshd): <code>{sshd_bans}</code>\n"
-        f"• Ловушки портов (honeypot): <code>{trap_bans}</code>\n\n"
-        "<i>Блокировка действует на уровне ядра (DROP). При динамическом IP используйте кнопку «Снять все блокировки» для мгновенного разбана.</i>"
+        f"• Подбор паролей SSH: <code>{sshd_bans}</code>\n"
+        f"• Ловушки портов: <code>{trap_bans}</code>\n\n"
+        "<i>«Разблокировать всех» для экстренного разбана.</i>"
     )
 
 @router.callback_query(F.data == "settings:security_menu")

@@ -195,6 +195,10 @@ def enable_security() -> tuple[bool, str]:
 
 def disable_security() -> tuple[bool, str]:
     """Disable scanner protection and stop Fail2ban service."""
+    try:
+        subprocess.run(["fail2ban-client", "unban", "--all"], capture_output=True)
+    except Exception:
+        pass
     setup_ufw_trap_rules(enable=False)
     subprocess.run(["systemctl", "stop", "fail2ban"], capture_output=True)
     subprocess.run(["systemctl", "disable", "fail2ban"], capture_output=True)
@@ -203,7 +207,7 @@ def disable_security() -> tuple[bool, str]:
     env["SECURITY_SCANNER_PROTECTION"] = "false"
     save_env(env)
 
-    return True, "Защита от сканеров отключена."
+    return True, "Защита от сканеров отключена. Все блокировки сняты."
 
 
 def get_security_status() -> dict:

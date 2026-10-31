@@ -6,7 +6,7 @@ set -euo pipefail
 
 PROJECT_ROOT="/opt/transferbox"
 export PYTHONPATH="${PROJECT_ROOT}"
-VERSION="3.0.6"
+VERSION="3.0.7"
 
 # ANSI Colors
 if [ -f "${PROJECT_ROOT}/lib/colors.sh" ]; then
@@ -2685,7 +2685,7 @@ security_protection_menu() {
                 sec_options+=("Разблокировать мой текущий IP ($current_client_ip)")
             fi
             if [ "$total_banned" -gt 0 ]; then
-                sec_options+=("Снять все блокировки (Unban All)")
+                sec_options+=("Разблокировать всех")
             fi
             sec_options+=("Разблокировать конкретный IP")
         elif [ "$f2b_installed" = true ]; then
@@ -2772,9 +2772,9 @@ else:
                 center_print "${RED}✗ ${out#ERR:}${RESET}"
             fi
             sleep 2
-        elif [ "$clean_sel" == "Снять все блокировки (Unban All)" ]; then
+        elif [ "$clean_sel" == "Разблокировать всех" ]; then
             clear_screen
-            print_header "Настройки → Снятие всех блокировок" "false"
+            print_header "Настройки → Разблокировка всех IP" "false"
             local out=""
             out=$(python3 -c "from core.security_manager import unban_all; ok, msg = unban_all(); print(('OK:' if ok else 'ERR:') + msg)" 2>&1) || true
             if [[ "$out" == OK:* ]]; then
