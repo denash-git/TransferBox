@@ -464,7 +464,7 @@ async def settings_security_banned_list_callback(callback: CallbackQuery):
             "🟢 В настоящее время нет заблокированных IP-адресов. Система чиста."
         )
     else:
-        lines = ["📋 <b>Заблокированные IP (Silent Drop):</b>\n"]
+        lines = ["📋 <b>Заблокированные IP:</b>\n"]
         jails = status.get("jails", {})
         for ip in banned_ips[:30]:
             found_jails = [j for j, data in jails.items() if ip in data.get("banned_ips", [])]

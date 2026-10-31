@@ -2740,7 +2740,7 @@ security_protection_menu() {
             sleep 2
         elif [ "$clean_sel" == "Просмотреть список заблокированных IP" ]; then
             clear_screen
-            print_header "Заблокированные сканеры (Silent Drop)" "false"
+            print_header "Заблокированные сканеры" "false"
             python3 -c "
 from core.security_manager import get_security_status
 s = get_security_status()
