@@ -1,5 +1,5 @@
 {
-    order forward_proxy before file_server
+    order forward_proxy before handle
     grace_period 2s
     auto_https disable_redirects
 }
