@@ -83,7 +83,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     build-essential curl wget git ca-certificates \
-    python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin >/dev/null
+    python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin iperf3 >/dev/null
 
 log_info "Установка Python-зависимостей (aiogram)..."
 pip3 install --break-system-packages aiogram >/dev/null 2>&1 || pip3 install aiogram >/dev/null 2>&1 || true
@@ -93,7 +93,7 @@ log_info "Настройка репозитория Ookla Speedtest..."
 curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash >/dev/null 2>&1
 apt-get install -y -qq speedtest >/dev/null 2>&1
 
-log_ok "Базовые пакеты и Ookla Speedtest установлены."
+log_ok "Базовые пакеты, Ookla Speedtest и iperf3 установлены."
 
 # Применение BBR
 if [[ "$enable_bbr" == "true" ]]; then

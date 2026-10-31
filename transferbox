@@ -1192,10 +1192,10 @@ run_speedtest_vps_internet() {
         print_header "Скорость VPS → Интернет" "false"
         echo ""
         center_print "${DIM}[*] Установка официального Ookla Speedtest...${RESET}"
-        sudo apt-get purge -y speedtest-cli >/dev/null 2>&1 || true
-        sudo apt-get install -f -y >/dev/null 2>&1 || true
-        curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash >/dev/null 2>&1
-        sudo apt-get install -y speedtest >/dev/null 2>&1
+        apt-get purge -y speedtest-cli >/dev/null 2>&1 || true
+        apt-get install -f -y >/dev/null 2>&1 || true
+        curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash >/dev/null 2>&1 || true
+        apt-get install -y speedtest >/dev/null 2>&1 || true
     fi
 
     if ! command -v speedtest >/dev/null 2>&1; then
@@ -1280,11 +1280,11 @@ run_speedtest_client_vps() {
     print_header "Замер скорости: Client ↔ VPS (iperf3)" "false"
     
     # Check iperf3 is present, install if missing
-    if ! dpkg -l iperf3 2>/dev/null | grep -q '^ii'; then
+    if ! command -v iperf3 &>/dev/null; then
         echo ""
         center_print "${DIM}[*] Установка iperf3 на VPS...${RESET}"
-        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iperf3 2>/dev/null
-        if ! dpkg -l iperf3 2>/dev/null | grep -q '^ii'; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iperf3 >/dev/null 2>&1 || true
+        if ! command -v iperf3 &>/dev/null; then
             echo ""
             center_print "${RED}✗ Не удалось установить iperf3. Установите вручную: apt install iperf3${RESET}"
             pause
@@ -1295,8 +1295,8 @@ run_speedtest_client_vps() {
     fi
     
     # Open UFW port temporarily
-    sudo ufw allow 5201/tcp comment "iperf3 TCP" >/dev/null 2>&1
-    sudo ufw allow 5201/udp comment "iperf3 UDP" >/dev/null 2>&1
+    ufw allow 5201/tcp comment "iperf3 TCP" >/dev/null 2>&1 || true
+    ufw allow 5201/udp comment "iperf3 UDP" >/dev/null 2>&1 || true
     
     local vps_ip
     vps_ip=$(curl -4 -s --connect-timeout 5 ifconfig.me 2>/dev/null || curl -4 -s --connect-timeout 5 api.ipify.org 2>/dev/null || echo "ВАШ_IP_VPS")
@@ -1304,7 +1304,7 @@ run_speedtest_client_vps() {
     echo ""
     draw_line "─" "$BLUE"
     echo ""
-    center_print "Сервер iperf3 запущен и ожидает подключения"
+    center_print "${GREEN}● Сервер iperf3 запущен и ожидает подключения${RESET}"
     echo ""
     center_print "Скачивание (клиент → VPS):"
     center_print "${CYAN}iperf3 -c $vps_ip${RESET}"
@@ -1315,24 +1315,30 @@ run_speedtest_client_vps() {
     center_print "Телефон: ${YELLOW}Magic iPerf${RESET} (Android) / ${YELLOW}HE.NET Network Tools${RESET} (iOS)"
     center_print "Адрес сервера: ${CYAN}$vps_ip${RESET}"
     echo ""
-    center_print "${DIM}Ctrl+C — выйти из теста и вернуться в меню.${RESET}"
+    center_print "${DIM}Нажмите Enter или Ctrl+C для выхода из теста и возврата в меню.${RESET}"
     echo ""
     draw_line "─" "$BLUE"
     echo ""
     
-    # Run iperf3 server, one client at a time, exit cleanly on Ctrl+C
-    local iperf_pid
+    # Kill any stale instance
+    pkill -f "iperf3 -s" 2>/dev/null || true
+    
+    # Run iperf3 server
     iperf3 -s &
-    iperf_pid=$!
+    local iperf_pid=$!
     
-    # Wait for iperf3 to finish, handle Ctrl+C
-    trap "kill $iperf_pid 2>/dev/null; wait $iperf_pid 2>/dev/null" INT
-    wait $iperf_pid
-    trap - INT
+    cleanup_iperf() {
+        trap - INT TERM EXIT
+        kill "$iperf_pid" 2>/dev/null || true
+        wait "$iperf_pid" 2>/dev/null || true
+        ufw delete allow 5201/tcp >/dev/null 2>&1 || true
+        ufw delete allow 5201/udp >/dev/null 2>&1 || true
+    }
+    trap cleanup_iperf INT TERM
     
-    # Remove firewall rules
-    sudo ufw delete allow 5201/tcp >/dev/null 2>&1
-    sudo ufw delete allow 5201/udp >/dev/null 2>&1
+    # Wait for user keypress (Enter) or background interrupt
+    read -r _ || true
+    cleanup_iperf
     
     echo ""
     center_print "${GREEN}✓ Тестирование завершено.${RESET}"
