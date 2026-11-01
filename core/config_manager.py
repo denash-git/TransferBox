@@ -704,3 +704,17 @@ def change_ssh_port(new_port):
 def remove_old_ssh_port_ufw(old_port):
     if old_port and old_port != 22:
         subprocess.run(["ufw", "delete", "allow", f"{old_port}/tcp"], capture_output=True)
+
+
+def get_app_version() -> str:
+    """Reads VERSION from transferbox script, fallback to 3.0.9."""
+    tb_path = os.path.join(PROJECT_ROOT, "transferbox")
+    if os.path.exists(tb_path):
+        try:
+            with open(tb_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("VERSION="):
+                        return line.split("=", 1)[1].strip().strip('"').strip("'")
+        except Exception:
+            pass
+    return "3.0.9"
