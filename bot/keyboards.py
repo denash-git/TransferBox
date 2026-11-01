@@ -56,32 +56,26 @@ def settings_menu_keyboard(bbr_active: bool):
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 
-def ssh_management_keyboard():
-    btn1 = align_button_text("🔑 Изменить порт SSH", 18.0)
-    btn2 = align_button_text("🔐 Доступ SSH (Пароль / Ключ)", 18.0)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=btn1, callback_data="settings:ssh_port")],
-        [InlineKeyboardButton(text=btn2, callback_data="settings:ssh_auth")],
-        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
-        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
-    ])
-
-def ssh_back_keyboard():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="« Назад к Управлению SSH", callback_data="settings:ssh_menu")],
-        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
-    ])
-
-def ssh_auth_menu_keyboard(mode: str):
+def ssh_management_keyboard(mode: str = "password"):
     if mode == "password":
         btn_toggle = align_button_text("🔒 Отключить вход по паролю", 18.0)
         target = "key"
     else:
         btn_toggle = align_button_text("🔑 Включить вход по паролю", 18.0)
         target = "password"
-        
+
+    btn_port = align_button_text("🔑 Изменить порт SSH", 18.0)
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=btn_toggle, callback_data=f"ssh:toggle:{target}")],
+        [InlineKeyboardButton(text=btn_port, callback_data="settings:ssh_port")],
+        [InlineKeyboardButton(text="« Назад в Настройки", callback_data="settings:menu")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+ssh_auth_menu_keyboard = ssh_management_keyboard
+
+def ssh_back_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="« Назад к Управлению SSH", callback_data="settings:ssh_menu")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
@@ -164,6 +158,24 @@ def diagnostics_menu_keyboard():
 def diagnostics_back_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="« Назад в Диагностику", callback_data="diag:menu")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def speedtest_menu_keyboard():
+    btn1 = align_button_text("🌐 VPS → Интернет (Ookla)", 18.0)
+    btn2 = align_button_text("📶 Client ↔ VPS (iperf3)", 18.0)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn1, callback_data="diag:speed_run")],
+        [InlineKeyboardButton(text=btn2, callback_data="diag:speed_iperf")],
+        [InlineKeyboardButton(text="« Назад в Диагностику", callback_data="diag:menu")],
+        [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
+    ])
+
+def iperf_running_keyboard():
+    btn1 = align_button_text("🛑 Остановить iperf3", 18.0)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=btn1, callback_data="diag:iperf_stop")],
+        [InlineKeyboardButton(text="« Назад к тестам скорости", callback_data="diag:speedtest")],
         [InlineKeyboardButton(text="« Главное меню", callback_data="menu:main")]
     ])
 

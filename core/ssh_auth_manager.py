@@ -328,7 +328,7 @@ def get_ssh_auth_status() -> dict:
         "mode": mode,
         "password_auth": password_allowed,
         "password_status_label": "🟢 Включен" if password_allowed else "🔴 Отключен",
-        "key_status_label": "🟢 Включен (всегда)",
+        "key_status_label": "🟢 Включен",
         "mode_label": "Вход по паролю: 🟢 Включен" if password_allowed else "Вход по паролю: 🔴 Отключен",
         "keys": keys,
         "keys_count": len(keys),

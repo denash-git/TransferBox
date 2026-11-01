@@ -599,6 +599,20 @@ def validate_and_restart():
     return True, "Services successfully reloaded and validated!"
 
 
+def get_app_version() -> str:
+    """Returns the current TransferBox version string."""
+    tbox_path = os.path.join(PROJECT_ROOT, "transferbox")
+    if os.path.exists(tbox_path):
+        try:
+            with open(tbox_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("VERSION="):
+                        return line.split("=")[1].strip('"\'\r\n ')
+        except Exception:
+            pass
+    return "3.0.8"
+
+
 def get_current_ssh_port():
     port = 22
     config_path = "/etc/ssh/sshd_config"

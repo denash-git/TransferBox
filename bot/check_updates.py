@@ -51,7 +51,7 @@ def main():
         return
         
     # Отправляем алерт
-    send_alert(f"⬆️ <b>Доступно обновление TransferBox!</b>\n\nТекущая версия: <code>{local_ver}</code>\nСвежая версия: <code>{latest_ver}</code>\n\nВы можете обновиться прямо через TUI-меню настроек панели.")
+    send_alert(f"⬆️ <b>Доступно обновление TransferBox!</b>\n\nТекущая версия: <code>{local_ver}</code>\nСвежая версия: <code>{latest_ver}</code>")
     
     # Сохраняем версию, о которой сообщили
     try:

@@ -12,7 +12,7 @@ from core.security_manager import enable_security, disable_security, get_securit
 from core.ssh_auth_manager import get_ssh_auth_status, set_ssh_auth_mode
 from bot.keyboards import (
     settings_menu_keyboard, settings_back_keyboard, settings_update_keyboard, settings_backup_keyboard,
-    security_menu_keyboard, security_banned_keyboard, ssh_auth_menu_keyboard,
+    security_menu_keyboard, security_banned_keyboard,
     ssh_management_keyboard, ssh_back_keyboard
 )
 from bot.backup import run_backup
@@ -127,23 +127,13 @@ async def settings_menu_callback(event, state: FSMContext = None):
 # ─── НАСТРОЙКИ: УПРАВЛЕНИЕ SSH ──────────────────────────────────────────────────
 
 @router.callback_query(F.data == "settings:ssh_menu")
+@router.callback_query(F.data == "settings:ssh_auth")
 async def settings_ssh_menu_callback(callback: CallbackQuery, state: FSMContext = None):
     if state:
         await state.clear()
     status = get_ssh_auth_status()
-    cur_port = get_current_ssh_port()
-    pwd_label = status.get("password_status_label", "🟢 Включен")
-    keys_count = status.get("keys_count", 0)
-
-    text = (
-        "🔐 <b>Управление SSH</b>\n\n"
-        f"• Порт SSH: <code>{cur_port}</code>\n"
-        f"• Вход по паролю: {pwd_label}\n"
-        f"• Вход по ключу: 🟢 Включен (всегда)\n"
-        f"• Установлено ключей: <code>{keys_count}</code>\n\n"
-        "Выберите действие:"
-    )
-    await callback.message.edit_text(text, reply_markup=ssh_management_keyboard(), parse_mode="HTML")
+    text = render_ssh_auth_text(status)
+    await callback.message.edit_text(text, reply_markup=ssh_management_keyboard(mode=status["mode"]), parse_mode="HTML")
     await callback.answer()
 
 # ─── НАСТРОЙКИ: ИЗМЕНИТЬ ПОРТ SSH ─────────────────────────────────────────────
@@ -511,17 +501,17 @@ def render_ssh_auth_text(status: dict) -> str:
     pwd_label = status.get("password_status_label")
     if not pwd_label:
         pwd_label = "🟢 Включен" if status.get("mode", "password") == "password" else "🔴 Отключен"
-    key_label = status.get("key_status_label", "🟢 Включен (всегда)")
+    key_label = status.get("key_status_label", "🟢 Включен")
     keys_count = status.get("keys_count", 0)
     ssh_port = status.get("ssh_port", 22)
     keys = status.get("keys", [])
 
     lines = [
-        "🔐 <b>Доступ к серверу по SSH</b>\n",
+        "🔐 <b>Управление SSH</b>\n",
+        f"• Порт SSH: <code>{ssh_port}</code>",
         f"• Вход по паролю: {pwd_label}",
         f"• Вход по ключу: {key_label}",
-        f"• Установлено ключей: <code>{keys_count}</code>",
-        f"• Порт SSH: <code>{ssh_port}</code>\n"
+        f"• Установлено ключей: <code>{keys_count}</code>\n"
     ]
 
     if keys:
@@ -539,18 +529,6 @@ def render_ssh_auth_text(status: dict) -> str:
 
     lines.append("<i>При отключении входа по паролю доступ будет возможен только по SSH-ключу</i>")
     return "\n".join(lines)
-
-
-@router.callback_query(F.data == "settings:ssh_auth")
-async def settings_ssh_auth_callback(callback: CallbackQuery):
-    status = get_ssh_auth_status()
-    text = render_ssh_auth_text(status)
-    await callback.message.edit_text(
-        text,
-        reply_markup=ssh_auth_menu_keyboard(mode=status["mode"]),
-        parse_mode="HTML"
-    )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("ssh:toggle:"))
@@ -572,7 +550,7 @@ async def settings_ssh_toggle_callback(callback: CallbackQuery):
     text = render_ssh_auth_text(new_status)
     await callback.message.edit_text(
         text,
-        reply_markup=ssh_auth_menu_keyboard(mode=new_status["mode"]),
+        reply_markup=ssh_management_keyboard(mode=new_status["mode"]),
         parse_mode="HTML"
     )
 

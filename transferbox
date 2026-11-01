@@ -2186,9 +2186,21 @@ update_panel_menu() {
         if [[ "$confirm" =~ ^[yYдД]$ ]]; then
             clear_screen
             print_header "Настройки → Обновление панели" "false"
-            center_print "${DIM}[*] Создание резервной копии данных...${RESET}"
-            
-            # Делаем бэкап данных и кода самой панели
+            center_print "${DIM}[*] Создание постоянной резервной копии в backups/...${RESET}"
+            python3 -c "
+import os, datetime, zipfile
+backup_dir = '${PROJECT_ROOT}/backups'
+os.makedirs(backup_dir, exist_ok=True)
+timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+zip_path = os.path.join(backup_dir, f'transferbox_backup_pre_update_v${VERSION}_{timestamp}.zip')
+files = [f for f in ['${PROJECT_ROOT}/users.json', '${PROJECT_ROOT}/instance.env', '${PROJECT_ROOT}/transferbox'] if os.path.exists(f)]
+if files:
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            zf.write(f, os.path.basename(f))
+" 2>/dev/null || true
+
+            # Делаем оперативный бэкап данных и кода для быстрого отката при сбое
             cp "${PROJECT_ROOT}/users.json" "${PROJECT_ROOT}/users.json.bak" 2>/dev/null || true
             cp "${PROJECT_ROOT}/instance.env" "${PROJECT_ROOT}/instance.env.bak" 2>/dev/null || true
             cp "${PROJECT_ROOT}/transferbox" "${PROJECT_ROOT}/transferbox.bak" 2>/dev/null || true
@@ -2593,7 +2605,7 @@ print(f'ssh_port={s[\"ssh_port\"]}')
         pad_spaces=$(get_block_pad 60)
         echo -e "${pad_spaces}Текущая конфигурация:"
         echo -e "${pad_spaces}• Вход по паролю:    $pwd_status"
-        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
+        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен${RESET}"
         echo -e "${pad_spaces}• Установлено ключей: ${YELLOW}${keys_count}${RESET}"
         echo -e "${pad_spaces}• Порт SSH:           ${CYAN}${ssh_port}${RESET}"
         echo ""
@@ -2803,7 +2815,7 @@ ssh_management_menu() {
         echo -e "${pad_spaces}Текущие параметры SSH:"
         echo -e "${pad_spaces}• Порт SSH:          ${CYAN}${cur_port}${RESET}"
         echo -e "${pad_spaces}• Вход по паролю:    $ssh_pwd_status"
-        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен (всегда)${RESET}"
+        echo -e "${pad_spaces}• Вход по ключу:     ${GREEN}🟢 Включен${RESET}"
         echo -e "${pad_spaces}• Всего SSH-ключей:  ${YELLOW}${keys_count}${RESET}"
         draw_line "─" "$BLUE"
 

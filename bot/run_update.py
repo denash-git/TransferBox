@@ -6,6 +6,7 @@ import tarfile
 import subprocess
 import sys
 import time
+import zipfile
 
 def main():
     # 1. Получаем последнюю версию из transferbox
@@ -62,7 +63,26 @@ def main():
     # 4. Копируем файлы
     project_root = "/opt/transferbox"
     
-    # Резервная копия на всякий случай
+    # 4.1 Создаем постоянный архивный бэкап в папке backups/ перед обновлением
+    try:
+        backup_dir = os.path.join(project_root, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
+        zip_name = f"transferbox_backup_pre_update_{timestamp}.zip"
+        zip_path = os.path.join(backup_dir, zip_name)
+        backup_files = [
+            os.path.join(project_root, f) for f in ["users.json", "instance.env", "transferbox"]
+            if os.path.exists(os.path.join(project_root, f))
+        ]
+        if backup_files:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for bf in backup_files:
+                    zf.write(bf, os.path.basename(bf))
+            print(f"Pre-update permanent backup created: {zip_path}")
+    except Exception as be:
+        print(f"Warning: Failed to create permanent zip backup: {be}")
+
+    # Оперативная резервная копия для быстрого отката при сбое
     if os.path.exists(os.path.join(project_root, "users.json")):
         shutil.copy(os.path.join(project_root, "users.json"), os.path.join(project_root, "users.json.bak"))
     if os.path.exists(os.path.join(project_root, "instance.env")):
@@ -106,7 +126,7 @@ def main():
         shutil.copy(os.path.join(project_root, "transferbox.bak"), "/usr/local/bin/menu")
         sys.exit(1)
 
-    # Чистим резервные копии
+    # Чистим временные резервные копии (постоянный архив в backups/ сохраняется!)
     for bak in ["users.json.bak", "instance.env.bak", "transferbox.bak"]:
         path = os.path.join(project_root, bak)
         if os.path.exists(path):
