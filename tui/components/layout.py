@@ -2,6 +2,9 @@ from __future__ import annotations
 import shutil
 from typing import List
 from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.align import Align
 
 console = Console(highlight=False)
 
@@ -27,7 +30,7 @@ def format_header_60(title: str, subtitle: str = "") -> List[str]:
     """Generates a strictly centered 60-character block header."""
     lines = [
         f"[bold sky_blue]{DOUBLE_LINE}[/bold sky_blue]",
-        f"[bold white]{title.center(BLOCK_WIDTH)}[/bold white]",
+        f"[bold yellow]{title.center(BLOCK_WIDTH)}[/bold yellow]",
     ]
     if subtitle:
         lines.append(f"[dim]{subtitle.center(BLOCK_WIDTH)}[/dim]")
@@ -36,4 +39,31 @@ def format_header_60(title: str, subtitle: str = "") -> List[str]:
 
 
 def format_divider_60() -> str:
-    return f"[dim]{SINGLE_LINE}[/dim]"
+    return f"[sky_blue]{SINGLE_LINE}[/sky_blue]"
+
+
+def print_panel(content: str, title: str = "", border_style: str = "sky_blue") -> None:
+    """Print a rich Panel centered on the 60-char grid."""
+    panel = Panel(
+        content,
+        title=title or None,
+        width=BLOCK_WIDTH + 4,
+        border_style=border_style,
+        padding=(0, 1),
+    )
+    console.print(Align.center(panel))
+
+
+def print_success(msg: str) -> None:
+    pad = get_block_padding()
+    console.print(f"{pad}[bold green]✓ {msg}[/bold green]")
+
+
+def print_error(msg: str) -> None:
+    pad = get_block_padding()
+    console.print(f"{pad}[bold red]✗ {msg}[/bold red]")
+
+
+def print_info(msg: str) -> None:
+    pad = get_block_padding()
+    console.print(f"{pad}[dim]{msg}[/dim]")

@@ -1,21 +1,43 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.install.log
-users.json
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project internal files — NOT for public repo
+PROJECT_PROTOCOL.md
+TASKS.md
+GEMINI.md
+REFACTORING_PLAN.md
+.agents/
+
+# pytest
+.pytest_cache/
+
+# Instance data (server-specific)
 instance.env
-*.bak
-.tb_update_cache
+users.json
 backups/
 sub/
-.service_states
-.update_notified
-bot/__pycache__/
-bot/handlers/__pycache__/
 
-# Internal agent configs, rules and skills
-.agents/
-GEMINI.md
-AGENTS.md
-PROJECT_PROTOCOL.md
+# Logs
+/var/log/transferbox/
+*.log

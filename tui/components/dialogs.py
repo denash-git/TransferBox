@@ -1,48 +1,47 @@
 from __future__ import annotations
 import sys
-import getpass
+from prompt_toolkit import prompt
+from prompt_toolkit.styles import Style
+
 from .layout import get_block_padding, BLOCK_WIDTH
 
+INPUT_STYLE = Style.from_dict({
+    "prompt": "bold #5599dd",
+})
 
-def read_input(prompt_text: str, default: str = "") -> str:
-    """Prompt user for input anchored strictly at the 60-character block grid."""
+
+def read_input(prompt_text: str, default: str = "", is_password: bool = False) -> str:
+    """Prompt user for input anchored at the 60-character block grid using prompt_toolkit."""
     pad = get_block_padding(BLOCK_WIDTH)
-    sys.stdout.write("\033[?25h")  # Ensure cursor is visible
     prompt_str = f"{pad}{prompt_text.strip()} "
     try:
-        val = input(prompt_str)
-        sys.stdout.write("\033[?25l")  # Hide cursor again
-        return (val.strip() or default)
+        val = prompt(
+            prompt_str,
+            default=default,
+            is_password=is_password,
+            style=INPUT_STYLE,
+        )
+        return val.strip()
     except (KeyboardInterrupt, EOFError):
-        sys.stdout.write("\033[?25l\n")
         return ""
 
 
 def read_secret(prompt_text: str) -> str:
-    """Prompt user for password with masked characters strictly on the grid."""
-    pad = get_block_padding(BLOCK_WIDTH)
-    sys.stdout.write("\033[?25h")
-    prompt_str = f"{pad}{prompt_text.strip()} "
-    try:
-        val = getpass.getpass(prompt_str)
-        sys.stdout.write("\033[?25l")
-        return val.strip()
-    except (KeyboardInterrupt, EOFError):
-        sys.stdout.write("\033[?25l\n")
-        return ""
+    """Prompt user for password with masked characters on the grid."""
+    return read_input(prompt_text, is_password=True)
 
 
 def confirm_dialog(question: str) -> bool:
-    """Prompt user for confirmation (y/N)."""
-    val = read_input(f"{question} (д/Н): ")
+    """Prompt user for confirmation (д/Н)."""
+    val = read_input(f"{question} (д/Н):")
     return val.strip().lower() in ("д", "y", "yes", "да", "1")
 
 
 def pause_prompt():
     """Waits for Enter centered on the grid."""
     pad = get_block_padding(BLOCK_WIDTH)
-    prompt_str = f"\n{pad}\033[2mНажмите Enter для продолжения...\033[0m"
+    prompt_str = f"\n{pad}Нажмите Enter для продолжения... "
     try:
-        input(prompt_str)
+        prompt(prompt_str, style=INPUT_STYLE)
     except (KeyboardInterrupt, EOFError):
         pass

@@ -9,7 +9,7 @@ from core.services.network_service import NetworkService
 from core.services.backup_service import BackupService
 
 from tui.components.menu import ArrowMenu, MenuItem, StatusLine
-from tui.components.layout import get_block_padding
+from tui.components.layout import get_block_padding, print_info
 from .users_screen import UsersScreen
 from .services_screen import ServicesScreen
 from .backup_screen import BackupScreen
@@ -96,7 +96,7 @@ class MainScreen:
             choice = menu.show()
 
             if choice in ("exit", "back", None):
-                console.print(f"\n{get_block_padding()}[dim]Выход из TransferBox. До свидания![/dim]\n")
+                print_info("Выход из TransferBox. До свидания!")
                 break
             elif choice == "users":
                 self.users_screen.show()
