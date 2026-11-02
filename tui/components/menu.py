@@ -217,7 +217,7 @@ class ArrowMenu:
 
         # Non-interactive check (e.g. piped or test environment)
         if not sys.stdin.isatty():
-            return self.items[0].id if self.items else "exit"
+            return "exit"
 
         # Enter alternate screen buffer & hide cursor
         sys.stdout.write(f"{C_ENTER_ALT_SCREEN}{C_HIDE_CURSOR}{C_CLEAR_SCREEN}")
