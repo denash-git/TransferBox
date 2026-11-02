@@ -3,6 +3,8 @@ from .users_screen import UsersScreen
 from .services_screen import ServicesScreen
 from .backup_screen import BackupScreen
 from .settings_screen import SettingsScreen
+from .diagnostics_screen import DiagnosticsScreen
+from .bot_screen import BotScreen
 
 __all__ = [
     "MainScreen",
@@ -10,4 +12,6 @@ __all__ = [
     "ServicesScreen",
     "BackupScreen",
     "SettingsScreen",
+    "DiagnosticsScreen",
+    "BotScreen",
 ]

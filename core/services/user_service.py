@@ -12,9 +12,10 @@ from core.models.config import AppConfig
 class UserService:
     """Service for managing VPN/proxy users, configurations and subscription links."""
 
-    def __init__(self, db_path: str = "/opt/transferbox/users.json"):
+    def __init__(self, db_path: str = "/opt/transferbox/users.json", on_change_callback=None):
         self.db_path = db_path
         self._users_cache: Optional[List[User]] = None
+        self.on_change_callback = on_change_callback
 
     def load_users(self, force_reload: bool = False) -> List[User]:
         if self._users_cache is not None and not force_reload:
@@ -48,6 +49,11 @@ class UserService:
             except Exception:
                 with open(self.db_path, "w", encoding="utf-8") as f:
                     json.dump([u.to_dict() for u in users], f, indent=2, ensure_ascii=False)
+            if self.on_change_callback:
+                try:
+                    self.on_change_callback(users)
+                except Exception:
+                    pass
             return True
         except Exception:
             return False

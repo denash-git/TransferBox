@@ -5,6 +5,7 @@ from core.services.user_service import UserService
 from core.services.service_manager import ServiceManager
 from core.services.network_service import NetworkService
 from core.services.backup_service import BackupService
+from core.services.diagnostics_service import DiagnosticsService
 from tui.screens.main_screen import MainScreen
 
 
@@ -15,6 +16,7 @@ def test_main_screen_initialization(tmp_path):
     service_mgr = ServiceManager(mock_exec)
     network_service = NetworkService(mock_exec)
     backup_service = BackupService(mock_exec, backup_dir=str(tmp_path / "backups"))
+    diagnostics_service = DiagnosticsService(mock_exec)
 
     main_screen = MainScreen(
         config=config,
@@ -22,6 +24,7 @@ def test_main_screen_initialization(tmp_path):
         service_mgr=service_mgr,
         network_service=network_service,
         backup_service=backup_service,
+        diagnostics_service=diagnostics_service,
     )
 
     lines = main_screen._get_status_lines()

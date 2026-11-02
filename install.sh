@@ -221,7 +221,7 @@ log_ok "Службы caddy и sing-box зарегистрированы и до�
 
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
-BRANCH="${BRANCH:-refactor/python-core}"
+BRANCH="${BRANCH:-main}"
 
 if [[ "$IS_PIPED" == "true" ]]; then
     if [[ -d "./core" && -d "./templates" && -d "./bot" && -d "./tui" && -f "./transferbox" ]]; then
@@ -229,7 +229,7 @@ if [[ "$IS_PIPED" == "true" ]]; then
     else
         log_info "Запуск в режиме стрима, клонируем файлы проекта из GitHub (ветка: $BRANCH)..."
         rm -rf /tmp/TransferBox
-        git clone -q -b "$BRANCH" https://github.com/denash-git/TransferBox.git /tmp/TransferBox
+        git clone -q -b "$BRANCH" https://github.com/denash-git/kvnBox.git /tmp/TransferBox
         SCRIPT_DIR="/tmp/TransferBox"
     fi
 fi

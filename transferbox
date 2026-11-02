@@ -3,6 +3,7 @@
 # TransferBox v4.0.0 Launcher (Modular Python TUI)
 # =============================================================================
 set -euo pipefail
+VERSION="4.0.0"
 
 # Resolve symlinks to find real project directory
 TARGET="${BASH_SOURCE[0]}"

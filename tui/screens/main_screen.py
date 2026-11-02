@@ -7,13 +7,16 @@ from core.services.user_service import UserService
 from core.services.service_manager import ServiceManager
 from core.services.network_service import NetworkService
 from core.services.backup_service import BackupService
+from core.services.diagnostics_service import DiagnosticsService
 
 from tui.components.menu import ArrowMenu, MenuItem, StatusLine
-from tui.components.layout import get_block_padding, print_info
+from tui.components.layout import get_block_padding
 from .users_screen import UsersScreen
 from .services_screen import ServicesScreen
 from .backup_screen import BackupScreen
 from .settings_screen import SettingsScreen
+from .diagnostics_screen import DiagnosticsScreen
+from .bot_screen import BotScreen
 
 console = Console(highlight=False)
 
@@ -26,22 +29,29 @@ class MainScreen:
         service_mgr: ServiceManager,
         network_service: NetworkService,
         backup_service: BackupService,
+        diagnostics_service: DiagnosticsService,
+        env_save_callback=None,
     ):
         self.config = config
         self.user_service = user_service
         self.service_mgr = service_mgr
         self.network_service = network_service
         self.backup_service = backup_service
+        self.diagnostics_service = diagnostics_service
+        self.env_save_callback = env_save_callback
 
         self.users_screen = UsersScreen(self.user_service, self.config)
         self.services_screen = ServicesScreen(self.service_mgr)
         self.backup_screen = BackupScreen(self.backup_service, self.config)
         self.settings_screen = SettingsScreen(self.network_service, self.config)
+        self.diagnostics_screen = DiagnosticsScreen(self.diagnostics_service)
+        self.bot_screen = BotScreen(self.service_mgr, self.config, self.env_save_callback)
 
     def _get_status_lines(self) -> list[StatusLine]:
         caddy_st = self.service_mgr.get_service_status("caddy")
         singbox_st = self.service_mgr.get_service_status("sing-box")
         mieru_st = self.service_mgr.get_service_status("mita")
+        bot_st = self.service_mgr.get_service_status("transferbox-bot")
         bbr_on = self.network_service.is_bbr_enabled()
 
         def dot_color(st: ServiceStatus) -> str:
@@ -53,6 +63,7 @@ class MainScreen:
             StatusLine(label="Caddy:", value=caddy_st.display_label, dot_color=dot_color(caddy_st)),
             StatusLine(label="sing-box:", value=singbox_st.display_label, dot_color=dot_color(singbox_st)),
             StatusLine(label="Mieru:", value=mieru_st.display_label, dot_color=dot_color(mieru_st)),
+            StatusLine(label="Telegram Bot:", value=bot_st.display_label, dot_color=dot_color(bot_st)),
             StatusLine(label="TCP BBR:", value="активен" if bbr_on else "отключен", dot_color="green" if bbr_on else "red"),
         ]
         return lines
@@ -71,6 +82,14 @@ class MainScreen:
                 MenuItem(
                     id="services",
                     label="Состояние служб & Управление",
+                ),
+                MenuItem(
+                    id="bot",
+                    label="Управление Telegram-ботом",
+                ),
+                MenuItem(
+                    id="diagnostics",
+                    label="Диагностика & Speedtest",
                 ),
                 MenuItem(
                     id="backup",
@@ -96,12 +115,16 @@ class MainScreen:
             choice = menu.show()
 
             if choice in ("exit", "back", None):
-                print_info("Выход из TransferBox. До свидания!")
+                console.print(f"\n{get_block_padding()}[dim]Выход из TransferBox. До свидания![/dim]\n")
                 break
             elif choice == "users":
                 self.users_screen.show()
             elif choice == "services":
                 self.services_screen.show()
+            elif choice == "bot":
+                self.bot_screen.show()
+            elif choice == "diagnostics":
+                self.diagnostics_screen.show()
             elif choice == "backup":
                 self.backup_screen.show()
             elif choice == "settings":

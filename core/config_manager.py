@@ -707,7 +707,7 @@ def remove_old_ssh_port_ufw(old_port):
 
 
 def get_app_version() -> str:
-    """Reads VERSION from transferbox script, fallback to 3.0.9."""
+    """Reads VERSION from transferbox script, fallback to 4.0.0."""
     tb_path = os.path.join(PROJECT_ROOT, "transferbox")
     if os.path.exists(tb_path):
         try:
@@ -717,4 +717,4 @@ def get_app_version() -> str:
                         return line.split("=", 1)[1].strip().strip('"').strip("'")
         except Exception:
             pass
-    return "3.0.9"
+    return "4.0.0"
