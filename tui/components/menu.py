@@ -151,4 +151,7 @@ class ArrowMenu:
             full_screen=False,
         )
 
-        return app.run()
+        try:
+            return app.run()
+        except (EOFError, KeyboardInterrupt):
+            return "exit"
