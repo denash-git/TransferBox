@@ -221,21 +221,23 @@ log_ok "Службы caddy и sing-box зарегистрированы и до�
 
 # Копирование файлов проекта
 step "Копирование файлов TransferBox"
+BRANCH="${BRANCH:-refactor/python-core}"
+
 if [[ "$IS_PIPED" == "true" ]]; then
-    if [[ -d "./core" && -d "./templates" && -d "./lib" && -d "./bot" && -f "./transferbox" ]]; then
+    if [[ -d "./core" && -d "./templates" && -d "./bot" && -d "./tui" && -f "./transferbox" ]]; then
         SCRIPT_DIR="$(pwd)"
     else
-        log_info "Запуск в режиме стрима, клонируем файлы проекта из GitHub..."
+        log_info "Запуск в режиме стрима, клонируем файлы проекта из GitHub (ветка: $BRANCH)..."
         rm -rf /tmp/TransferBox
-        git clone -q https://github.com/denash-git/TransferBox.git /tmp/TransferBox
+        git clone -q -b "$BRANCH" https://github.com/denash-git/TransferBox.git /tmp/TransferBox
         SCRIPT_DIR="/tmp/TransferBox"
     fi
 fi
 mkdir -p "$PROJECT_ROOT"
 mkdir -p "${PROJECT_ROOT}/backups"
-cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/lib" "$SCRIPT_DIR/bot" "$PROJECT_ROOT/"
+cp -r "$SCRIPT_DIR/core" "$SCRIPT_DIR/templates" "$SCRIPT_DIR/bot" "$SCRIPT_DIR/tui" "$PROJECT_ROOT/"
 chmod 755 "$PROJECT_ROOT"
-chmod -R 755 "$PROJECT_ROOT/core" "$PROJECT_ROOT/templates" "$PROJECT_ROOT/lib" "$PROJECT_ROOT/bot" 2>/dev/null || true
+chmod -R 755 "$PROJECT_ROOT/core" "$PROJECT_ROOT/templates" "$PROJECT_ROOT/bot" "$PROJECT_ROOT/tui" 2>/dev/null || true
 chmod 700 "$PROJECT_ROOT/backups"
 
 # Определение FQDN
@@ -354,7 +356,7 @@ echo -e "  Домен: ${GREEN}${domain}${RESET}"
 echo -e "  Команда управления: ${GREEN}menu${RESET}"
 echo
 echo -e "  Сгенерированы стартовые учетные записи для пользователя ${BOLD}admin${RESET}."
-echo -e "  Запустите ${GREEN}menu${RESET} -> выберите ${BOLD}1${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
+echo -e "  Запустите ${GREEN}menu${RESET} -> выберите ${BOLD}Управление пользователями${RESET}, чтобы просмотреть ссылки подключения и QR-коды."
 echo
 echo -e "  ${YELLOW}⚠️ Важное примечание по SSL:${RESET}"
 echo -e "  Если ваш домен ${BOLD}${domain}${RESET} еще не направлен на IP этого сервера,"
