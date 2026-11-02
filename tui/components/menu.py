@@ -141,7 +141,7 @@ class ArrowMenu:
             "cursor": "#34d399 bold",     # emerald-400
             "selected": "#ffffff bold bg:#1e293b", # slate-800 highlight
             "unselected": "#cbd5e1",
-            "hint": "#64748b text-xs",
+            "hint": "#64748b italic",
         })
 
         app = Application(

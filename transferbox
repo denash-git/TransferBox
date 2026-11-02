@@ -4,8 +4,21 @@
 # =============================================================================
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PYTHONPATH="${SCRIPT_DIR}"
+# Resolve symlinks to find real project directory
+TARGET="${BASH_SOURCE[0]}"
+while [ -L "$TARGET" ]; do
+    DIR="$(cd -P "$(dirname "$TARGET")" >/dev/null 2>&1 && pwd)"
+    TARGET="$(readlink "$TARGET")"
+    [[ $TARGET != /* ]] && TARGET="$DIR/$TARGET"
+done
+PROJECT_DIR="$(cd -P "$(dirname "$TARGET")" >/dev/null 2>&1 && pwd)"
+
+# Fallback to standard installation directory if needed
+if [ ! -f "${PROJECT_DIR}/tui/app.py" ] && [ -f "/opt/transferbox/tui/app.py" ]; then
+    PROJECT_DIR="/opt/transferbox"
+fi
+
+export PYTHONPATH="${PROJECT_DIR}"
 
 # Проверка запуска от root
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -13,4 +26,4 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     exit 1
 fi
 
-exec /usr/bin/python3 "${SCRIPT_DIR}/tui/app.py" "$@"
+exec /usr/bin/python3 "${PROJECT_DIR}/tui/app.py" "$@"

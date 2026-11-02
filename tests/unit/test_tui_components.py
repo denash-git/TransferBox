@@ -33,3 +33,19 @@ def test_arrow_menu_formatting_no_numbers():
     # Verify icons and labels are present
     assert "👥 Управление пользователями" in text
     assert "⚡ Настройки протоколов" in text
+
+
+def test_arrow_menu_style_validity():
+    from prompt_toolkit.styles import Style
+    # Ensure style dictionary passes prompt_toolkit parsing without errors
+    style = Style.from_dict({
+        "border": "#38bdf8 bold",
+        "divider": "#64748b",
+        "title": "#ffffff bold",
+        "subtitle": "#94a3b8 italic",
+        "cursor": "#34d399 bold",
+        "selected": "#ffffff bold bg:#1e293b",
+        "unselected": "#cbd5e1",
+        "hint": "#64748b italic",
+    })
+    assert style is not None
