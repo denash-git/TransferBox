@@ -7,7 +7,7 @@ from core.models.config import AppConfig
 from core.services.user_service import UserService
 from tui.components.menu import ArrowMenu, MenuItem
 from tui.components.dialogs import read_input, confirm_dialog, pause_prompt
-from tui.components.layout import get_block_padding, BLOCK_WIDTH, format_header_60, DOUBLE_LINE, SINGLE_LINE
+from tui.components.layout import get_block_padding
 
 console = Console(highlight=False)
 
@@ -26,19 +26,18 @@ class UsersScreen:
                 extra = f"{status_dot} {u.protocol.value.upper()}"
                 user_items.append(MenuItem(
                     id=f"user_{u.nickname}",
-                    label=u.nickname,
-                    icon="👤",
+                    label=f"  {u.nickname}",
                     extra=extra,
                 ))
 
             menu_items = [
-                MenuItem(id="add_user", label="Добавить пользователя", icon="➕"),
+                MenuItem(id="add_user", label="[+] Добавить пользователя"),
             ]
             menu_items.extend(user_items)
-            menu_items.append(MenuItem(id="back", label="Назад в главное меню", icon="◀️"))
+            menu_items.append(MenuItem(id="back", label="Назад в главное меню"))
 
             menu = ArrowMenu(
-                title="👥 Управление пользователями",
+                title="Управление пользователями",
                 subtitle=f"Всего пользователей: {len(users)}",
                 items=menu_items,
             )
@@ -49,29 +48,28 @@ class UsersScreen:
             elif choice == "add_user":
                 self._add_user_flow()
             elif choice and choice.startswith("user_"):
-                nick = choice.replace("user_", "", 1)
+                nick = choice.replace("user_", "", 1).strip()
                 self._user_card_flow(nick)
 
     def _add_user_flow(self):
         console.print()
-        nick = read_input("Введите имя нового пользователя:")
+        nick = read_input("Имя нового пользователя:")
         if not nick:
             return
 
         if self.user_service.get_user_by_name(nick):
-            console.print(f"[bold red]{get_block_padding()}Ошибка: Пользователь '{nick}' уже существует![/bold red]")
+            console.print(f"\n{get_block_padding()}[bold red]Ошибка: Пользователь '{nick}' уже существует![/bold red]")
             pause_prompt()
             return
 
-        # Protocol selection
         proto_menu = ArrowMenu(
             title="Выбор протокола",
             subtitle=f"Пользователь: {nick}",
             items=[
-                MenuItem(id="vless", label="VLESS (WebSocket / gRPC / XHTTP)", icon="⚡"),
-                MenuItem(id="naive", label="NaiveProxy (HTTPS)", icon="🛡️"),
-                MenuItem(id="mieru", label="Mieru (mita)", icon="🌐"),
-                MenuItem(id="back", label="Отмена", icon="◀️"),
+                MenuItem(id="vless", label="VLESS (WebSocket / gRPC / XHTTP)"),
+                MenuItem(id="naive", label="NaiveProxy (HTTPS)"),
+                MenuItem(id="mieru", label="Mieru (mita)"),
+                MenuItem(id="back", label="Отмена"),
             ]
         )
         proto_choice = proto_menu.show()
@@ -90,26 +88,22 @@ class UsersScreen:
         pause_prompt()
 
     def _user_card_flow(self, nickname: str):
-        user = self.user_service.get_user_by_name(nickname)
-        if not user:
-            return
-
         while True:
             user = self.user_service.get_user_by_name(nickname)
             if not user:
                 break
 
-            status_str = "● Активен" if user.enabled else "○ Отключен"
+            status_str = "● активен" if user.enabled else "○ отключен"
             toggle_label = "Отключить доступ" if user.enabled else "Включить доступ"
 
             card_menu = ArrowMenu(
-                title=f"👤 Карточка: {user.nickname}",
-                subtitle=f"Протокол: {user.protocol.value.upper()} | Статус: {status_str}",
+                title=f"Карточка: {user.nickname}",
+                subtitle=f"{user.protocol.value.upper()} | {status_str}",
                 items=[
-                    MenuItem(id="show_link", label="Показать ссылку подключения", icon="🔑"),
-                    MenuItem(id="toggle", label=toggle_label, icon="🔄"),
-                    MenuItem(id="delete", label="Удалить пользователя", icon="❌"),
-                    MenuItem(id="back", label="Назад к списку", icon="◀️"),
+                    MenuItem(id="show_link", label="Показать ссылку подключения"),
+                    MenuItem(id="toggle", label=toggle_label),
+                    MenuItem(id="delete", label="Удалить пользователя"),
+                    MenuItem(id="back", label="Назад к списку"),
                 ]
             )
             action = card_menu.show()

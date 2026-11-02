@@ -17,18 +17,18 @@ class SettingsScreen:
 
     def show(self):
         while True:
-            bbr_status = "ВКЛЮЧЕН" if self.network_service.is_bbr_enabled() else "ОТКЛЮЧЕН"
+            bbr_status = "активен" if self.network_service.is_bbr_enabled() else "отключен"
             bbr_dot = "●" if self.network_service.is_bbr_enabled() else "○"
 
             items = [
-                MenuItem(id="change_ssh", label=f"Порт SSH (Текущий: {self.config.ssh_port})", icon="🛡️"),
-                MenuItem(id="toggle_bbr", label=f"Ускорение сети BBR ({bbr_dot} {bbr_status})", icon="⚡"),
-                MenuItem(id="back", label="Назад в главное меню", icon="◀️"),
+                MenuItem(id="change_ssh", label=f"Порт SSH (Текущий: {self.config.ssh_port})"),
+                MenuItem(id="toggle_bbr", label=f"Ускорение BBR ({bbr_dot} {bbr_status})"),
+                MenuItem(id="back", label="Назад в главное меню"),
             ]
 
             menu = ArrowMenu(
-                title="⚙️ Системные настройки и Сеть",
-                subtitle=f"SSH: {self.config.ssh_port} | BBR: {bbr_status}",
+                title="Системные настройки и Сеть",
+                subtitle=f"SSH: {self.config.ssh_port} | BBR: {bbr_status.upper()}",
                 items=items,
             )
             choice = menu.show()
@@ -37,7 +37,7 @@ class SettingsScreen:
                 break
             elif choice == "change_ssh":
                 console.print()
-                new_port_str = read_input(f"Введите новый порт SSH (1-65535, текущий: {self.config.ssh_port}):")
+                new_port_str = read_input(f"Введите новый порт SSH (текущий: {self.config.ssh_port}):")
                 if not new_port_str or not new_port_str.isdigit():
                     console.print(f"\n{get_block_padding()}[bold red]Некорректный порт.[/bold red]")
                     pause_prompt()

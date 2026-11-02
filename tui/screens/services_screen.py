@@ -18,24 +18,23 @@ class ServicesScreen:
             services = self.service_mgr.get_all_services()
             items = []
             for s in services:
-                color = "green" if s.status.is_healthy else "red"
-                extra = f"[{color}]● {s.status.display_label}[/{color}]"
+                dot = "●" if s.status.is_healthy else "●"
+                extra = f"{dot} {s.status.display_label}"
                 items.append(MenuItem(
                     id=f"service_{s.name}",
                     label=s.display_name,
-                    icon="⚙️",
                     extra=extra,
                 ))
 
             items.extend([
-                MenuItem(id="reload_caddy", label="Мягкий перезапуск Caddy (с валидацией)", icon="🔄"),
-                MenuItem(id="restart_singbox", label="Перезапустить Sing-Box", icon="🔄"),
-                MenuItem(id="restart_mieru", label="Перезапустить Mieru (mita)", icon="🔄"),
-                MenuItem(id="back", label="Назад в главное меню", icon="◀️"),
+                MenuItem(id="reload_caddy", label="Перезагрузить Caddy (Reload с валидацией)"),
+                MenuItem(id="restart_singbox", label="Перезапустить Sing-Box"),
+                MenuItem(id="restart_mieru", label="Перезапустить Mieru (mita)"),
+                MenuItem(id="back", label="Назад в главное меню"),
             ])
 
             menu = ArrowMenu(
-                title="⚙️ Состояние системных служб",
+                title="Состояние системных служб",
                 subtitle="Caddy, Sing-box, Mieru & Telegram Bot",
                 items=items,
             )

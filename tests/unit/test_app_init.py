@@ -25,8 +25,6 @@ def test_main_screen_initialization(tmp_path):
     )
 
     lines = main_screen._get_status_lines()
-    assert len(lines) == 2
-    assert "test.example.com" in lines[0]
-    assert "1.2.3.4" in lines[0]
-    assert "Caddy:" in lines[1]
-    assert "Sing-Box:" in lines[1]
+    assert len(lines) >= 4
+    assert lines[0].value == "test.example.com"
+    assert lines[1].value == "1.2.3.4"

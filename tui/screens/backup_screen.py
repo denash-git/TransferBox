@@ -22,15 +22,15 @@ class BackupScreen:
             pwd_status = "задан" if has_pwd else "не задан"
 
             items = [
-                MenuItem(id="create_backup", label="Создать бэкап настроек", icon="💾"),
-                MenuItem(id="set_password", label=f"Пароль шифрования ({pwd_status})", icon="🔒"),
-                MenuItem(id="restore", label="Восстановить из последнего бэкапа", icon="📦"),
-                MenuItem(id="list", label=f"Список архивов ({len(backups)})", icon="📋"),
-                MenuItem(id="back", label="Назад в главное меню", icon="◀️"),
+                MenuItem(id="create_backup", label="Создать бэкап настроек"),
+                MenuItem(id="set_password", label=f"Пароль шифрования ({pwd_status})"),
+                MenuItem(id="restore", label="Восстановить из последнего бэкапа"),
+                MenuItem(id="list", label=f"Список архивов ({len(backups)})"),
+                MenuItem(id="back", label="Назад в главное меню"),
             ]
 
             menu = ArrowMenu(
-                title="💾 Резервное копирование и Восстановление",
+                title="Бэкап и Восстановление",
                 subtitle=f"Шифрование: {pwd_status.upper()} | Архивов: {len(backups)}",
                 items=items,
             )
@@ -60,7 +60,7 @@ class BackupScreen:
                     pause_prompt()
                     continue
 
-                if confirm_dialog(f"Восстановить конфигурацию из {latest}?"):
+                if confirm_dialog(f"Восстановить конфигурацию из архива?"):
                     pwd = self.config.backup_password or None
                     ok, msg = self.backup_service.restore_backup(latest, password=pwd)
                     if not ok and "паролем" in msg.lower():

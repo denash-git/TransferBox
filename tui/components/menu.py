@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import List, Optional, Callable
-import sys
+from typing import List, Optional, Tuple
+import shutil
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
@@ -9,23 +9,45 @@ from prompt_toolkit.layout.containers import Window, HSplit
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.styles import Style
 
-from .layout import get_block_padding, BLOCK_WIDTH, DOUBLE_LINE, SINGLE_LINE
+BLOCK_WIDTH = 60
+DOUBLE_LINE = "═" * BLOCK_WIDTH
+SINGLE_LINE = "─" * BLOCK_WIDTH
+
+
+def get_terminal_width() -> int:
+    cols, _ = shutil.get_terminal_size((80, 24))
+    return cols
+
+
+def get_block_padding(block_width: int = BLOCK_WIDTH) -> str:
+    cols = get_terminal_width()
+    pad = (cols - block_width) // 2
+    if pad < 2:
+        pad = 2
+    return " " * pad
 
 
 @dataclass
 class MenuItem:
     id: str
     label: str
-    icon: str = ""
     extra: str = ""
+
+
+@dataclass
+class StatusLine:
+    label: str
+    value: str
+    dot_color: Optional[str] = None  # "green", "red", "yellow"
 
 
 class ArrowMenu:
     """
-    Arrow-key interactive menu (No numbers!)
+    Strict 60-character block grid menu without broken emojis.
+    Authentic TransferBox visual styling (Blue borders, Yellow header, Green/Red dots).
     Navigated via Up/Down or k/j, Enter to select, Escape/q to exit.
-    Strictly adheres to 60-character centered grid.
     """
 
     def __init__(
@@ -33,12 +55,12 @@ class ArrowMenu:
         title: str,
         subtitle: str = "",
         items: Optional[List[MenuItem]] = None,
-        info_lines: Optional[List[str]] = None,
+        status_lines: Optional[List[StatusLine]] = None,
     ):
         self.title = title
         self.subtitle = subtitle
         self.items = items or []
-        self.info_lines = info_lines or []
+        self.status_lines = status_lines or []
         self.selected_index = 0
         self.result: Optional[str] = None
 
@@ -46,44 +68,43 @@ class ArrowMenu:
         pad = get_block_padding(BLOCK_WIDTH)
         result: FormattedText = []
 
-        # Clear screen marker & spacing
         result.append(("", "\n"))
 
-        # Header 60 chars
-        result.append(("", f"{pad}"))
+        # Main Header (Double Line 60 chars)
+        result.append(("", pad))
         result.append(("class:border", f"{DOUBLE_LINE}\n"))
-        result.append(("", f"{pad}"))
+        result.append(("", pad))
         result.append(("class:title", f"{self.title.center(BLOCK_WIDTH)}\n"))
         if self.subtitle:
-            result.append(("", f"{pad}"))
+            result.append(("", pad))
             result.append(("class:subtitle", f"{self.subtitle.center(BLOCK_WIDTH)}\n"))
-        result.append(("", f"{pad}"))
+        result.append(("", pad))
         result.append(("class:border", f"{DOUBLE_LINE}\n"))
 
-        # Info lines (services, IP, status)
-        if self.info_lines:
-            for line in self.info_lines:
-                result.append(("", f"{pad}{line}\n"))
-            result.append(("", f"{pad}"))
+        # Status lines (Services, Domain, IP)
+        if self.status_lines:
+            for s in self.status_lines:
+                result.append(("", f"{pad}  "))
+                result.append(("class:status_label", f"{s.label:<14}"))
+                if s.dot_color:
+                    result.append((f"class:dot_{s.dot_color}", "● "))
+                result.append(("class:status_value", f"{s.value}\n"))
+            result.append(("", pad))
             result.append(("class:divider", f"{SINGLE_LINE}\n"))
 
-        # Items (No numbering!)
+        # Menu items (No numbers, no broken emojis!)
         for idx, item in enumerate(self.items):
             is_active = (idx == self.selected_index)
-            icon_str = f"{item.icon} " if item.icon else ""
-            main_text = f"{icon_str}{item.label}"
-
-            # Calculate space between label and extra
-            # Inner usable space is BLOCK_WIDTH - 4 chars for cursor and borders: 56 chars
-            extra_len = len(item.extra)
             avail_len = BLOCK_WIDTH - 6
-            if extra_len > 0:
-                spacing = max(1, avail_len - len(main_text) - extra_len)
-                row_str = f"{main_text}{' ' * spacing}{item.extra}"
-            else:
-                row_str = f"{main_text:<{avail_len}}"
+            extra_len = len(item.extra)
 
-            result.append(("", f"{pad}"))
+            if extra_len > 0:
+                spacing = max(1, avail_len - len(item.label) - extra_len)
+                row_str = f"{item.label}{' ' * spacing}{item.extra}"
+            else:
+                row_str = f"{item.label:<{avail_len}}"
+
+            result.append(("", pad))
             if is_active:
                 result.append(("class:cursor", " › "))
                 result.append(("class:selected", f"{row_str} \n"))
@@ -92,16 +113,15 @@ class ArrowMenu:
                 result.append(("class:unselected", f"{row_str} \n"))
 
         # Footer divider & navigation hints
-        result.append(("", f"{pad}"))
+        result.append(("", pad))
         result.append(("class:divider", f"{SINGLE_LINE}\n"))
         hint = " [↑/↓] Навигация  [Enter] Выбор"
-        result.append(("", f"{pad}"))
+        result.append(("", pad))
         result.append(("class:hint", f"{hint}\n\n"))
 
         return result
 
     def show(self) -> Optional[str]:
-        """Displays interactive menu and blocks until user presses Enter or Escape."""
         if not self.items:
             return None
 
@@ -132,16 +152,20 @@ class ArrowMenu:
         window = Window(content=control)
         layout = Layout(HSplit([window]))
 
-        from prompt_toolkit.styles import Style
         style = Style.from_dict({
-            "border": "#38bdf8 bold",     # sky-400
-            "divider": "#64748b",         # slate-500
-            "title": "#ffffff bold",
-            "subtitle": "#94a3b8 italic",
-            "cursor": "#34d399 bold",     # emerald-400
-            "selected": "#ffffff bold bg:#1e293b", # slate-800 highlight
-            "unselected": "#cbd5e1",
-            "hint": "#64748b italic",
+            "border": "ansiinteractive ansiblue bold",
+            "divider": "ansiblue",
+            "title": "ansiyellow bold",
+            "subtitle": "ansibrightblack",
+            "status_label": "ansiwhite bold",
+            "status_value": "ansiwhite",
+            "dot_green": "ansigreen bold",
+            "dot_red": "ansired bold",
+            "dot_yellow": "ansiyellow bold",
+            "cursor": "ansigreen bold",
+            "selected": "reverse bold",
+            "unselected": "ansiwhite",
+            "hint": "ansibrightblack",
         })
 
         app = Application(
