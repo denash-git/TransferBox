@@ -153,7 +153,7 @@ class ArrowMenu:
         layout = Layout(HSplit([window]))
 
         style = Style.from_dict({
-            "border": "ansiinteractive ansiblue bold",
+            "border": "ansiblue bold",
             "divider": "ansiblue",
             "title": "ansiyellow bold",
             "subtitle": "ansibrightblack",
