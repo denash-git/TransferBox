@@ -54,10 +54,10 @@ fi
 
 # Вывод приветственной шапки
 echo -e "${BLUE}════════════════════════════════════════════════════════════${RESET}"
-echo -e "${YELLOW}                     TransferBox v3.0.9                     ${RESET}"
+echo -e "${YELLOW}                     TransferBox v4.0.0                     ${RESET}"
 echo -e "${YELLOW}               Установка Панели Управления                  ${RESET}"
 echo -e "${BLUE}────────────────────────────────────────────────────────────${RESET}"
-echo -e "  Добро пожаловать в установщик TransferBox!"
+echo -e "  Добро пожаловать в установщик TransferBox (Python Edition)!"
 echo -e "  Скрипт настроит все в автоматическом режиме."
 echo -e "${BLUE}════════════════════════════════════════════════════════════${RESET}"
 echo ""
@@ -85,8 +85,8 @@ apt-get install -y -qq \
     build-essential curl wget git ca-certificates \
     python3 python3-pip python3-psutil ufw openssl qrencode jq libcap2-bin iperf3 fail2ban ipset python3-systemd >/dev/null
 
-log_info "Установка Python-зависимостей (aiogram)..."
-pip3 install --break-system-packages aiogram >/dev/null 2>&1 || pip3 install aiogram >/dev/null 2>&1 || true
+log_info "Установка Python-зависимостей (aiogram, prompt_toolkit, rich)..."
+pip3 install --break-system-packages aiogram prompt_toolkit rich pydantic >/dev/null 2>&1 || pip3 install aiogram prompt_toolkit rich pydantic >/dev/null 2>&1 || true
 
 # Настройка официального репозитория Ookla Speedtest
 log_info "Настройка репозитория Ookla Speedtest..."
