@@ -25,38 +25,17 @@ def test_arrow_menu_formatting_no_numbers():
         items=items,
         status_lines=status_lines,
     )
-    formatted = menu._render_menu()
-    text = "".join(part[1] for part in formatted)
+    frame = menu._render_frame(cols=80, rows=24)
 
     # Verify 60-char lines
-    assert "═" * 60 in text
-    assert "─" * 60 in text
+    assert "═" * 60 in frame
+    assert "─" * 60 in frame
     # Verify NO numbers like [1] or 1.
-    assert "[1]" not in text
-    assert "1." not in text
-    assert "[2]" not in text
+    assert "[1]" not in frame
+    assert "1." not in frame
+    assert "[2]" not in frame
     # Verify labels and status are present
-    assert "Пользователи" in text
-    assert "Настройки протоколов" in text
-    assert "test.com" in text
-    assert "● " in text
-
-
-def test_arrow_menu_style_validity():
-    from prompt_toolkit.styles import Style
-    style = Style.from_dict({
-        "border": "ansiblue bold",
-        "divider": "ansiblue",
-        "title": "ansiyellow bold",
-        "subtitle": "ansibrightblack",
-        "status_label": "ansiwhite bold",
-        "status_value": "ansiwhite",
-        "dot_green": "ansigreen bold",
-        "dot_red": "ansired bold",
-        "dot_yellow": "ansiyellow bold",
-        "cursor": "ansigreen bold",
-        "selected": "reverse bold",
-        "unselected": "ansiwhite",
-        "hint": "ansibrightblack",
-    })
-    assert style is not None
+    assert "Пользователи" in frame
+    assert "Настройки протоколов" in frame
+    assert "test.com" in frame
+    assert "●" in frame
