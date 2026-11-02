@@ -13,3 +13,9 @@ sub/
 .update_notified
 bot/__pycache__/
 bot/handlers/__pycache__/
+
+# Internal agent configs, rules and skills
+.agents/
+GEMINI.md
+AGENTS.md
+PROJECT_PROTOCOL.md

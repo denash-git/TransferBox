@@ -4191,13 +4191,13 @@ system_monitor_menu() {
 
         local term_width
         term_width=$(tput cols 2>/dev/null || echo 80)
-        local indent=$(( (term_width - 68) / 2 ))
+        local indent=$(( (term_width - 60) / 2 ))
         [ "$indent" -lt 2 ] && indent=2
         local col1=$(( indent + 1 ))
-        local col2=$(( indent + 36 ))
+        local col2=$(( indent + 30 ))
 
-        # ── Separator helper (fixed 68 chars)
-        local SEP="${DIM}────────────────────────────────────────────────────────────────────${RESET}"
+        # ── Separator helper (fixed 60 chars)
+        local SEP="${DIM}────────────────────────────────────────────────────────────${RESET}"
 
         # ── CPU | RAM
         printf "\033[%dG%b▸ CPU%b\033[%dG%b▸ RAM%b\n" "$col1" "$BOLD$BLUE" "$RESET" "$col2" "$BOLD$BLUE" "$RESET"
