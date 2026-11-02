@@ -1,39 +1,34 @@
 from __future__ import annotations
-from typing import Optional
-from prompt_toolkit.shortcuts import prompt
-from prompt_toolkit.formatted_text import FormattedText
-from rich.console import Console
-
-from .layout import get_block_padding, BLOCK_WIDTH, SINGLE_LINE, DOUBLE_LINE
-
-console = Console(highlight=False)
+import sys
+import getpass
+from .layout import get_block_padding, BLOCK_WIDTH
 
 
 def read_input(prompt_text: str, default: str = "") -> str:
     """Prompt user for input anchored strictly at the 60-character block grid."""
     pad = get_block_padding(BLOCK_WIDTH)
-    formatted_prompt = FormattedText([
-        ("", f"{pad}"),
-        ("class:prompt_lbl", f"{prompt_text.strip()} "),
-    ])
+    sys.stdout.write("\033[?25h")  # Ensure cursor is visible
+    prompt_str = f"{pad}{prompt_text.strip()} "
     try:
-        val = prompt(formatted_prompt, default=default)
-        return val.strip()
+        val = input(prompt_str)
+        sys.stdout.write("\033[?25l")  # Hide cursor again
+        return (val.strip() or default)
     except (KeyboardInterrupt, EOFError):
+        sys.stdout.write("\033[?25l\n")
         return ""
 
 
 def read_secret(prompt_text: str) -> str:
-    """Prompt user for password with masked characters (***) strictly on the grid."""
+    """Prompt user for password with masked characters strictly on the grid."""
     pad = get_block_padding(BLOCK_WIDTH)
-    formatted_prompt = FormattedText([
-        ("", f"{pad}"),
-        ("class:prompt_lbl", f"{prompt_text.strip()} "),
-    ])
+    sys.stdout.write("\033[?25h")
+    prompt_str = f"{pad}{prompt_text.strip()} "
     try:
-        val = prompt(formatted_prompt, is_password=True)
+        val = getpass.getpass(prompt_str)
+        sys.stdout.write("\033[?25l")
         return val.strip()
     except (KeyboardInterrupt, EOFError):
+        sys.stdout.write("\033[?25l\n")
         return ""
 
 
@@ -44,13 +39,10 @@ def confirm_dialog(question: str) -> bool:
 
 
 def pause_prompt():
-    """Waits for any key press centered on the grid."""
+    """Waits for Enter centered on the grid."""
     pad = get_block_padding(BLOCK_WIDTH)
-    formatted_prompt = FormattedText([
-        ("", f"{pad}"),
-        ("class:dim", "Нажмите Enter для продолжения..."),
-    ])
+    prompt_str = f"\n{pad}\033[2mНажмите Enter для продолжения...\033[0m"
     try:
-        prompt(formatted_prompt)
+        input(prompt_str)
     except (KeyboardInterrupt, EOFError):
         pass
