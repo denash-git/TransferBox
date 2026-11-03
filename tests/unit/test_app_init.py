@@ -6,6 +6,7 @@ from core.services.service_manager import ServiceManager
 from core.services.network_service import NetworkService
 from core.services.backup_service import BackupService
 from core.services.diagnostics_service import DiagnosticsService
+from core.services.config_render_service import ConfigRenderService
 from tui.screens.main_screen import MainScreen
 
 
@@ -17,6 +18,7 @@ def test_main_screen_initialization(tmp_path):
     network_service = NetworkService(mock_exec)
     backup_service = BackupService(mock_exec, backup_dir=str(tmp_path / "backups"))
     diagnostics_service = DiagnosticsService(mock_exec)
+    render_service = ConfigRenderService(project_root=str(tmp_path))
 
     main_screen = MainScreen(
         config=config,
@@ -25,9 +27,11 @@ def test_main_screen_initialization(tmp_path):
         network_service=network_service,
         backup_service=backup_service,
         diagnostics_service=diagnostics_service,
+        render_service=render_service,
     )
 
-    lines = main_screen._get_status_lines()
-    assert len(lines) >= 4
-    assert lines[0].value == "test.example.com"
-    assert lines[1].value == "1.2.3.4"
+    st = main_screen._get_status_dict()
+    assert st["domain"] == "test.example.com"
+    assert "caddy" in st
+    assert "singbox" in st
+    assert "bbr" in st

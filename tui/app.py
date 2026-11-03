@@ -20,9 +20,9 @@ from core.services.diagnostics_service import DiagnosticsService
 from core.services.config_render_service import ConfigRenderService
 from tui.screens.main_screen import MainScreen
 
-# Setup application logging
 log_dir = "/var/log/transferbox"
-os.makedirs(log_dir, exist_ok=True) if os.path.exists("/var/log") else None
+if os.path.exists("/var/log"):
+    os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -52,11 +52,9 @@ def save_env_file(config: AppConfig, env_file_path: str):
 
 
 def main():
-    # Detect environment
     is_linux = sys.platform.startswith("linux")
     executor = LinuxSystemExecutor() if is_linux else MockSystemExecutor()
 
-    # Load configuration
     env_file = os.path.join(PROJECT_ROOT, "instance.env")
     env_dict = {}
     if os.path.exists(env_file):
@@ -72,7 +70,6 @@ def main():
 
     config = AppConfig.from_env_dict(env_dict)
 
-    # Initialize services
     users_db = os.path.join(PROJECT_ROOT, "users.json")
     render_service = ConfigRenderService(project_root=PROJECT_ROOT)
     service_mgr = ServiceManager(executor=executor)
@@ -88,7 +85,6 @@ def main():
     backup_service = BackupService(executor=executor, backup_dir=os.path.join(PROJECT_ROOT, "backups"))
     diagnostics_service = DiagnosticsService(executor=executor)
 
-    # Launch TUI
     screen = MainScreen(
         config=config,
         user_service=user_service,
@@ -96,6 +92,7 @@ def main():
         network_service=network_service,
         backup_service=backup_service,
         diagnostics_service=diagnostics_service,
+        render_service=render_service,
         env_save_callback=lambda cfg: save_env_file(cfg, env_file),
     )
     screen.run()

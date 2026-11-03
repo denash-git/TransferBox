@@ -1,230 +1,272 @@
 from __future__ import annotations
 import sys
+import os
 import shutil
-from dataclasses import dataclass
-from typing import List, Optional
-
-from prompt_toolkit import Application
-from prompt_toolkit.layout import Layout, HSplit, Window
-from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.layout.dimension import Dimension
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.styles import Style
+import re
+from typing import List, Optional, Dict, Any, Tuple
 
 BLOCK_WIDTH = 60
 DOUBLE_LINE = "═" * BLOCK_WIDTH
 SINGLE_LINE = "─" * BLOCK_WIDTH
 
-
-@dataclass
-class MenuItem:
-    id: str
-    label: str
-    extra: str = ""
-
-
-@dataclass
-class StatusLine:
-    label: str
-    value: str
-    dot_color: Optional[str] = None  # "green", "red", "yellow"
-
-
-# Bright ANSI 16-color palette + bold: maximum compatibility AND vivid look
-# in every terminal (PowerShell, MobaXterm, PuTTY, Windows Terminal).
-STYLE = Style.from_dict({
-    "border": "bold ansiblue",
-    "title": "bold ansiyellow",
-    "subtitle": "bold ansibrightblack",
-    "item": "bold ansiwhite",
-    "item.selected": "bg:ansiblue fg:ansiwhite bold",
-    "extra": "ansibrightblack",
-    "dot.green": "bold ansigreen",
-    "dot.red": "bold ansired",
-    "dot.yellow": "bold ansiyellow",
-    "status.label": "bold ansiwhite",
-    "status.value": "ansiwhite",
-    "hint": "ansibrightblack",
-    "divider": "bold ansiblue",
-})
+# ANSI Colors
+ESC = "\033"
+C_RESET = f"{ESC}[0m"
+C_BOLD = f"{ESC}[1m"
+C_DIM = f"{ESC}[2m"
+C_BLUE = f"{ESC}[1;34m"
+C_YELLOW = f"{ESC}[1;33m"
+C_GREEN = f"{ESC}[1;32m"
+C_RED = f"{ESC}[1;31m"
+C_WHITE = f"{ESC}[1;37m"
+C_REVERSE = f"{ESC}[7m"
+C_YELLOW_BG = f"{ESC}[43;30m"
+C_RED_BG = f"{ESC}[41;37m"
+C_CLEAR_LINE = f"{ESC}[K"
+C_CLEAR_SCREEN = f"{ESC}[2J{ESC}[H"
+C_HOME = f"{ESC}[H"
+C_HIDE_CURSOR = f"{ESC}[?25l"
+C_SHOW_CURSOR = f"{ESC}[?25h"
+C_ENTER_ALT_SCREEN = f"{ESC}[?1049h"
+C_EXIT_ALT_SCREEN = f"{ESC}[?1049l"
 
 
-class ArrowMenu:
-    """
-    Flicker-free, smooth terminal menu using prompt_toolkit.
-    - Alternate screen buffer (no scroll artifacts).
-    - Differential redraw (only changed cells repaint).
-    - 60-char grid with EXPLICIT left padding computed from terminal width
-      (guaranteed horizontal centering in every terminal emulator).
-    - Vertical centering via flexible spacers above/below the content.
-    - Arrow-key navigation with smooth highlight.
-    """
+def strip_ansi(text: str) -> str:
+    """Removes ANSI escape codes from string for accurate width calculation."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
-    def __init__(
-        self,
-        title: str,
-        subtitle: str = "",
-        items: Optional[List[MenuItem]] = None,
-        status_lines: Optional[List[StatusLine]] = None,
-    ):
-        self.title = title
-        self.subtitle = subtitle
-        self.items = items or []
-        self.status_lines = status_lines or []
-        self.selected_index = 0
-        self._result: Optional[str] = None
 
-    @staticmethod
-    def _get_pad() -> str:
-        """Compute centering from prompt_toolkit's live terminal dimensions."""
+def get_terminal_size() -> Tuple[int, int]:
+    cols, rows = shutil.get_terminal_size((80, 24))
+    return cols, rows
+
+
+def read_key() -> str:
+    """Reads a single keypress cross-platform with non-blocking escape parsing."""
+    if sys.platform != "win32":
+        import termios
+        import tty
+        import select
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
         try:
-            from prompt_toolkit.application.current import get_app
-            cols = get_app().output.get_size().columns
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+            if ch == "\x1b":
+                # Check for escape sequence
+                r, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if r:
+                    ch2 = sys.stdin.read(1)
+                    if ch2 == "[":
+                        ch3 = sys.stdin.read(1)
+                        if ch3 == "A":
+                            return "up"
+                        elif ch3 == "B":
+                            return "down"
+                        elif ch3 == "C":
+                            return "right"
+                        elif ch3 == "D":
+                            return "left"
+                    elif ch2 == "O":
+                        ch3 = sys.stdin.read(1)
+                        if ch3 == "A":
+                            return "up"
+                        elif ch3 == "B":
+                            return "down"
+                return "escape"
+            elif ch in ("\r", "\n"):
+                return "enter"
+            elif ch in ("q", "Q"):
+                return "q"
+            elif ch == "0":
+                return "0"
+            elif ch in ("k", "w", "W"):
+                return "up"
+            elif ch in ("j", "s", "S"):
+                return "down"
+            return ch
+        except (KeyboardInterrupt, EOFError):
+            return "escape"
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    else:
+        import msvcrt
+        try:
+            ch = msvcrt.getch()
+            if ch in (b"\x00", b"\xe0"):
+                ch2 = msvcrt.getch()
+                if ch2 == b"H":
+                    return "up"
+                elif ch2 == b"P":
+                    return "down"
+            elif ch in (b"\r", b"\n"):
+                return "enter"
+            elif ch == b"\x1b":
+                return "escape"
+            elif ch in (b"q", b"Q"):
+                return "q"
+            elif ch == b"0":
+                return "0"
+            elif ch in (b"k", b"w", b"W"):
+                return "up"
+            elif ch in (b"j", b"s", b"S"):
+                return "down"
+            return ch.decode("latin1", errors="ignore")
         except Exception:
-            cols, _ = shutil.get_terminal_size((80, 24))
-        pad = (cols - BLOCK_WIDTH) // 2
-        return " " * max(2, pad)
+            return "escape"
 
-    def _render_frame(self, cols: int, rows: int) -> str:
-        """Render the menu as a plain-text frame (used by tests and debugging)."""
-        parts = []
-        for _style, text in self._build_fragments():
-            parts.append(text)
-        return "".join(parts)
 
-    def _build_fragments(self) -> list:
-        """Build formatted text fragments for the entire frame.
+def select_menu(
+    title: str,
+    options: List[str],
+    show_status: bool = False,
+    status_dict: Optional[Dict[str, str]] = None,
+) -> int:
+    """
+    Renders the authentic TransferBox menu with arrow navigation,
+    centered in both dimensions on the 60-character block grid.
+    Returns the index of selected option, or -1 on exit/cancel.
+    """
+    if not options:
+        return -1
 
-        Every visual line is prefixed with an explicit pad computed from the
-        CURRENT terminal width, so horizontal centering never depends on the
-        terminal emulator's alignment quirks.
-        """
-        pad = self._get_pad()
-        frags: list = []
+    if not sys.stdin.isatty():
+        return len(options) - 1
 
-        def line(parts: list) -> None:
-            frags.append(("", pad))
-            frags.extend(parts)
-            frags.append(("", "\n"))
+    active_idx = 0
 
-        # Header
-        line([("class:border", DOUBLE_LINE)])
-        line([("class:title", self.title.center(BLOCK_WIDTH))])
-        if self.subtitle:
-            line([("class:subtitle", self.subtitle.center(BLOCK_WIDTH))])
-        line([("class:border", DOUBLE_LINE)])
+    # Enter alternate screen buffer & hide cursor
+    sys.stdout.write(f"{C_ENTER_ALT_SCREEN}{C_HIDE_CURSOR}{C_CLEAR_SCREEN}")
+    sys.stdout.flush()
 
-        # Status lines
-        if self.status_lines:
-            line([])
-            for s in self.status_lines:
-                parts: list = []
-                if s.dot_color == "green":
-                    parts.append(("class:dot.green", "● "))
-                elif s.dot_color == "red":
-                    parts.append(("class:dot.red", "● "))
-                elif s.dot_color == "yellow":
-                    parts.append(("class:dot.yellow", "● "))
+    try:
+        while True:
+            cols, rows = get_terminal_size()
+            pad_x = max(2, (cols - BLOCK_WIDTH) // 2)
+            pad = " " * pad_x
+
+            lines: List[str] = []
+
+            # ─── HEADER ───────────────────────────────────────────────────────
+            lines.append(f"{pad}{C_BLUE}{DOUBLE_LINE}{C_RESET}")
+            lines.append(f"{pad}{C_YELLOW}{title.center(BLOCK_WIDTH)}{C_RESET}")
+
+            # Status block (only for main menu)
+            if show_status and status_dict:
+                lines.append(f"{pad}{C_BLUE}{SINGLE_LINE}{C_RESET}")
+                domain = status_dict.get("domain", "не задан")
+                fqdn = status_dict.get("fqdn", "")
+                lines.append(f"{pad}  {C_WHITE}Домен:        {C_BOLD}{domain}{C_RESET}")
+                if fqdn:
+                    lines.append(f"{pad}  {C_WHITE}FQDN VPS:     {C_BOLD}{fqdn}{C_RESET}")
+                lines.append(f"{pad}{C_BLUE}{SINGLE_LINE}{C_RESET}")
+
+                # Services dots
+                caddy_str = status_dict.get("caddy", "")
+                singbox_str = status_dict.get("singbox", "")
+                mieru_str = status_dict.get("mieru", "")
+                netbird_str = status_dict.get("netbird", "")
+                bbr_str = status_dict.get("bbr", "")
+                ssh_str = status_dict.get("ssh", f"{C_GREEN}включен{C_RESET}")
+                sec_str = status_dict.get("security", f"{C_GREEN}активна{C_RESET}")
+
+                lines.append(f"{pad}  {C_WHITE}TCP BBR:      {bbr_str}{C_RESET}")
+                lines.append(f"{pad}  {C_WHITE}Caddy:        {caddy_str}{C_RESET}")
+                lines.append(f"{pad}  {C_WHITE}sing-box:     {singbox_str}{C_RESET}")
+                if mieru_str:
+                    lines.append(f"{pad}  {C_WHITE}Mieru:        {mieru_str}{C_RESET}")
+                if netbird_str:
+                    lines.append(f"{pad}  {C_WHITE}NetBird:      {netbird_str}{C_RESET}")
+                lines.append(f"{pad}  {C_WHITE}SSH пароль:   {ssh_str}{C_RESET}")
+                lines.append(f"{pad}  {C_WHITE}Защита:       {sec_str}{C_RESET}")
+                lines.append(f"{pad}{C_BLUE}{DOUBLE_LINE}{C_RESET}")
+            else:
+                lines.append(f"{pad}{C_BLUE}{SINGLE_LINE}{C_RESET}")
+
+            # ─── MENU ITEMS ──────────────────────────────────────────────────
+            clean_opts = [strip_ansi(o) for o in options]
+            max_opt_len = max(len(c) for c in clean_opts) if clean_opts else 30
+            content_width = max(max_opt_len, 30)
+            if content_width > BLOCK_WIDTH - 6:
+                content_width = BLOCK_WIDTH - 6
+
+            for i, opt in enumerate(options):
+                clean_opt = clean_opts[i]
+                is_active = (i == active_idx)
+                is_back = clean_opt in ("Назад", "Отмена", "Выход")
+                is_danger = "Удалить" in clean_opt or "Пересоздать" in clean_opt
+
+                # Empty line between items for spacious layout
+                if i != 0:
+                    lines.append(f"{pad}")
+
+                # Extra empty line before Back / Exit
+                if is_back and i != 0 and len(options) > 2:
+                    lines.append(f"{pad}")
+
+                pad_len = max(0, content_width - len(clean_opt))
+                
+                if is_back:
+                    p_left = pad_len // 2
+                    p_right = pad_len - p_left
+                    text_row = f"{' ' * p_left}{clean_opt}{' ' * p_right}"
+                    if is_active:
+                        lines.append(f"{pad}{C_YELLOW_BG}  {text_row}  {C_RESET}")
+                    else:
+                        lines.append(f"{pad}{C_YELLOW}  {text_row}  {C_RESET}")
                 else:
-                    parts.append(("", "  "))
-                parts.append(("class:status.label", f"{s.label:<14}"))
-                parts.append(("class:status.value", s.value))
-                line(parts)
-            line([("class:divider", SINGLE_LINE)])
+                    text_row = f"{clean_opt}{' ' * pad_len}"
+                    if is_active:
+                        if is_danger:
+                            lines.append(f"{pad}{C_RED_BG}  {text_row}  {C_RESET}")
+                        else:
+                            lines.append(f"{pad}{C_REVERSE}  {text_row}  {C_RESET}")
+                    else:
+                        if is_danger:
+                            lines.append(f"{pad}{C_RED}  {opt}  {C_RESET}")
+                        else:
+                            lines.append(f"{pad}  {opt}  {C_RESET}")
 
-        # Menu items
-        line([])
-        for idx, item in enumerate(self.items):
-            is_active = (idx == self.selected_index)
-            is_exit_item = item.id in ("exit", "back")
+            # ─── FOOTER ───────────────────────────────────────────────────────
+            lines.append(f"{pad}{C_BLUE}{SINGLE_LINE}{C_RESET}")
+            hint = "↑↓ / W/S — выбор   Enter — выбрать   q — назад   0 — Выход"
+            lines.append(f"{pad}{C_DIM}{hint.center(BLOCK_WIDTH)}{C_RESET}")
 
-            # Separator before exit/back
-            if is_exit_item and idx > 0 and len(self.items) > 2:
-                line([])
+            # Vertical Centering (Top padding)
+            total_lines_count = len(lines)
+            top_pad = max(0, (rows - total_lines_count - 1) // 2)
 
-            avail_len = BLOCK_WIDTH - 6
-            extra_len = len(item.extra)
-            if extra_len > 0:
-                spacing = max(1, avail_len - len(item.label) - extra_len)
-                row_text = f"{item.label}{' ' * spacing}{item.extra}"
-            else:
-                row_text = f"{item.label:<{avail_len}}"
+            buf = [C_HOME]
+            for _ in range(top_pad):
+                buf.append(f"{C_CLEAR_LINE}\n")
+            for line in lines:
+                buf.append(f"{line}{C_CLEAR_LINE}\n")
+            buf.append(f"{ESC}[J")
 
-            if is_active:
-                line([("class:item.selected", f" ›  {row_text}  ")])
-            else:
-                line([("class:item", f"    {row_text}  ")])
+            sys.stdout.write("".join(buf))
+            sys.stdout.flush()
 
-            # Breathing space for short menus
-            if idx < len(self.items) - 1 and not is_exit_item and len(self.items) <= 6:
-                line([])
+            # Read user key
+            key = read_key()
+            if key == "up":
+                active_idx = (active_idx - 1) % len(options)
+            elif key == "down":
+                active_idx = (active_idx + 1) % len(options)
+            elif key == "enter":
+                return active_idx
+            elif key == "0":
+                # Quick exit
+                for idx, o in enumerate(clean_opts):
+                    if o == "Выход":
+                        return idx
+                return -1
+            elif key in ("escape", "q"):
+                # Back / Cancel / Exit
+                for idx, o in enumerate(clean_opts):
+                    if o in ("Назад", "Отмена", "Выход"):
+                        return idx
+                return -1
 
-        # Footer
-        line([("class:divider", SINGLE_LINE)])
-        hint = "↑/↓ Навигация  Enter Выбор"
-        line([("class:hint", hint.center(BLOCK_WIDTH))])
-
-        return frags
-
-    def show(self) -> Optional[str]:
-        if not self.items:
-            return None
-
-        if not sys.stdin.isatty():
-            return "exit"
-
-        self._result = None
-        self.selected_index = 0
-
-        kb = KeyBindings()
-
-        @kb.add("up")
-        @kb.add("k")
-        def _up(event):
-            self.selected_index = (self.selected_index - 1) % len(self.items)
-            event.app.invalidate()
-
-        @kb.add("down")
-        @kb.add("j")
-        def _down(event):
-            self.selected_index = (self.selected_index + 1) % len(self.items)
-            event.app.invalidate()
-
-        @kb.add("enter")
-        def _enter(event):
-            self._result = self.items[self.selected_index].id
-            event.app.exit()
-
-        @kb.add("escape")
-        @kb.add("q")
-        def _quit(event):
-            self._result = "back" if any(i.id == "back" for i in self.items) else "exit"
-            event.app.exit()
-
-        # Content window: horizontal padding is explicit inside fragments,
-        # so no reliance on the emulator's align behavior.
-        content_window = Window(
-            content=FormattedTextControl(self._build_fragments),
-            wrap_lines=False,
-            dont_extend_height=True,
-        )
-
-        # Vertical centering: flexible spacers above and below
-        layout = Layout(
-            HSplit([
-                Window(height=Dimension(weight=1)),   # top spacer
-                content_window,                        # actual menu
-                Window(height=Dimension(weight=1)),   # bottom spacer
-            ])
-        )
-
-        app = Application(
-            layout=layout,
-            key_bindings=kb,
-            style=STYLE,
-            full_screen=True,
-            mouse_support=False,
-        )
-
-        app.run()
-        return self._result
+    finally:
+        sys.stdout.write(f"{C_SHOW_CURSOR}{C_EXIT_ALT_SCREEN}")
+        sys.stdout.flush()

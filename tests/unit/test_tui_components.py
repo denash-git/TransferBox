@@ -1,6 +1,11 @@
 import pytest
-from tui.components.layout import BLOCK_WIDTH, DOUBLE_LINE, SINGLE_LINE
-from tui.components.menu import MenuItem, ArrowMenu, StatusLine
+from tui.components.menu import (
+    BLOCK_WIDTH,
+    DOUBLE_LINE,
+    SINGLE_LINE,
+    strip_ansi,
+    select_menu,
+)
 
 
 def test_tui_layout_constants():
@@ -9,33 +14,13 @@ def test_tui_layout_constants():
     assert len(SINGLE_LINE) == 60
 
 
-def test_arrow_menu_formatting_no_numbers():
-    items = [
-        MenuItem(id="users", label="Пользователи"),
-        MenuItem(id="protocols", label="Настройки протоколов"),
-        MenuItem(id="exit", label="Выход"),
-    ]
-    status_lines = [
-        StatusLine(label="Домен:", value="test.com"),
-        StatusLine(label="Caddy:", value="активен", dot_color="green"),
-    ]
-    menu = ArrowMenu(
-        title="TransferBox v4.0.0",
-        subtitle="Панель Управления",
-        items=items,
-        status_lines=status_lines,
-    )
-    frame = menu._render_frame(cols=80, rows=24)
+def test_strip_ansi():
+    raw = "\033[1;32m● активен\033[0m"
+    assert strip_ansi(raw) == "● активен"
 
-    # Verify 60-char lines
-    assert "═" * 60 in frame
-    assert "─" * 60 in frame
-    # Verify NO numbers like [1] or 1.
-    assert "[1]" not in frame
-    assert "1." not in frame
-    assert "[2]" not in frame
-    # Verify labels and status are present
-    assert "Пользователи" in frame
-    assert "Настройки протоколов" in frame
-    assert "test.com" in frame
-    assert "●" in frame
+
+def test_select_menu_non_interactive():
+    options = ["Пользователи", "Настройки", "Выход"]
+    choice = select_menu("TransferBox v. 4.0.0", options)
+    # In non-interactive mode returns the last option (Exit)
+    assert choice == len(options) - 1
